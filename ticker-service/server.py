@@ -28,7 +28,6 @@ ETHERSCAN_URL = "https://api.etherscan.io/v2/api"
 DEFILLAMA_PROTOCOLS = {
     "Aave": "https://api.llama.fi/protocol/aave",
     "Curve": "https://api.llama.fi/protocol/curve-dex",
-    "Chainlink": "https://api.llama.fi/protocol/chainlink",
 }
 
 # In-memory cache: key -> (expires_at_unix, data)

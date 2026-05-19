@@ -11,9 +11,11 @@ Endpoints:
 Data sources:
 - CoinGecko prices (BTC, ETH, LINK, AAVE, CRV)
 - Etherscan ETH gas oracle
-- DeFiLlama protocol TVL (Aave, Curve, Chainlink)
+- DeFiLlama protocol TVL (Aave, Curve)
 
 It uses in-memory caching to reduce API calls and improve dashboard reliability.
+
+Chainlink remains included as **LINK price only** for now (not as a TVL metric).
 
 ## Environment configuration
 
@@ -92,6 +94,6 @@ In Business Ticker panel:
 - **Port conflict on 8787**: stop the other service using 8787 before starting ticker-service.
 - **Grafana can’t reach service**: verify IP/port and test `curl http://<pi-ip>:8787/health` from Grafana host.
 - **Stale values**: expected within cache TTLs (60s prices/gas, 10m TVL).
-- **One TVL protocol missing**: service now fails TVL per protocol (Aave/Curve/Chainlink independently), so one failure does not hide the other two.
+- **One TVL protocol missing**: service now fails TVL per protocol (Aave/Curve independently), so one failure does not hide the other.
 
 - **DeFiLlama response format changed**: this service now handles multiple TVL shapes, but if warnings persist, check logs for protocol-specific parse errors.
