@@ -24,10 +24,7 @@ COINGECKO_URL = (
     "?ids=bitcoin,ethereum,chainlink,aave,curve-dao-token"
     "&vs_currencies=usd&include_24hr_change=true&include_last_updated_at=true"
 )
-ETHERSCAN_URL = (
-    "https://api.etherscan.io/v2/api"
-    "?chainid=1&module=gastracker&action=gasoracle"
-)
+ETHERSCAN_URL = "https://api.etherscan.io/v2/api"
 DEFILLAMA_PROTOCOLS = {
     "Aave": "https://api.llama.fi/protocol/aave",
     "Curve": "https://api.llama.fi/protocol/curve-dex",
@@ -89,6 +86,50 @@ def format_price(symbol: str, value: float) -> str:
     return f"${value:,.2f}"
 
 
+
+
+def parse_tvl_value(payload: Dict[str, Any]) -> float:
+    """Parse DeFiLlama TVL safely across response shape variations."""
+    direct_tvl = payload.get("tvl")
+
+    # Most common shape: numeric tvl
+    if isinstance(direct_tvl, (int, float)):
+        return float(direct_tvl)
+
+    # Sometimes APIs return a numeric string
+    if isinstance(direct_tvl, str):
+        return float(direct_tvl.replace(",", ""))
+
+    # Some responses can include tvl as a list of snapshots; use latest numeric value
+    if isinstance(direct_tvl, list):
+        for entry in reversed(direct_tvl):
+            if isinstance(entry, (int, float)):
+                return float(entry)
+            if isinstance(entry, dict):
+                for key in ["totalLiquidityUSD", "totalLiquidity", "tvl", "value"]:
+                    value = entry.get(key)
+                    if isinstance(value, (int, float)):
+                        return float(value)
+                    if isinstance(value, str):
+                        try:
+                            return float(value.replace(",", ""))
+                        except ValueError:
+                            continue
+
+    # Fallback: some payloads include currentChainTvls as a dict of chain -> tvl
+    current_chain_tvls = payload.get("currentChainTvls")
+    if isinstance(current_chain_tvls, dict):
+        total = 0.0
+        found = False
+        for value in current_chain_tvls.values():
+            if isinstance(value, (int, float)):
+                total += float(value)
+                found = True
+        if found:
+            return total
+
+    raise ValueError("Unable to parse TVL from DeFiLlama response")
+
 def format_compact_usd(value: float) -> str:
     abs_value = abs(value)
     if abs_value >= 1_000_000_000:
@@ -127,7 +168,15 @@ async def get_eth_gas() -> Dict[str, str]:
     if not ETHERSCAN_API_KEY:
         raise ValueError("ETHERSCAN_API_KEY is missing")
 
-    data = await fetch_json(ETHERSCAN_URL, params={"apikey": ETHERSCAN_API_KEY})
+    data = await fetch_json(
+        ETHERSCAN_URL,
+        params={
+            "chainid": "1",
+            "module": "gastracker",
+            "action": "gasoracle",
+            "apikey": ETHERSCAN_API_KEY,
+        },
+    )
     if str(data.get("status")) != "1" or "result" not in data:
         message = data.get("message", "unknown")
         result = data.get("result", "")
@@ -150,7 +199,7 @@ async def get_protocol_tvl(protocol_name: str, url: str) -> float:
         return cached
 
     payload = await fetch_json(url)
-    tvl = float(payload.get("tvl", 0.0))
+    tvl = parse_tvl_value(payload)
     set_cached(cache_key, tvl, ttl_seconds=600)
     return tvl
 
