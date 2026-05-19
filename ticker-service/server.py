@@ -2,6 +2,7 @@ import asyncio
 import logging
 import os
 import time
+from contextlib import asynccontextmanager
 from typing import Any, Dict, List, Optional, Tuple
 
 import httpx
@@ -16,9 +17,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger("ticker-service")
 
-app = FastAPI(title="Sovereignty Stack Ticker Service")
-
-PORT = int(os.getenv("PORT", "8787"))
 ETHERSCAN_API_KEY = os.getenv("ETHERSCAN_API_KEY", "").strip()
 
 COINGECKO_URL = (
@@ -36,26 +34,48 @@ DEFILLAMA_PROTOCOLS = {
     "Chainlink": "https://api.llama.fi/protocol/chainlink",
 }
 
-# in-memory cache: key -> (expires_at_unix, data)
+# In-memory cache: key -> (expires_at_unix, data)
 cache: Dict[str, Tuple[float, Any]] = {}
+http_client: Optional[httpx.AsyncClient] = None
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    """Create one HTTP client for the app lifetime (faster + simpler connection reuse)."""
+    global http_client
+    timeout = httpx.Timeout(10.0)
+    http_client = httpx.AsyncClient(timeout=timeout)
+    logger.info("HTTP client initialized")
+    try:
+        yield
+    finally:
+        if http_client is not None:
+            await http_client.aclose()
+        logger.info("HTTP client closed")
+
+
+app = FastAPI(title="Sovereignty Stack Ticker Service", lifespan=lifespan)
 
 
 async def fetch_json(url: str, params: Optional[Dict[str, str]] = None) -> Any:
-    timeout = httpx.Timeout(10.0)
-    async with httpx.AsyncClient(timeout=timeout) as client:
-        response = await client.get(url, params=params)
-        response.raise_for_status()
-        return response.json()
+    if http_client is None:
+        raise RuntimeError("HTTP client not initialized")
+
+    response = await http_client.get(url, params=params)
+    response.raise_for_status()
+    return response.json()
 
 
 def get_cached(key: str) -> Optional[Any]:
     entry = cache.get(key)
     if not entry:
         return None
+
     expires_at, data = entry
     if time.time() >= expires_at:
         cache.pop(key, None)
         return None
+
     return data
 
 
@@ -65,8 +85,7 @@ def set_cached(key: str, data: Any, ttl_seconds: int) -> None:
 
 def format_price(symbol: str, value: float) -> str:
     if symbol in {"BTC", "ETH"}:
-        rounded = round(value)
-        return f"${rounded:,.0f}"
+        return f"${round(value):,.0f}"
     return f"${value:,.2f}"
 
 
@@ -109,7 +128,12 @@ async def get_eth_gas() -> Dict[str, str]:
         raise ValueError("ETHERSCAN_API_KEY is missing")
 
     data = await fetch_json(ETHERSCAN_URL, params={"apikey": ETHERSCAN_API_KEY})
-    result = data.get("result", {})
+    if str(data.get("status")) != "1" or "result" not in data:
+        message = data.get("message", "unknown")
+        result = data.get("result", "")
+        raise ValueError(f"Etherscan API error: message={message}, result={result}")
+
+    result = data["result"]
     gas = {
         "safe": str(result.get("SafeGasPrice", "?")),
         "standard": str(result.get("ProposeGasPrice", "?")),
@@ -120,7 +144,6 @@ async def get_eth_gas() -> Dict[str, str]:
 
 
 async def get_protocol_tvl(protocol_name: str, url: str) -> float:
-    """Fetch and cache a single protocol TVL so failures are isolated per protocol."""
     cache_key = f"defillama_tvl_{protocol_name.lower()}"
     cached = get_cached(cache_key)
     if cached is not None:
@@ -141,14 +164,12 @@ async def health() -> Dict[str, str]:
 async def ticker() -> List[Dict[str, str]]:
     items: List[Dict[str, str]] = []
 
-    # Run top-level sources concurrently. Each section has independent error handling.
-    results = await asyncio.gather(
+    source_results = await asyncio.gather(
         get_coingecko_prices(),
         get_eth_gas(),
         return_exceptions=True,
     )
-
-    prices_result, gas_result = results
+    prices_result, gas_result = source_results
 
     if isinstance(prices_result, Exception):
         logger.exception("CoinGecko section failed", exc_info=prices_result)
@@ -170,7 +191,6 @@ async def ticker() -> List[Dict[str, str]]:
             }
         )
 
-    # DeFiLlama TVL protocols are fetched independently so one failure does not hide others.
     tvl_tasks = [get_protocol_tvl(name, url) for name, url in DEFILLAMA_PROTOCOLS.items()]
     tvl_results = await asyncio.gather(*tvl_tasks, return_exceptions=True)
 
@@ -182,9 +202,3 @@ async def ticker() -> List[Dict[str, str]]:
             items.append({"text": f"{name} TVL {format_compact_usd(tvl_result)}"})
 
     return items
-
-
-if __name__ == "__main__":
-    import uvicorn
-
-    uvicorn.run("server:app", host="0.0.0.0", port=PORT, reload=False)
