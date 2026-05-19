@@ -1,0 +1,11 @@
+services:
+  ticker-service:
+    container_name: ticker-service
+    build: .
+    image: sovereignty-stack/ticker-service:latest
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "8787:8787"
+    command: uvicorn server:app --host 0.0.0.0 --port 8787
