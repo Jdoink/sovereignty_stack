@@ -93,3 +93,5 @@ In Business Ticker panel:
 - **Grafana can’t reach service**: verify IP/port and test `curl http://<pi-ip>:8787/health` from Grafana host.
 - **Stale values**: expected within cache TTLs (60s prices/gas, 10m TVL).
 - **One TVL protocol missing**: service now fails TVL per protocol (Aave/Curve/Chainlink independently), so one failure does not hide the other two.
+
+- **DeFiLlama response format changed**: this service now handles multiple TVL shapes, but if warnings persist, check logs for protocol-specific parse errors.
