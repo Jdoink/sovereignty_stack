@@ -272,93 +272,94 @@ async def ticker_html() -> HTMLResponse:
     :root {{
       color-scheme: dark;
       --ticker-green: #39ff7a;
-      --bg: rgba(0, 0, 0, 0.88);
-      --scanline: rgba(57, 255, 122, 0.06);
     }}
-
-    * {{ box-sizing: border-box; }}
 
     html, body {{
       width: 100%;
       height: 100%;
       margin: 0;
       padding: 0;
-      border: 0;
       overflow: hidden;
-      background: transparent;
-      scrollbar-width: none;
-      -ms-overflow-style: none;
+      background: rgba(0, 0, 0, 0.92);
       font-family: "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace;
     }}
 
-    body::-webkit-scrollbar {{
-      width: 0;
-      height: 0;
-      display: none;
-    }}
-
-    .ticker-root {{
-      position: fixed;
-      inset: 0;
-      width: 100vw;
-      height: 100vh;
+    * {{
+      box-sizing: border-box;
       margin: 0;
       padding: 0;
+      border: 0;
+    }}
+
+    .ticker-container {{
+      position: fixed;
+      left: 0;
+      right: 0;
+      top: 0;
+      bottom: 0;
+      width: 100vw;
+      height: 100vh;
       overflow: hidden;
-      background:
-        linear-gradient(180deg, rgba(0, 0, 0, 0.78), var(--bg)),
-        repeating-linear-gradient(
-          0deg,
-          transparent 0 3px,
-          var(--scanline) 3px 4px
-        );
       display: flex;
       align-items: center;
       justify-content: flex-start;
+      background: rgba(0, 0, 0, 0.92);
     }}
 
-    .ticker-track {{
-      display: inline-block;
+    .ticker-viewport {{
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+    }}
+
+    .ticker-marquee {{
+      display: inline-flex;
+      align-items: center;
       white-space: nowrap;
-      will-change: transform;
-      margin: 0;
-      padding-left: 100vw;
+      min-width: 100%;
       color: var(--ticker-green);
-      font-size: clamp(18px, 2.6vw, 52px);
+      font-size: clamp(18px, 2.8vw, 58px);
       line-height: 1;
-      letter-spacing: 0.02em;
       font-weight: 600;
-      text-shadow:
-        0 0 4px rgba(57, 255, 122, 0.55),
-        0 0 12px rgba(57, 255, 122, 0.35),
-        0 0 20px rgba(57, 255, 122, 0.2);
-      animation: ticker-scroll 44s linear infinite;
+      letter-spacing: 0.025em;
+      text-shadow: 0 0 7px rgba(57, 255, 122, 0.65);
+      will-change: transform;
+      animation: ticker-scroll 42s linear infinite;
+    }}
+
+    .ticker-text {{
+      padding-right: 5rem;
     }}
 
     @media (max-width: 900px) {{
-      .ticker-track {{
-        font-size: clamp(16px, 4.8vw, 30px);
-        animation-duration: 36s;
+      .ticker-marquee {{
+        font-size: clamp(16px, 5vw, 30px);
+        animation-duration: 34s;
       }}
+      .ticker-text {{ padding-right: 2.5rem; }}
     }}
 
     @media (min-width: 1800px) {{
-      .ticker-track {{
-        font-size: clamp(34px, 2.4vw, 64px);
-        animation-duration: 52s;
+      .ticker-marquee {{
+        font-size: clamp(34px, 2.5vw, 70px);
+        animation-duration: 50s;
       }}
     }}
 
     @keyframes ticker-scroll {{
-      0% {{ transform: translate3d(0, 0, 0); }}
-      100% {{ transform: translate3d(-100%, 0, 0); }}
+      from {{ transform: translateX(100%); }}
+      to {{ transform: translateX(-100%); }}
     }}
   </style>
 </head>
 <body>
-  <main class="ticker-root" aria-label="Live ticker">
-    <div class="ticker-track">{line}</div>
-  </main>
+  <div class="ticker-container" aria-label="Live ticker strip">
+    <div class="ticker-viewport">
+      <div class="ticker-marquee"><span class="ticker-text">{line}</span></div>
+    </div>
+  </div>
 </body>
 </html>"""
 
