@@ -264,46 +264,101 @@ async def ticker_html() -> HTMLResponse:
     content = f"""<!doctype html>
 <html>
 <head>
-  <meta charset=\"utf-8\" />
-  <meta http-equiv=\"refresh\" content=\"60\" />
-  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />
+  <meta charset="utf-8" />
+  <meta http-equiv="refresh" content="60" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Sovereignty Ticker</title>
   <style>
-    :root {{ color-scheme: dark; }}
+    :root {{
+      color-scheme: dark;
+      --ticker-green: #39ff7a;
+      --bg: rgba(0, 0, 0, 0.88);
+      --scanline: rgba(57, 255, 122, 0.06);
+    }}
+
+    * {{ box-sizing: border-box; }}
+
     html, body {{
-      margin: 0;
       width: 100%;
       height: 100%;
+      margin: 0;
+      padding: 0;
+      border: 0;
       overflow: hidden;
-      background: rgba(0,0,0,0.9);
+      background: transparent;
+      scrollbar-width: none;
+      -ms-overflow-style: none;
       font-family: "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace;
     }}
-    .wrap {{
-      width: 100%;
-      height: 100%;
+
+    body::-webkit-scrollbar {{
+      width: 0;
+      height: 0;
+      display: none;
+    }}
+
+    .ticker-root {{
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background:
+        linear-gradient(180deg, rgba(0, 0, 0, 0.78), var(--bg)),
+        repeating-linear-gradient(
+          0deg,
+          transparent 0 3px,
+          var(--scanline) 3px 4px
+        );
       display: flex;
       align-items: center;
-      overflow: hidden;
+      justify-content: flex-start;
     }}
-    .track {{
+
+    .ticker-track {{
+      display: inline-block;
       white-space: nowrap;
-      color: #3CFF7A;
-      font-size: clamp(28px, 4vw, 46px);
-      line-height: 1.1;
-      text-shadow: 0 0 8px rgba(60,255,122,0.6);
-      padding-left: 100%;
-      animation: scroll-left 38s linear infinite;
+      will-change: transform;
+      margin: 0;
+      padding-left: 100vw;
+      color: var(--ticker-green);
+      font-size: clamp(18px, 2.6vw, 52px);
+      line-height: 1;
+      letter-spacing: 0.02em;
+      font-weight: 600;
+      text-shadow:
+        0 0 4px rgba(57, 255, 122, 0.55),
+        0 0 12px rgba(57, 255, 122, 0.35),
+        0 0 20px rgba(57, 255, 122, 0.2);
+      animation: ticker-scroll 44s linear infinite;
     }}
-    @keyframes scroll-left {{
-      0% {{ transform: translateX(0); }}
-      100% {{ transform: translateX(-100%); }}
+
+    @media (max-width: 900px) {{
+      .ticker-track {{
+        font-size: clamp(16px, 4.8vw, 30px);
+        animation-duration: 36s;
+      }}
+    }}
+
+    @media (min-width: 1800px) {{
+      .ticker-track {{
+        font-size: clamp(34px, 2.4vw, 64px);
+        animation-duration: 52s;
+      }}
+    }}
+
+    @keyframes ticker-scroll {{
+      0% {{ transform: translate3d(0, 0, 0); }}
+      100% {{ transform: translate3d(-100%, 0, 0); }}
     }}
   </style>
 </head>
 <body>
-  <div class=\"wrap\">
-    <div class=\"track\">{line}</div>
-  </div>
+  <main class="ticker-root" aria-label="Live ticker">
+    <div class="ticker-track">{line}</div>
+  </main>
 </body>
 </html>"""
 
