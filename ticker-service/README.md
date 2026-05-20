@@ -2,11 +2,13 @@
 
 ## What this service does
 
-This service collects crypto and protocol data from multiple APIs, formats it into simple ticker lines, and exposes one local JSON endpoint for Grafana Business Ticker.
+This service collects crypto and protocol data from multiple APIs, formats it into simple ticker lines, and exposes JSON/text/HTML ticker endpoints for Grafana.
 
 Endpoints:
 - `GET /health` → `{"status":"ok"}`
-- `GET /ticker` → JSON list with `text` fields, like `BTC $76,982`
+- `GET /ticker` → JSON list with `text` fields
+- `GET /ticker-line` → plain text single-line ticker
+- `GET /ticker-html` → standalone scrolling HTML ticker page (for iframe embed)
 
 Data sources:
 - CoinGecko prices (BTC, ETH, LINK, AAVE, CRV)
@@ -66,6 +68,17 @@ Ticker output:
 ```bash
 curl http://localhost:8787/ticker
 ```
+
+
+## Grafana Text panel iframe setup (recommended)
+
+Use a Grafana **Text panel** in **HTML mode** and paste:
+
+```html
+<iframe src="http://192.168.1.189:8787/ticker-html" style="width:100%;height:100%;border:0;background:transparent;"></iframe>
+```
+
+This is the simplest live scrolling setup and avoids extra dashboard JavaScript.
 
 ## Grafana Infinity setup
 

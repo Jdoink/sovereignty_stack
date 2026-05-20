@@ -1,4 +1,5 @@
 import asyncio
+import html
 import logging
 import os
 import time
@@ -8,6 +9,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import httpx
 from dotenv import load_dotenv
 from fastapi import FastAPI
+from fastapi.responses import HTMLResponse, PlainTextResponse
 
 load_dotenv()
 
@@ -30,14 +32,12 @@ DEFILLAMA_PROTOCOLS = {
     "Curve": "https://api.llama.fi/protocol/curve-dex",
 }
 
-# In-memory cache: key -> (expires_at_unix, data)
 cache: Dict[str, Tuple[float, Any]] = {}
 http_client: Optional[httpx.AsyncClient] = None
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    """Create one HTTP client for the app lifetime (faster + simpler connection reuse)."""
     global http_client
     timeout = httpx.Timeout(10.0)
     http_client = httpx.AsyncClient(timeout=timeout)
@@ -80,26 +80,20 @@ def set_cached(key: str, data: Any, ttl_seconds: int) -> None:
 
 
 def format_price(symbol: str, value: float) -> str:
-    if symbol in {"BTC", "ETH"}:
-        return f"${round(value):,.0f}"
+    if symbol == "BTC":
+        return f"${value / 1_000:,.1f}K"
+    if symbol == "ETH":
+        return f"${value / 1_000:,.2f}K"
     return f"${value:,.2f}"
 
 
-
-
 def parse_tvl_value(payload: Dict[str, Any]) -> float:
-    """Parse DeFiLlama TVL safely across response shape variations."""
     direct_tvl = payload.get("tvl")
-
-    # Most common shape: numeric tvl
     if isinstance(direct_tvl, (int, float)):
         return float(direct_tvl)
-
-    # Sometimes APIs return a numeric string
     if isinstance(direct_tvl, str):
         return float(direct_tvl.replace(",", ""))
 
-    # Some responses can include tvl as a list of snapshots; use latest numeric value
     if isinstance(direct_tvl, list):
         for entry in reversed(direct_tvl):
             if isinstance(entry, (int, float)):
@@ -115,7 +109,6 @@ def parse_tvl_value(payload: Dict[str, Any]) -> float:
                         except ValueError:
                             continue
 
-    # Fallback: some payloads include currentChainTvls as a dict of chain -> tvl
     current_chain_tvls = payload.get("currentChainTvls")
     if isinstance(current_chain_tvls, dict):
         total = 0.0
@@ -128,6 +121,7 @@ def parse_tvl_value(payload: Dict[str, Any]) -> float:
             return total
 
     raise ValueError("Unable to parse TVL from DeFiLlama response")
+
 
 def format_compact_usd(value: float) -> str:
     abs_value = abs(value)
@@ -203,21 +197,12 @@ async def get_protocol_tvl(protocol_name: str, url: str) -> float:
     return tvl
 
 
-@app.get("/health")
-async def health() -> Dict[str, str]:
-    return {"status": "ok"}
-
-
-@app.get("/ticker")
-async def ticker() -> List[Dict[str, str]]:
+async def build_ticker_items() -> List[Dict[str, str]]:
     items: List[Dict[str, str]] = []
 
-    source_results = await asyncio.gather(
-        get_coingecko_prices(),
-        get_eth_gas(),
-        return_exceptions=True,
+    prices_result, gas_result = await asyncio.gather(
+        get_coingecko_prices(), get_eth_gas(), return_exceptions=True
     )
-    prices_result, gas_result = source_results
 
     if isinstance(prices_result, Exception):
         logger.exception("CoinGecko section failed", exc_info=prices_result)
@@ -241,8 +226,7 @@ async def ticker() -> List[Dict[str, str]]:
 
     tvl_tasks = [get_protocol_tvl(name, url) for name, url in DEFILLAMA_PROTOCOLS.items()]
     tvl_results = await asyncio.gather(*tvl_tasks, return_exceptions=True)
-
-    for (name, _url), tvl_result in zip(DEFILLAMA_PROTOCOLS.items(), tvl_results):
+    for (name, _), tvl_result in zip(DEFILLAMA_PROTOCOLS.items(), tvl_results):
         if isinstance(tvl_result, Exception):
             logger.exception("DeFiLlama TVL failed for %s", name, exc_info=tvl_result)
             items.append({"text": f"Warning: {name} TVL unavailable"})
@@ -250,3 +234,77 @@ async def ticker() -> List[Dict[str, str]]:
             items.append({"text": f"{name} TVL {format_compact_usd(tvl_result)}"})
 
     return items
+
+
+def items_to_line(items: List[Dict[str, str]]) -> str:
+    return " | ".join(item.get("text", "") for item in items if item.get("text"))
+
+
+@app.get("/health")
+async def health() -> Dict[str, str]:
+    return {"status": "ok"}
+
+
+@app.get("/ticker")
+async def ticker() -> List[Dict[str, str]]:
+    return await build_ticker_items()
+
+
+@app.get("/ticker-line", response_class=PlainTextResponse)
+async def ticker_line() -> str:
+    items = await build_ticker_items()
+    return items_to_line(items)
+
+
+@app.get("/ticker-html", response_class=HTMLResponse)
+async def ticker_html() -> HTMLResponse:
+    items = await build_ticker_items()
+    line = html.escape(items_to_line(items))
+
+    content = f"""<!doctype html>
+<html>
+<head>
+  <meta charset=\"utf-8\" />
+  <meta http-equiv=\"refresh\" content=\"60\" />
+  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />
+  <title>Sovereignty Ticker</title>
+  <style>
+    :root {{ color-scheme: dark; }}
+    html, body {{
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: rgba(0,0,0,0.9);
+      font-family: "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace;
+    }}
+    .wrap {{
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      overflow: hidden;
+    }}
+    .track {{
+      white-space: nowrap;
+      color: #3CFF7A;
+      font-size: clamp(28px, 4vw, 46px);
+      line-height: 1.1;
+      text-shadow: 0 0 8px rgba(60,255,122,0.6);
+      padding-left: 100%;
+      animation: scroll-left 38s linear infinite;
+    }}
+    @keyframes scroll-left {{
+      0% {{ transform: translateX(0); }}
+      100% {{ transform: translateX(-100%); }}
+    }}
+  </style>
+</head>
+<body>
+  <div class=\"wrap\">
+    <div class=\"track\">{line}</div>
+  </div>
+</body>
+</html>"""
+
+    return HTMLResponse(content=content)
