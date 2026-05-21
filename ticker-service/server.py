@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import httpx
 from dotenv import load_dotenv
-from fastapi import FastAPI
+from fastapi import FastAPI, Response
 from fastapi.responses import HTMLResponse, PlainTextResponse
 
 load_dotenv()
@@ -254,6 +254,49 @@ async def ticker() -> List[Dict[str, str]]:
 async def ticker_line() -> str:
     items = await build_ticker_items()
     return items_to_line(items)
+
+
+TICKER_CSS = """\
+.ssticker-wrap {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 60px;
+  overflow: hidden;
+  background: transparent;
+  display: flex;
+  align-items: center;
+}
+.ssticker-track {
+  display: inline-flex;
+  white-space: nowrap;
+  will-change: transform;
+  animation: ssticker-scroll 22s linear infinite;
+  color: #39ff7a;
+  font-family: "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace;
+  font-weight: 600;
+  font-size: clamp(20px, 10vh, 80px);
+  letter-spacing: 0.025em;
+  text-shadow:
+    0 0 4px rgba(57, 255, 122, 0.7),
+    0 0 12px rgba(57, 255, 122, 0.45),
+    0 0 22px rgba(57, 255, 122, 0.25);
+}
+.ssticker-copy { padding-right: 4rem; }
+@keyframes ssticker-scroll {
+  from { transform: translate3d(0, 0, 0); }
+  to   { transform: translate3d(-50%, 0, 0); }
+}
+"""
+
+
+@app.get("/ticker.css")
+async def ticker_css() -> Response:
+    return Response(
+        content=TICKER_CSS,
+        media_type="text/css",
+        headers={"Cache-Control": "public, max-age=300"},
+    )
 
 
 @app.get("/ticker-html", response_class=HTMLResponse)
