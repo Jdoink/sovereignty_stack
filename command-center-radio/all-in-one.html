@@ -1,0 +1,522 @@
+<!--
+  Command Center Radio - ALL-IN-ONE
+  ============================================================================
+  Paste this entire file into the Business Text panel "Default Content" field.
+  HTML mode. No external CSS URL needed, no separate JS hook needed.
+
+  How it works:
+    - <style> block at the top supplies the CSS. <style> tags applied via
+      innerHTML ARE honored by browsers, so this just works.
+    - The JS lives inside an <img onerror="..."> at the bottom. Setting src to
+      a non-existent value forces the browser to fire onerror, which runs the
+      bootstrap script immediately after the rest of the markup is in the DOM.
+      This sidesteps the rule that <script> tags injected via innerHTML do not
+      execute, and works regardless of which Business Text plugin version you
+      have or whether you can find the JavaScript hook section.
+
+  If you ever locate the plugin's "JavaScript Code → After Content Ready" hook
+  and want to do this the "clean" way, use the separate content.html / styles.css
+  / after-content-ready.js files instead and ignore this file.
+============================================================================ -->
+
+<style>
+#cc-radio {
+  --cc-bg:        #07090b;
+  --cc-bg-2:      #0d1216;
+  --cc-panel:     #11181f;
+  --cc-line:      #1f2a33;
+  --cc-amber:     #ffb000;
+  --cc-amber-dim: #8a5f00;
+  --cc-green:     #34ff7a;
+  --cc-red:       #ff3b3b;
+  --cc-text:      #c8d3dc;
+  --cc-text-dim:  #6c7a85;
+
+  font-family: "JetBrains Mono", "Fira Code", "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+  color: var(--cc-text);
+  background:
+    linear-gradient(180deg, rgba(255,176,0,0.02) 0%, transparent 30%),
+    radial-gradient(ellipse at top, rgba(52,255,122,0.04), transparent 60%),
+    var(--cc-bg);
+  border: 1px solid var(--cc-line);
+  padding: 14px 16px 12px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  position: relative;
+  overflow: hidden;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#cc-radio::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: repeating-linear-gradient(
+    to bottom,
+    rgba(255,255,255,0.025) 0px,
+    rgba(255,255,255,0.025) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+  mix-blend-mode: overlay;
+  opacity: 0.6;
+}
+
+#cc-radio .cc-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--cc-line);
+  padding-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 11px;
+}
+#cc-radio .cc-brand { display: flex; align-items: center; gap: 10px; }
+#cc-radio .cc-brand-bar {
+  display: inline-block; width: 6px; height: 14px;
+  background: var(--cc-amber);
+  box-shadow: 0 0 8px rgba(255,176,0,0.6);
+}
+#cc-radio .cc-brand-title { color: var(--cc-amber); font-weight: 700; }
+#cc-radio .cc-brand-id    { color: var(--cc-text-dim); }
+
+#cc-radio .cc-status { display: flex; align-items: center; gap: 8px; }
+#cc-radio .cc-status-light {
+  width: 10px; height: 10px; border-radius: 50%;
+  background: var(--cc-text-dim);
+  box-shadow: 0 0 6px currentColor;
+}
+#cc-radio .cc-status-light.cc-status-standby { color: var(--cc-amber-dim); background: var(--cc-amber-dim); }
+#cc-radio .cc-status-light.cc-status-live    { color: var(--cc-green);     background: var(--cc-green);    animation: cc-pulse 1.6s ease-in-out infinite; }
+#cc-radio .cc-status-light.cc-status-error   { color: var(--cc-red);       background: var(--cc-red);      animation: cc-blink 0.5s steps(2,end) infinite; }
+#cc-radio .cc-status-text { color: var(--cc-text-dim); font-size: 11px; }
+
+@keyframes cc-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
+@keyframes cc-blink { 0% { opacity: 1; } 100% { opacity: 0.2; } }
+
+#cc-radio .cc-display {
+  background: var(--cc-bg-2);
+  border: 1px solid var(--cc-line);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+#cc-radio .cc-display-row {
+  display: flex; align-items: baseline; gap: 12px;
+  font-size: 12px;
+}
+#cc-radio .cc-label {
+  color: var(--cc-text-dim);
+  letter-spacing: 0.15em;
+  font-size: 10px;
+  min-width: 56px;
+  text-transform: uppercase;
+}
+#cc-radio .cc-value {
+  color: var(--cc-amber);
+  text-shadow: 0 0 6px rgba(255,176,0,0.35);
+  letter-spacing: 0.08em;
+  font-weight: 700;
+}
+#cc-radio .cc-value-dim {
+  color: var(--cc-text-dim);
+  font-weight: 400;
+}
+#cc-radio .cc-visualizer {
+  width: 100%;
+  height: 64px;
+  display: block;
+  margin-top: 4px;
+  background:
+    linear-gradient(180deg, rgba(255,176,0,0.04), transparent 70%),
+    #06090c;
+  border: 1px solid var(--cc-line);
+}
+
+#cc-radio .cc-stations {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 8px;
+}
+#cc-radio .cc-station {
+  appearance: none;
+  background: var(--cc-panel);
+  color: var(--cc-text);
+  border: 1px solid var(--cc-line);
+  padding: 10px 12px;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color 120ms ease, background 120ms ease, transform 80ms ease;
+  touch-action: manipulation;
+  min-height: 64px;
+}
+#cc-radio .cc-station:hover { border-color: var(--cc-amber-dim); background: #131c24; }
+#cc-radio .cc-station:active { transform: translateY(1px); }
+#cc-radio .cc-station.cc-active {
+  border-color: var(--cc-amber);
+  background: linear-gradient(180deg, rgba(255,176,0,0.10), rgba(255,176,0,0.02));
+  box-shadow: inset 0 0 0 1px rgba(255,176,0,0.25), 0 0 12px rgba(255,176,0,0.12);
+}
+#cc-radio .cc-station-tag {
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  color: var(--cc-text-dim);
+}
+#cc-radio .cc-station.cc-active .cc-station-tag { color: var(--cc-amber); }
+#cc-radio .cc-station-name {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: var(--cc-text);
+}
+#cc-radio .cc-station.cc-active .cc-station-name { color: var(--cc-amber); text-shadow: 0 0 6px rgba(255,176,0,0.35); }
+#cc-radio .cc-station-sub {
+  font-size: 10px;
+  color: var(--cc-text-dim);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+#cc-radio .cc-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  border-top: 1px solid var(--cc-line);
+  padding-top: 10px;
+}
+#cc-radio .cc-btn {
+  appearance: none;
+  background: var(--cc-panel);
+  color: var(--cc-text);
+  border: 1px solid var(--cc-line);
+  padding: 10px 14px;
+  font-family: inherit;
+  font-size: 12px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  touch-action: manipulation;
+  min-height: 40px;
+  min-width: 40px;
+}
+#cc-radio .cc-btn:hover { border-color: var(--cc-amber-dim); }
+#cc-radio .cc-btn:active { transform: translateY(1px); }
+#cc-radio .cc-btn-primary {
+  border-color: var(--cc-amber);
+  color: var(--cc-amber);
+  background: linear-gradient(180deg, rgba(255,176,0,0.10), rgba(255,176,0,0.02));
+  box-shadow: 0 0 10px rgba(255,176,0,0.15);
+}
+#cc-radio .cc-btn-ghost { color: var(--cc-text-dim); }
+#cc-radio .cc-btn-icon { font-size: 14px; line-height: 1; }
+
+#cc-radio .cc-volume {
+  display: flex; align-items: center; gap: 8px;
+  margin-left: auto;
+  min-width: 180px;
+}
+#cc-radio .cc-volume input[type="range"] {
+  flex: 1;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  background: var(--cc-line);
+  border-radius: 0;
+  outline: none;
+}
+#cc-radio .cc-volume input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px; height: 16px;
+  background: var(--cc-amber);
+  border: 1px solid #000;
+  box-shadow: 0 0 6px rgba(255,176,0,0.6);
+  cursor: pointer;
+}
+#cc-radio .cc-volume input[type="range"]::-moz-range-thumb {
+  width: 16px; height: 16px;
+  background: var(--cc-amber);
+  border: 1px solid #000;
+  box-shadow: 0 0 6px rgba(255,176,0,0.6);
+  cursor: pointer;
+}
+
+@media (max-width: 520px) {
+  #cc-radio .cc-volume { margin-left: 0; width: 100%; }
+  #cc-radio .cc-brand-id { display: none; }
+}
+</style>
+
+<div id="cc-radio" class="cc-radio">
+
+  <header class="cc-header">
+    <div class="cc-brand">
+      <span class="cc-brand-bar"></span>
+      <span class="cc-brand-title">COMMAND CENTER // AUDIO SUBSYSTEM</span>
+      <span class="cc-brand-id">CCR-01</span>
+    </div>
+    <div class="cc-status">
+      <span id="cc-status-light" class="cc-status-light cc-status-standby"></span>
+      <span id="cc-status-text" class="cc-status-text">STANDBY</span>
+    </div>
+  </header>
+
+  <section class="cc-display">
+    <div class="cc-display-row">
+      <span class="cc-label">CHANNEL</span>
+      <span id="cc-now-playing" class="cc-value">--- NO SIGNAL ---</span>
+    </div>
+    <div class="cc-display-row">
+      <span class="cc-label">SRC</span>
+      <span id="cc-now-url" class="cc-value cc-value-dim">awaiting selection</span>
+    </div>
+    <canvas id="cc-visualizer" class="cc-visualizer" width="800" height="64"></canvas>
+  </section>
+
+  <section class="cc-stations" id="cc-stations">
+    <button type="button" class="cc-station" data-station-name="GROOVE SALAD"   data-station-url="https://ice2.somafm.com/groovesalad-128-mp3">
+      <span class="cc-station-tag">CH 01</span>
+      <span class="cc-station-name">GROOVE SALAD</span>
+      <span class="cc-station-sub">DOWNTEMPO / AMBIENT</span>
+    </button>
+    <button type="button" class="cc-station" data-station-name="DRONE ZONE"     data-station-url="https://ice2.somafm.com/dronezone-128-mp3">
+      <span class="cc-station-tag">CH 02</span>
+      <span class="cc-station-name">DRONE ZONE</span>
+      <span class="cc-station-sub">ATMOSPHERIC / SPACE</span>
+    </button>
+    <button type="button" class="cc-station" data-station-name="REGGAE"         data-station-url="https://ice2.somafm.com/reggae-128-mp3">
+      <span class="cc-station-tag">CH 03</span>
+      <span class="cc-station-name">HEAVYWEIGHT REGGAE</span>
+      <span class="cc-station-sub">ROOTS / DUB</span>
+    </button>
+    <button type="button" class="cc-station" data-station-name="DEEP SPACE ONE" data-station-url="https://ice2.somafm.com/deepspaceone-128-mp3">
+      <span class="cc-station-tag">CH 04</span>
+      <span class="cc-station-name">DEEP SPACE ONE</span>
+      <span class="cc-station-sub">DEEP AMBIENT / ELECTRONIC</span>
+    </button>
+  </section>
+
+  <footer class="cc-controls">
+    <button type="button" id="cc-play-pause" class="cc-btn cc-btn-primary">
+      <span class="cc-btn-icon">&#9658;</span>
+      <span class="cc-btn-label">PLAY</span>
+    </button>
+    <button type="button" id="cc-stop" class="cc-btn">
+      <span class="cc-btn-icon">&#9632;</span>
+      <span class="cc-btn-label">STOP</span>
+    </button>
+    <div class="cc-volume">
+      <span class="cc-label">VOL</span>
+      <input type="range" id="cc-volume" min="0" max="1" step="0.01" value="0.8" />
+      <span id="cc-volume-readout" class="cc-value-dim">80</span>
+    </div>
+    <button type="button" id="cc-viz-toggle" class="cc-btn cc-btn-ghost" title="Toggle audio visualizer">
+      <span class="cc-btn-label">VIZ</span>
+      <span id="cc-viz-state" class="cc-value-dim">OFF</span>
+    </button>
+  </footer>
+
+  <audio id="cc-audio" preload="none"></audio>
+</div>
+
+<!-- JS bootstrap: belt-and-suspenders. We try three triggers in order:
+       1. <svg onload> - fires synchronously on parse, hardest to sanitize away.
+       2. <img onerror> with a deliberately-broken src - fires when the load fails.
+       3. <details ontoggle> wrapped in a no-op auto-open trick - last resort.
+     Whichever fires first wins; the others see _ccInit and bail. We use
+     document.querySelector here (not context.element) because we are not
+     inside the plugin's JS lifecycle. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="0" height="0" style="position:absolute" onload="window.__ccBoot && window.__ccBoot()"></svg>
+<img src="data:image/png;base64,!" alt="" style="display:none" onerror="this.remove(); window.__ccBoot && window.__ccBoot();">
+<script>
+window.__ccBoot = function(){
+  (function(){
+    var root = document.querySelector('#cc-radio');
+    if (!root || root._ccInit) return;
+    root._ccInit = true;
+
+    var audio        = root.querySelector('#cc-audio');
+    var nowPlaying   = root.querySelector('#cc-now-playing');
+    var nowUrl       = root.querySelector('#cc-now-url');
+    var statusLight  = root.querySelector('#cc-status-light');
+    var statusText   = root.querySelector('#cc-status-text');
+    var playPauseBtn = root.querySelector('#cc-play-pause');
+    var stopBtn      = root.querySelector('#cc-stop');
+    var volumeInput  = root.querySelector('#cc-volume');
+    var volumeRead   = root.querySelector('#cc-volume-readout');
+    var vizToggle    = root.querySelector('#cc-viz-toggle');
+    var vizState     = root.querySelector('#cc-viz-state');
+    var canvas       = root.querySelector('#cc-visualizer');
+    var stationBtns  = Array.prototype.slice.call(root.querySelectorAll('.cc-station'));
+
+    var state = root._ccState = root._ccState || { currentUrl: null, currentName: null, vizEnabled: false };
+
+    function setStatus(text, mode){
+      statusText.textContent = text;
+      statusLight.classList.remove('cc-status-standby','cc-status-live','cc-status-error');
+      statusLight.classList.add('cc-status-' + (mode || 'standby'));
+    }
+    function setPlayPauseLabel(playing){
+      var icon  = playPauseBtn.querySelector('.cc-btn-icon');
+      var label = playPauseBtn.querySelector('.cc-btn-label');
+      icon.innerHTML  = playing ? '&#10074;&#10074;' : '&#9658;';
+      label.textContent = playing ? 'PAUSE' : 'PLAY';
+    }
+    function markActive(url){
+      stationBtns.forEach(function(b){ b.classList.toggle('cc-active', b.dataset.stationUrl === url); });
+    }
+    function selectStation(url, name){
+      state.currentUrl = url; state.currentName = name;
+      nowPlaying.textContent = name; nowUrl.textContent = url;
+      markActive(url);
+      audio.src = url; audio.load();
+      setStatus('ACQUIRING SIGNAL...', 'standby');
+      var p = audio.play();
+      if (p && p.catch) p.catch(function(err){ setStatus('FAULT: ' + (err && err.message ? err.message : 'play blocked'), 'error'); });
+    }
+
+    stationBtns.forEach(function(btn){
+      btn.addEventListener('click', function(e){
+        e.preventDefault();
+        var url = btn.dataset.stationUrl;
+        var name = btn.dataset.stationName || 'UNKNOWN';
+        if (url) selectStation(url, name);
+      });
+    });
+
+    playPauseBtn.addEventListener('click', function(e){
+      e.preventDefault();
+      if (!state.currentUrl) {
+        var first = stationBtns[0];
+        if (first) selectStation(first.dataset.stationUrl, first.dataset.stationName);
+        return;
+      }
+      if (audio.paused) audio.play().catch(function(err){ setStatus('FAULT: ' + err.message, 'error'); });
+      else audio.pause();
+    });
+
+    stopBtn.addEventListener('click', function(e){
+      e.preventDefault();
+      audio.pause();
+      audio.removeAttribute('src');
+      audio.load();
+      state.currentUrl = null;
+      nowPlaying.textContent = '--- NO SIGNAL ---';
+      nowUrl.textContent = 'awaiting selection';
+      markActive(null);
+      setStatus('STANDBY','standby');
+      setPlayPauseLabel(false);
+    });
+
+    function applyVolume(v){ audio.volume = v; volumeRead.textContent = String(Math.round(v*100)); }
+    volumeInput.addEventListener('input', function(e){ applyVolume(parseFloat(e.target.value)); });
+    applyVolume(parseFloat(volumeInput.value));
+
+    audio.addEventListener('playing', function(){ setPlayPauseLabel(true); setStatus('TRANSMITTING','live'); });
+    audio.addEventListener('pause',   function(){ setPlayPauseLabel(false); if (state.currentUrl) setStatus('PAUSED','standby'); });
+    audio.addEventListener('waiting', function(){ setStatus('BUFFERING...','standby'); });
+    audio.addEventListener('stalled', function(){ setStatus('STALLED','error'); });
+    audio.addEventListener('error',   function(){ setStatus('SIGNAL LOST','error'); setPlayPauseLabel(false); });
+
+    var ctx2d = canvas.getContext('2d');
+    var audioCtx = null, analyser = null, dataArray = null, rafId = null;
+
+    function resizeCanvas(){
+      var rect = canvas.getBoundingClientRect();
+      var dpr = Math.min(window.devicePixelRatio || 1, 2);
+      canvas.width  = Math.max(1, Math.floor(rect.width  * dpr));
+      canvas.height = Math.max(1, Math.floor(rect.height * dpr));
+      ctx2d.setTransform(dpr,0,0,dpr,0,0);
+    }
+    resizeCanvas();
+    if (typeof ResizeObserver !== 'undefined') new ResizeObserver(resizeCanvas).observe(canvas);
+
+    function drawIdle(){
+      var w = canvas.clientWidth, h = canvas.clientHeight;
+      ctx2d.clearRect(0,0,w,h);
+      ctx2d.strokeStyle = 'rgba(255,176,0,0.25)'; ctx2d.lineWidth = 1;
+      ctx2d.beginPath(); ctx2d.moveTo(0, h/2); ctx2d.lineTo(w, h/2); ctx2d.stroke();
+    }
+    drawIdle();
+
+    function drawBars(){
+      rafId = requestAnimationFrame(drawBars);
+      if (!analyser || !dataArray) return;
+      analyser.getByteFrequencyData(dataArray);
+      var w = canvas.clientWidth, h = canvas.clientHeight;
+      ctx2d.clearRect(0,0,w,h);
+      var bars = dataArray.length, barW = w / bars;
+      for (var i=0;i<bars;i++){
+        var v = dataArray[i]/255;
+        var barH = Math.max(1, v*h);
+        var hue = 40 - (v*40);
+        ctx2d.fillStyle = 'hsl(' + hue + ', 100%, ' + (35 + v*25) + '%)';
+        ctx2d.fillRect(i*barW + 0.5, h - barH, Math.max(1, barW-1), barH);
+      }
+    }
+
+    function enableVisualizer(){
+      if (audioCtx) return true;
+      try {
+        audio.crossOrigin = 'anonymous';
+        if (state.currentUrl) {
+          var wasPlaying = !audio.paused;
+          audio.src = state.currentUrl; audio.load();
+          if (wasPlaying) audio.play().catch(function(){});
+        }
+        var AC = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new AC();
+        var src = audioCtx.createMediaElementSource(audio);
+        analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 128;
+        src.connect(analyser); analyser.connect(audioCtx.destination);
+        dataArray = new Uint8Array(analyser.frequencyBinCount);
+        drawBars();
+        return true;
+      } catch (err){
+        audioCtx = null; analyser = null; dataArray = null;
+        return false;
+      }
+    }
+    function disableVisualizer(){
+      if (rafId) cancelAnimationFrame(rafId);
+      rafId = null;
+      if (audioCtx) { try { audioCtx.close(); } catch(_){} }
+      audioCtx = null; analyser = null; dataArray = null;
+      audio.removeAttribute('crossorigin');
+      if (state.currentUrl) {
+        var wasPlaying = !audio.paused;
+        audio.src = state.currentUrl; audio.load();
+        if (wasPlaying) audio.play().catch(function(){});
+      }
+      drawIdle();
+    }
+
+    vizToggle.addEventListener('click', function(e){
+      e.preventDefault();
+      if (state.vizEnabled) {
+        state.vizEnabled = false; vizState.textContent = 'OFF';
+        disableVisualizer();
+      } else {
+        var ok = enableVisualizer();
+        state.vizEnabled = ok; vizState.textContent = ok ? 'ON' : 'BLOCKED';
+      }
+    });
+  })();
+};
+try { window.__ccBoot(); } catch(_) {}
+</script>
