@@ -72,13 +72,23 @@ curl http://localhost:8787/ticker
 
 ## Grafana Text panel iframe setup (recommended)
 
-Use a Grafana **Text panel** in **HTML mode** and paste:
+Use a Grafana **Text panel** in **HTML mode**, turn on the panel's "Transparent background" toggle, and paste:
 
 ```html
-<iframe src="http://192.168.1.189:8787/ticker-html" style="width:100%;height:100%;border:0;background:transparent;"></iframe>
+<div style="position:relative;width:100%;height:100%;min-height:120px;">
+  <iframe
+    src="http://192.168.1.189:8787/ticker-html"
+    style="position:absolute;inset:0;width:100%;height:100%;border:0;margin:0;padding:0;display:block;background:transparent;"
+    frameborder="0"
+    scrolling="no"
+    allowtransparency="true">
+  </iframe>
+</div>
 ```
 
-This is the simplest live scrolling setup and avoids extra dashboard JavaScript.
+The wrapping `<div>` with `position:relative` plus the absolutely-positioned iframe is what makes the iframe stretch to fill the panel — without that wrapper, `height:100%` on a bare iframe collapses to the iframe's default intrinsic height and you'll see a small fixed-size box inside a much larger panel.
+
+The page itself uses `clamp(22px, 10vh, 96px)` font sizing, so the text scales with the panel's height as you resize it. Data refreshes every 30s in place (no page reload, no scroll snap-back). Scroll loop is seamless — the line is rendered twice and the animation translates by exactly 50%, so the next pass picks up where the previous one left off.
 
 ## Grafana Infinity setup
 
