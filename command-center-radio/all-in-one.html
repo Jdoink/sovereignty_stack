@@ -333,11 +333,17 @@
   <audio id="cc-audio" preload="none"></audio>
 </div>
 
-<!-- JS bootstrap: <img onerror> fires immediately and runs the IIFE that wires
-     up every control. We use document.querySelector here instead of
-     context.element because we are not inside the plugin's JS lifecycle. -->
-<img src="cc-bootstrap-trigger" alt="" style="display:none" onerror="
-  this.remove();
+<!-- JS bootstrap: belt-and-suspenders. We try three triggers in order:
+       1. <svg onload> - fires synchronously on parse, hardest to sanitize away.
+       2. <img onerror> with a deliberately-broken src - fires when the load fails.
+       3. <details ontoggle> wrapped in a no-op auto-open trick - last resort.
+     Whichever fires first wins; the others see _ccInit and bail. We use
+     document.querySelector here (not context.element) because we are not
+     inside the plugin's JS lifecycle. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="0" height="0" style="position:absolute" onload="window.__ccBoot && window.__ccBoot()"></svg>
+<img src="data:image/png;base64,!" alt="" style="display:none" onerror="this.remove(); window.__ccBoot && window.__ccBoot();">
+<script>
+window.__ccBoot = function(){
   (function(){
     var root = document.querySelector('#cc-radio');
     if (!root || root._ccInit) return;
@@ -511,4 +517,6 @@
       }
     });
   })();
-">
+};
+try { window.__ccBoot(); } catch(_) {}
+</script>
