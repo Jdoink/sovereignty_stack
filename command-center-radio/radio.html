@@ -240,6 +240,61 @@
   }
   .cc-dd-close:hover { color: var(--cc-amber); }
 
+  .cc-dd-toolbar {
+    display: flex; gap: 8px;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--cc-line);
+    background: rgba(255,176,0,0.02);
+    flex: 0 0 auto;
+  }
+  .cc-dd-toolbar[hidden] { display: none; }
+  .cc-search {
+    flex: 1; min-width: 0;
+    background: linear-gradient(180deg, #0e1a23, #0a131a);
+    color: var(--cc-text);
+    border: 1px solid var(--cc-line-hi);
+    padding: 8px 12px;
+    font-family: inherit;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    outline: none;
+    transition: border-color 120ms ease, box-shadow 120ms ease;
+  }
+  .cc-search:focus { border-color: var(--cc-amber); box-shadow: 0 0 0 1px rgba(255,176,0,0.35), 0 0 8px rgba(255,176,0,0.15); }
+  .cc-search::placeholder { color: var(--cc-text-dim); letter-spacing: 0.18em; }
+  .cc-shuffle {
+    appearance: none;
+    background: linear-gradient(180deg, #0e1a23, #0a131a);
+    color: var(--cc-text-dim);
+    border: 1px solid var(--cc-line-hi);
+    padding: 0 12px;
+    font-family: inherit;
+    font-size: 10px;
+    letter-spacing: 0.22em;
+    cursor: pointer;
+    display: inline-flex; align-items: center; gap: 6px;
+    transition: color 120ms ease, border-color 120ms ease, box-shadow 120ms ease, background 120ms ease;
+    flex: 0 0 auto;
+  }
+  .cc-shuffle:hover { color: var(--cc-text); border-color: var(--cc-amber-dim); }
+  .cc-shuffle.active {
+    color: var(--cc-amber);
+    border-color: var(--cc-amber);
+    background: linear-gradient(180deg, rgba(255,176,0,0.12), rgba(255,176,0,0.02));
+    box-shadow: 0 0 10px rgba(255,176,0,0.20);
+  }
+  .cc-shuffle-icon { font-size: 14px; }
+
+  .cc-dd-empty {
+    padding: 24px 14px;
+    text-align: center;
+    color: var(--cc-text-dim);
+    font-size: 10px;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+  }
+  .cc-dd-empty[hidden] { display: none; }
+
   .cc-dd-list { list-style: none; overflow-y: auto; flex: 1; }
   .cc-dd-list[hidden] { display: none; }
   .cc-dd-item {
@@ -419,8 +474,16 @@
           </div>
           <button type="button" id="cc-dd-close" class="cc-dd-close" aria-label="Close">&times;</button>
         </div>
+        <div class="cc-dd-toolbar" id="cc-dd-toolbar" hidden>
+          <input type="text" id="cc-search" class="cc-search" placeholder="SEARCH LIBRARY..." aria-label="Search library" autocomplete="off">
+          <button type="button" id="cc-shuffle" class="cc-shuffle" title="Shuffle library">
+            <span class="cc-shuffle-icon">&#8646;</span>
+            <span>SHUFFLE</span>
+          </button>
+        </div>
         <ul class="cc-dd-list" id="cc-dd-list-stations"></ul>
         <ul class="cc-dd-list" id="cc-dd-list-library" hidden></ul>
+        <div class="cc-dd-empty" id="cc-dd-empty" hidden>NO MATCHES</div>
       </div>
     </div>
 
@@ -457,26 +520,78 @@
   ];
 
   // === Library (Internet Archive) ==============================================
-  // Each item has a search query. At click time we hit archive.org's API to
-  // resolve the actual identifier and pick the best MP3 file. This avoids
-  // hardcoding fragile filenames - we only need to know "what to search for",
-  // which is much more stable than guessing file paths inside each upload.
+  // Each item is a search query. At click time we hit archive.org's API to
+  // resolve the actual identifier and pick the best MP3 file. To add more
+  // items, copy the pattern - the query just needs to find a unique recording.
   const LIBRARY = [
-    { name: "TAKE THE A TRAIN",       sub: "DUKE ELLINGTON · 1941",       q: 'title:("Take the A Train") creator:("Duke Ellington") mediatype:(audio)' },
-    { name: "WEST END BLUES",         sub: "LOUIS ARMSTRONG · 1928",      q: 'title:("West End Blues") creator:("Louis Armstrong") mediatype:(audio)' },
-    { name: "IN THE MOOD",            sub: "GLENN MILLER · 1939",         q: 'title:("In the Mood") creator:("Glenn Miller") mediatype:(audio)' },
-    { name: "STRANGE FRUIT",          sub: "BILLIE HOLIDAY · 1939",       q: 'title:("Strange Fruit") creator:("Billie Holiday") mediatype:(audio)' },
-    { name: "SING SING SING",         sub: "BENNY GOODMAN · 1937",        q: 'title:("Sing Sing Sing") creator:("Benny Goodman") mediatype:(audio)' },
+    // ───── Early jazz / blues (1917-1929) ─────
+    { name: "TIGER RAG",              sub: "ORIGINAL DIXIELAND JAZZ BAND · 1917", q: 'title:("Tiger Rag") creator:("Original Dixieland Jazz Band") mediatype:(audio)' },
+    { name: "DIPPERMOUTH BLUES",      sub: "KING OLIVER · 1923",          q: 'title:("Dippermouth Blues") creator:("King Oliver") mediatype:(audio)' },
+    { name: "DOWN HEARTED BLUES",     sub: "BESSIE SMITH · 1923",         q: 'title:("Down Hearted Blues") creator:("Bessie Smith") mediatype:(audio)' },
     { name: "ST. LOUIS BLUES",        sub: "BESSIE SMITH · 1925",         q: 'title:("St. Louis Blues") creator:("Bessie Smith") mediatype:(audio)' },
+    { name: "HEEBIE JEEBIES",         sub: "LOUIS ARMSTRONG · 1926",      q: 'title:("Heebie Jeebies") creator:("Louis Armstrong") mediatype:(audio)' },
+    { name: "BLACK BOTTOM STOMP",     sub: "JELLY ROLL MORTON · 1926",    q: 'title:("Black Bottom Stomp") creator:("Jelly Roll Morton") mediatype:(audio)' },
+    { name: "SINGIN' THE BLUES",      sub: "BIX BEIDERBECKE · 1927",      q: 'title:("Singin\' the Blues") creator:("Bix Beiderbecke") mediatype:(audio)' },
+    { name: "BLACK AND TAN FANTASY",  sub: "DUKE ELLINGTON · 1927",       q: 'title:("Black and Tan Fantasy") creator:("Duke Ellington") mediatype:(audio)' },
+    { name: "WEST END BLUES",         sub: "LOUIS ARMSTRONG · 1928",      q: 'title:("West End Blues") creator:("Louis Armstrong") mediatype:(audio)' },
+    { name: "AIN'T MISBEHAVIN'",      sub: "FATS WALLER · 1929",          q: 'title:("Ain\'t Misbehavin\'") creator:("Fats Waller") mediatype:(audio)' },
+    { name: "HONEYSUCKLE ROSE",       sub: "FATS WALLER · 1929",          q: 'title:("Honeysuckle Rose") creator:("Fats Waller") mediatype:(audio)' },
+
+    // ───── Swing era / big band (1930-1945) ─────
+    { name: "MINNIE THE MOOCHER",     sub: "CAB CALLOWAY · 1931",         q: 'title:("Minnie the Moocher") creator:("Cab Calloway") mediatype:(audio)' },
+    { name: "STORMY WEATHER",         sub: "ETHEL WATERS · 1933",         q: 'title:("Stormy Weather") creator:("Ethel Waters") mediatype:(audio)' },
     { name: "SUMMERTIME",             sub: "BILLIE HOLIDAY · 1936",       q: 'title:(Summertime) creator:("Billie Holiday") mediatype:(audio)' },
+    { name: "CROSS ROAD BLUES",       sub: "ROBERT JOHNSON · 1936",       q: 'title:("Cross Road Blues") creator:("Robert Johnson") mediatype:(audio)' },
+    { name: "SING SING SING",         sub: "BENNY GOODMAN · 1937",        q: 'title:("Sing Sing Sing") creator:("Benny Goodman") mediatype:(audio)' },
+    { name: "ONE O'CLOCK JUMP",       sub: "COUNT BASIE · 1937",          q: 'title:("One O\'Clock Jump") creator:("Count Basie") mediatype:(audio)' },
+    { name: "BEGIN THE BEGUINE",      sub: "ARTIE SHAW · 1938",           q: 'title:("Begin the Beguine") creator:("Artie Shaw") mediatype:(audio)' },
+    { name: "BODY AND SOUL",          sub: "COLEMAN HAWKINS · 1939",      q: 'title:("Body and Soul") creator:("Coleman Hawkins") mediatype:(audio)' },
+    { name: "STRANGE FRUIT",          sub: "BILLIE HOLIDAY · 1939",       q: 'title:("Strange Fruit") creator:("Billie Holiday") mediatype:(audio)' },
+    { name: "IN THE MOOD",            sub: "GLENN MILLER · 1939",         q: 'title:("In the Mood") creator:("Glenn Miller") mediatype:(audio)' },
     { name: "MOONLIGHT SERENADE",     sub: "GLENN MILLER · 1939",         q: 'title:("Moonlight Serenade") creator:("Glenn Miller") mediatype:(audio)' },
+    { name: "COTTONTAIL",             sub: "DUKE ELLINGTON · 1940",       q: 'title:(Cottontail) creator:("Duke Ellington") mediatype:(audio)' },
+    { name: "TAKE THE A TRAIN",       sub: "DUKE ELLINGTON · 1941",       q: 'title:("Take the A Train") creator:("Duke Ellington") mediatype:(audio)' },
+    { name: "MINOR SWING",            sub: "DJANGO REINHARDT · 1937",     q: 'title:("Minor Swing") creator:("Django Reinhardt") mediatype:(audio)' },
+    { name: "STARDUST",               sub: "ARTIE SHAW · 1940",           q: 'title:(Stardust) creator:("Artie Shaw") mediatype:(audio)' },
+
+    // ───── Baroque ─────
     { name: "BRANDENBURG NO. 3",      sub: "J.S. BACH · BWV 1048",        q: 'title:(Brandenburg) creator:(Bach) mediatype:(audio)' },
+    { name: "BRANDENBURG NO. 5",      sub: "J.S. BACH · BWV 1050",        q: 'title:("Brandenburg No. 5") creator:(Bach) mediatype:(audio)' },
     { name: "GOLDBERG VARIATIONS",    sub: "J.S. BACH · BWV 988",         q: 'title:(Goldberg) creator:(Bach) mediatype:(audio)' },
-    { name: "MOONLIGHT SONATA",       sub: "BEETHOVEN · OP. 27 NO. 2",    q: 'title:("Moonlight Sonata") creator:(Beethoven) mediatype:(audio)' },
-    { name: "SYMPHONY NO. 5",         sub: "BEETHOVEN · OP. 67",          q: 'title:("Symphony No. 5") creator:(Beethoven) mediatype:(audio)' },
+    { name: "TOCCATA & FUGUE D MINOR",sub: "J.S. BACH · BWV 565",         q: 'title:(Toccata) creator:(Bach) mediatype:(audio)' },
+    { name: "AIR ON THE G STRING",    sub: "J.S. BACH · BWV 1068",        q: 'title:("Air on the G String") creator:(Bach) mediatype:(audio)' },
+    { name: "THE FOUR SEASONS",       sub: "VIVALDI · OP. 8",             q: 'title:("Four Seasons") creator:(Vivaldi) mediatype:(audio)' },
+    { name: "HALLELUJAH CHORUS",      sub: "HANDEL · MESSIAH",            q: 'title:(Hallelujah) creator:(Handel) mediatype:(audio)' },
+
+    // ───── Classical / Romantic ─────
     { name: "EINE KLEINE NACHTMUSIK", sub: "MOZART · K. 525",             q: 'title:("Eine kleine Nachtmusik") creator:(Mozart) mediatype:(audio)' },
     { name: "REQUIEM IN D MINOR",     sub: "MOZART · K. 626",             q: 'title:(Requiem) creator:(Mozart) mediatype:(audio)' },
+    { name: "SYMPHONY NO. 40",        sub: "MOZART · K. 550",             q: 'title:("Symphony No. 40") creator:(Mozart) mediatype:(audio)' },
+    { name: "PIANO CONCERTO NO. 21",  sub: "MOZART · K. 467",             q: 'title:("Piano Concerto No. 21") creator:(Mozart) mediatype:(audio)' },
+    { name: "MOONLIGHT SONATA",       sub: "BEETHOVEN · OP. 27 NO. 2",    q: 'title:("Moonlight Sonata") creator:(Beethoven) mediatype:(audio)' },
+    { name: "FUR ELISE",              sub: "BEETHOVEN · WOO 59",          q: 'title:("Fur Elise") creator:(Beethoven) mediatype:(audio)' },
+    { name: "SYMPHONY NO. 5",         sub: "BEETHOVEN · OP. 67",          q: 'title:("Symphony No. 5") creator:(Beethoven) mediatype:(audio)' },
+    { name: "SYMPHONY NO. 9",         sub: "BEETHOVEN · OP. 125",         q: 'title:("Symphony No. 9") creator:(Beethoven) mediatype:(audio)' },
+    { name: "PATHETIQUE SONATA",      sub: "BEETHOVEN · OP. 13",          q: 'title:(Pathetique) creator:(Beethoven) mediatype:(audio)' },
+    { name: "WILLIAM TELL OVERTURE",  sub: "ROSSINI · 1829",              q: 'title:("William Tell") creator:(Rossini) mediatype:(audio)' },
+    { name: "NEW WORLD SYMPHONY",     sub: "DVORAK · NO. 9",              q: 'title:("New World") creator:(Dvorak) mediatype:(audio)' },
+    { name: "1812 OVERTURE",          sub: "TCHAIKOVSKY · OP. 49",        q: 'title:("1812 Overture") creator:(Tchaikovsky) mediatype:(audio)' },
+    { name: "NUTCRACKER SUITE",       sub: "TCHAIKOVSKY · OP. 71A",       q: 'title:(Nutcracker) creator:(Tchaikovsky) mediatype:(audio)' },
+    { name: "SWAN LAKE",              sub: "TCHAIKOVSKY · OP. 20",        q: 'title:("Swan Lake") creator:(Tchaikovsky) mediatype:(audio)' },
+    { name: "HUNGARIAN RHAPSODY",     sub: "LISZT · NO. 2",               q: 'title:("Hungarian Rhapsody") creator:(Liszt) mediatype:(audio)' },
+    { name: "RIDE OF THE VALKYRIES",  sub: "WAGNER · DIE WALKURE",        q: 'title:("Ride of the Valkyries") creator:(Wagner) mediatype:(audio)' },
+    { name: "FLIGHT OF THE BUMBLEBEE",sub: "RIMSKY-KORSAKOV · 1900",      q: 'title:("Flight of the Bumblebee") mediatype:(audio)' },
+    { name: "PICTURES AT EXHIBITION", sub: "MUSSORGSKY · 1874",           q: 'title:("Pictures at an Exhibition") mediatype:(audio)' },
+
+    // ───── Impressionist / 20th C ─────
     { name: "CLAIR DE LUNE",          sub: "DEBUSSY · SUITE BERGAMASQUE", q: 'title:("Clair de Lune") creator:(Debussy) mediatype:(audio)' },
+    { name: "LA MER",                 sub: "DEBUSSY · 1905",              q: 'title:("La Mer") creator:(Debussy) mediatype:(audio)' },
+    { name: "BOLERO",                 sub: "RAVEL · 1928",                q: 'title:(Bolero) creator:(Ravel) mediatype:(audio)' },
+    { name: "THE PLANETS",            sub: "HOLST · OP. 32",              q: 'title:("The Planets") creator:(Holst) mediatype:(audio)' },
+    { name: "RHAPSODY IN BLUE",       sub: "GERSHWIN · 1924",             q: 'title:("Rhapsody in Blue") creator:(Gershwin) mediatype:(audio)' },
+    { name: "PEER GYNT SUITE",        sub: "GRIEG · OP. 46",              q: 'title:("Peer Gynt") creator:(Grieg) mediatype:(audio)' },
+    { name: "CARNIVAL OF THE ANIMALS",sub: "SAINT-SAENS · 1886",          q: 'title:("Carnival of the Animals") mediatype:(audio)' },
+    { name: "FINLANDIA",              sub: "SIBELIUS · OP. 26",           q: 'title:(Finlandia) creator:(Sibelius) mediatype:(audio)' },
   ];
 
   // In-memory cache so re-clicking a library item is instant after the first resolve.
@@ -526,15 +641,55 @@
   populate(ddListS, STATIONS, "stations");
   populate(ddListL, LIBRARY,  "library");
 
-  const state = { kind: null, idx: -1, current: null };
+  const state = { kind: null, idx: -1, current: null, shuffle: false };
 
-  // Tab switching
+  const toolbar    = $("cc-dd-toolbar");
+  const searchIn   = $("cc-search");
+  const shuffleBtn = $("cc-shuffle");
+  const emptyMsg   = $("cc-dd-empty");
+
+  // Tab switching - also show/hide library toolbar
   function setActiveTab(name) {
     tabs.forEach(t => t.classList.toggle("active", t.dataset.tab === name));
     ddListS.hidden = name !== "stations";
     ddListL.hidden = name !== "library";
+    toolbar.hidden = name !== "library";
+    if (name !== "library") emptyMsg.hidden = true;
+    if (name === "library") applyFilter();
   }
   tabs.forEach(t => t.addEventListener("click", () => setActiveTab(t.dataset.tab)));
+
+  // Search filter
+  function applyFilter() {
+    const q = (searchIn.value || "").trim().toLowerCase();
+    let visible = 0;
+    Array.from(ddListL.children).forEach((li, i) => {
+      const item = LIBRARY[i];
+      const matches = !q ||
+        item.name.toLowerCase().includes(q) ||
+        item.sub.toLowerCase().includes(q);
+      li.style.display = matches ? "" : "none";
+      if (matches) visible++;
+    });
+    emptyMsg.hidden = visible > 0 || ddListL.hidden;
+  }
+  searchIn.addEventListener("input", applyFilter);
+
+  // Shuffle: toggles a mode (auto-advance becomes random) AND immediately plays a random track
+  function pickRandomLibraryIdx(exclude) {
+    if (LIBRARY.length <= 1) return 0;
+    let n;
+    do { n = Math.floor(Math.random() * LIBRARY.length); } while (n === exclude);
+    return n;
+  }
+  shuffleBtn.addEventListener("click", () => {
+    state.shuffle = !state.shuffle;
+    shuffleBtn.classList.toggle("active", state.shuffle);
+    if (state.shuffle) {
+      selectItem("library", pickRandomLibraryIdx(state.kind === "library" ? state.idx : -1));
+      closeDropdown();
+    }
+  });
 
   function openDropdown() {
     // Open on the tab matching whatever's currently playing, falling back to stations.
@@ -686,7 +841,9 @@
   // When an Archive.org track ends, auto-advance to the next library item.
   audio.addEventListener("ended", () => {
     if (state.kind === "library") {
-      const next = (state.idx + 1) % LIBRARY.length;
+      const next = state.shuffle
+        ? pickRandomLibraryIdx(state.idx)
+        : (state.idx + 1) % LIBRARY.length;
       selectItem("library", next);
     }
   });
