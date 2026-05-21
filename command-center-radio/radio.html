@@ -36,15 +36,16 @@
     -webkit-tap-highlight-color: transparent;
   }
 
+  /* Outer shell - fills the iframe viewport regardless of size */
   .cc {
     position: fixed; inset: 0;
     display: grid;
-    grid-template-rows: auto 1fr auto;
+    grid-template-rows: auto minmax(0, 1fr) auto;
     gap: 10px;
-    padding: 14px 18px;
+    padding: 12px 16px;
     background:
-      radial-gradient(ellipse at 50% -20%, rgba(255,176,0,0.06), transparent 50%),
-      radial-gradient(ellipse at 50% 120%, rgba(90,211,255,0.05), transparent 55%),
+      radial-gradient(ellipse at 50% -30%, rgba(255,176,0,0.07), transparent 55%),
+      radial-gradient(ellipse at 50% 130%, rgba(90,211,255,0.04), transparent 55%),
       linear-gradient(180deg, #060a0e 0%, #04070a 100%);
   }
   .cc::before {
@@ -53,8 +54,8 @@
     pointer-events: none;
     background-image: repeating-linear-gradient(
       to bottom,
-      rgba(255,255,255,0.025) 0px,
-      rgba(255,255,255,0.025) 1px,
+      rgba(255,255,255,0.022) 0px,
+      rgba(255,255,255,0.022) 1px,
       transparent 1px,
       transparent 3px
     );
@@ -67,164 +68,156 @@
     position: absolute; inset: 0;
     pointer-events: none;
     box-shadow:
-      inset 0 0 80px rgba(0,0,0,0.85),
-      inset 0 0 8px rgba(255,176,0,0.06);
+      inset 0 0 60px rgba(0,0,0,0.7),
+      inset 0 0 6px rgba(255,176,0,0.05);
     z-index: 2;
   }
 
+  /* ============ Header (row 1) ============ */
   .cc-head {
     position: relative; z-index: 3;
     display: flex; align-items: center; justify-content: space-between;
-    padding-bottom: 8px;
+    gap: 14px;
+    padding-bottom: 6px;
     border-bottom: 1px solid var(--cc-line);
     text-transform: uppercase;
     letter-spacing: 0.18em;
     font-size: 10px;
+    min-height: 22px;
   }
-  .cc-brand { display: flex; align-items: center; gap: 10px; }
+  .cc-brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
   .cc-brand-bar {
-    width: 4px; height: 14px;
+    width: 4px; height: 12px;
     background: var(--cc-amber);
     box-shadow: 0 0 10px rgba(255,176,0,0.7);
+    flex: 0 0 auto;
   }
-  .cc-brand-title { color: var(--cc-amber); font-weight: 700; }
-  .cc-brand-id    { color: var(--cc-text-dim); }
-  .cc-meta { display: flex; align-items: center; gap: 14px; color: var(--cc-text-dim); }
-  .cc-meta b { color: var(--cc-text); font-weight: 600; }
+  .cc-brand-title {
+    color: var(--cc-amber); font-weight: 700;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .cc-brand-id { color: var(--cc-text-dim); flex: 0 0 auto; }
 
-  .cc-status { display: inline-flex; align-items: center; gap: 8px; }
+  .cc-meta { display: flex; align-items: center; gap: 14px; color: var(--cc-text-dim); flex: 0 0 auto; }
+  .cc-meta b { color: var(--cc-text); font-weight: 600; }
+  .cc-status { display: inline-flex; align-items: center; gap: 6px; }
   .cc-led {
-    width: 9px; height: 9px; border-radius: 50%;
+    width: 8px; height: 8px; border-radius: 50%;
     background: var(--cc-amber-dim);
     box-shadow: 0 0 8px currentColor;
     color: var(--cc-amber-dim);
+    flex: 0 0 auto;
   }
-  .cc-led.live    { background: var(--cc-green); color: var(--cc-green);
-                    animation: cc-pulse 1.6s ease-in-out infinite; }
-  .cc-led.error   { background: var(--cc-red);   color: var(--cc-red);
-                    animation: cc-blink 0.45s steps(2,end) infinite; }
+  .cc-led.live  { background: var(--cc-green); color: var(--cc-green);
+                  animation: cc-pulse 1.6s ease-in-out infinite; }
+  .cc-led.error { background: var(--cc-red);   color: var(--cc-red);
+                  animation: cc-blink 0.45s steps(2,end) infinite; }
   @keyframes cc-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
   @keyframes cc-blink { 0% { opacity: 1; } 100% { opacity: 0.15; } }
 
-  .cc-main {
-    position: relative; z-index: 3;
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 10px;
-    min-height: 0;
-  }
-
+  /* ============ Display (row 2 - the big readout) ============ */
   .cc-screen {
-    position: relative;
+    position: relative; z-index: 3;
     background:
       linear-gradient(180deg, rgba(255,176,0,0.05), transparent 60%),
       var(--cc-bg-2);
     border: 1px solid var(--cc-line);
-    padding: 14px 16px 10px;
+    padding: 12px 16px;
     display: grid;
-    grid-template-rows: auto auto 1fr;
-    gap: 10px;
+    grid-template-rows: auto 1fr;
+    gap: 4px;
     overflow: hidden;
+    min-height: 0;
   }
   .cc-screen::before {
     content: "";
     position: absolute; inset: 0;
-    background:
-      radial-gradient(ellipse at 30% 0%, rgba(255,176,0,0.08), transparent 60%);
+    background: radial-gradient(ellipse at 25% 0%, rgba(255,176,0,0.10), transparent 65%);
     pointer-events: none;
   }
-
-  .cc-row {
-    display: flex; align-items: baseline; gap: 12px;
-    position: relative;
-  }
-  .cc-label {
+  .cc-screen-label {
     color: var(--cc-text-dim);
-    font-size: 10px; letter-spacing: 0.2em;
+    font-size: 9px; letter-spacing: 0.25em;
     text-transform: uppercase;
-    min-width: 70px;
   }
-  .cc-readout-channel {
+  .cc-channel {
     color: var(--cc-amber);
-    font-size: clamp(20px, 4.2vw, 32px);
+    font-size: clamp(22px, 5.5vw, 44px);
     font-weight: 700;
-    letter-spacing: 0.08em;
-    text-shadow: 0 0 8px rgba(255,176,0,0.45);
-    line-height: 1.1;
+    letter-spacing: 0.06em;
+    text-shadow: 0 0 10px rgba(255,176,0,0.45);
+    line-height: 1.05;
+    align-self: end;
+    text-overflow: ellipsis; overflow: hidden; white-space: nowrap;
   }
-  .cc-readout-src {
+  .cc-meta-row {
+    display: flex; align-items: center;
+    gap: 14px;
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    color: var(--cc-text-dim);
+    text-transform: uppercase;
+    margin-top: 4px;
+    min-width: 0;
+  }
+  .cc-meta-row .cc-sub { color: var(--cc-text); }
+  .cc-meta-row .cc-carrier {
     color: var(--cc-cyan);
-    font-size: 11px;
+    opacity: 0.75;
     letter-spacing: 0.05em;
-    opacity: 0.7;
+    text-transform: none;
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    min-width: 0; flex: 1;
   }
 
-  .cc-viz-wrap {
-    position: relative;
-    border: 1px solid var(--cc-line);
-    background:
-      linear-gradient(180deg, rgba(90,211,255,0.04), transparent 60%),
-      #04080b;
-    min-height: 90px;
-  }
-  .cc-viz {
-    position: absolute; inset: 0;
-    width: 100%; height: 100%;
-    display: block;
-  }
-  .cc-viz-grid {
-    position: absolute; inset: 0;
-    pointer-events: none;
-    background:
-      linear-gradient(to right, rgba(90,211,255,0.07) 1px, transparent 1px) 0 0 / 10% 100%,
-      linear-gradient(to bottom, rgba(90,211,255,0.07) 1px, transparent 1px) 0 0 / 100% 25%;
-    opacity: 0.6;
-  }
-
+  /* ============ Controls (row 3) ============ */
   .cc-controls {
     position: relative; z-index: 3;
     display: grid;
-    grid-template-columns: 1fr auto auto auto;
+    grid-template-columns: minmax(0, 1fr) auto auto auto;
     align-items: center;
     gap: 10px;
-    padding: 10px 12px;
+    padding: 8px 10px;
     background: var(--cc-panel);
     border: 1px solid var(--cc-line);
   }
 
   .cc-select-wrap {
     position: relative;
-    display: flex; align-items: center; gap: 10px;
+    display: flex; align-items: center; gap: 8px;
     min-width: 0;
   }
-  .cc-select-wrap .cc-label { min-width: 60px; }
+  .cc-select-label {
+    color: var(--cc-text-dim);
+    font-size: 9px; letter-spacing: 0.25em;
+    text-transform: uppercase;
+    flex: 0 0 auto;
+  }
   .cc-select {
     appearance: none; -webkit-appearance: none;
-    flex: 1;
+    flex: 1; min-width: 0;
     background: linear-gradient(180deg, #0e1a23, #0a131a);
     color: var(--cc-amber);
     border: 1px solid var(--cc-line-hi);
-    padding: 10px 36px 10px 12px;
+    padding: 9px 32px 9px 12px;
     font-family: inherit;
-    font-size: 13px;
-    letter-spacing: 0.1em;
+    font-size: 12px;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
     cursor: pointer;
     outline: none;
-    transition: border-color 120ms ease, box-shadow 120ms ease;
-    min-width: 0;
     text-overflow: ellipsis;
+    transition: border-color 120ms ease, box-shadow 120ms ease;
   }
-  .cc-select:hover  { border-color: var(--cc-amber-dim); }
-  .cc-select:focus  { border-color: var(--cc-amber); box-shadow: 0 0 0 1px rgba(255,176,0,0.35), 0 0 12px rgba(255,176,0,0.15); }
+  .cc-select:hover { border-color: var(--cc-amber-dim); }
+  .cc-select:focus { border-color: var(--cc-amber); box-shadow: 0 0 0 1px rgba(255,176,0,0.35), 0 0 10px rgba(255,176,0,0.15); }
   .cc-select option { background: #0a131a; color: var(--cc-text); }
   .cc-select-chev {
-    position: absolute; right: 12px; top: 50%;
+    position: absolute; right: 10px; top: 50%;
     transform: translateY(-50%);
     pointer-events: none;
     color: var(--cc-amber);
-    font-size: 10px;
+    font-size: 9px;
     opacity: 0.7;
   }
 
@@ -237,10 +230,8 @@
     font-family: inherit;
     font-size: 12px;
     letter-spacing: 0.15em;
-    text-transform: uppercase;
     cursor: pointer;
     display: inline-flex; align-items: center; justify-content: center;
-    gap: 6px;
     touch-action: manipulation;
     transition: border-color 120ms ease, transform 80ms ease, box-shadow 120ms ease;
   }
@@ -248,81 +239,100 @@
   .cc-btn:active { transform: translateY(1px); }
 
   .cc-play {
-    width: 56px; height: 56px;
+    width: 44px; height: 44px;
     border-radius: 50%;
     border-color: var(--cc-amber);
     color: var(--cc-amber);
     background:
       radial-gradient(circle at 40% 30%, rgba(255,176,0,0.18), transparent 60%),
-      radial-gradient(circle at 60% 80%, rgba(255,176,0,0.10), transparent 60%),
       linear-gradient(180deg, #1a2530, #0a131a);
     box-shadow:
-      inset 0 0 12px rgba(255,176,0,0.18),
-      0 0 18px rgba(255,176,0,0.20),
+      inset 0 0 10px rgba(255,176,0,0.20),
+      0 0 14px rgba(255,176,0,0.20),
       0 0 0 1px rgba(255,176,0,0.30);
-    font-size: 18px;
+    font-size: 15px;
   }
-  .cc-play:hover { box-shadow: inset 0 0 14px rgba(255,176,0,0.25), 0 0 22px rgba(255,176,0,0.30), 0 0 0 1px rgba(255,176,0,0.50); }
+  .cc-play:hover { box-shadow: inset 0 0 12px rgba(255,176,0,0.28), 0 0 18px rgba(255,176,0,0.30), 0 0 0 1px rgba(255,176,0,0.55); }
 
   .cc-stop {
-    width: 44px; height: 44px;
-    font-size: 13px;
+    width: 36px; height: 36px;
+    font-size: 11px;
     color: var(--cc-text-dim);
   }
 
   .cc-vol {
-    display: flex; align-items: center; gap: 8px;
+    display: inline-flex; align-items: center; gap: 8px;
     padding: 0 10px;
     border: 1px solid var(--cc-line-hi);
     background: linear-gradient(180deg, #0e1a23, #0a131a);
-    height: 44px;
-    min-width: 170px;
+    height: 36px;
+    min-width: 0;
   }
-  .cc-vol .cc-label { min-width: auto; }
+  .cc-vol-label {
+    color: var(--cc-text-dim);
+    font-size: 9px; letter-spacing: 0.25em;
+    text-transform: uppercase;
+  }
   .cc-vol input[type="range"] {
     -webkit-appearance: none; appearance: none;
-    width: 100px; height: 3px;
+    width: 80px; height: 3px;
     background: var(--cc-line-hi);
     outline: none;
   }
   .cc-vol input[type="range"]::-webkit-slider-thumb {
     -webkit-appearance: none; appearance: none;
-    width: 14px; height: 14px;
+    width: 12px; height: 12px;
     background: var(--cc-amber);
     border: 1px solid #000;
-    box-shadow: 0 0 6px rgba(255,176,0,0.7);
+    box-shadow: 0 0 5px rgba(255,176,0,0.7);
     cursor: pointer;
   }
   .cc-vol input[type="range"]::-moz-range-thumb {
-    width: 14px; height: 14px;
+    width: 12px; height: 12px;
     background: var(--cc-amber);
     border: 1px solid #000;
-    box-shadow: 0 0 6px rgba(255,176,0,0.7);
+    box-shadow: 0 0 5px rgba(255,176,0,0.7);
     cursor: pointer;
   }
   .cc-vol-readout {
-    font-size: 11px; letter-spacing: 0.1em;
+    font-size: 10px; letter-spacing: 0.1em;
     color: var(--cc-text-dim);
-    min-width: 24px; text-align: right;
+    min-width: 22px; text-align: right;
   }
 
-  .cc-viz-btn {
-    height: 44px; padding: 0 12px;
-    color: var(--cc-text-dim);
-    display: inline-flex; align-items: center; gap: 8px;
+  /* ============ Responsive ============ */
+  /* Narrow panels: stack controls into 2 rows */
+  @media (max-width: 620px) {
+    .cc-controls {
+      grid-template-columns: 1fr auto auto;
+      grid-template-areas:
+        "select   play stop"
+        "vol      vol  vol";
+      gap: 8px;
+    }
+    .cc-select-wrap { grid-area: select; }
+    .cc-play        { grid-area: play; }
+    .cc-stop        { grid-area: stop; }
+    .cc-vol         { grid-area: vol; justify-self: stretch; }
+    .cc-vol input[type="range"] { width: 100%; flex: 1; }
   }
-  .cc-viz-btn.active { color: var(--cc-cyan); border-color: var(--cc-cyan); box-shadow: 0 0 10px rgba(90,211,255,0.25); }
 
-  @media (max-width: 640px) {
-    .cc-controls { grid-template-columns: 1fr auto; grid-auto-rows: auto; }
-    .cc-vol { grid-column: 1 / -1; min-width: 0; width: 100%; }
-    .cc-viz-btn { grid-column: 1 / -1; justify-content: center; }
+  /* Very narrow: hide brand-id and the time/sig meta */
+  @media (max-width: 440px) {
+    .cc-brand-id, .cc-meta .cc-sig, .cc-meta .cc-time-wrap { display: none; }
+    .cc-channel { font-size: clamp(18px, 6vw, 28px); }
+  }
+
+  /* Ultra short panels (< 200px tall): hide carrier line entirely */
+  @media (max-height: 200px) {
+    .cc-meta-row .cc-carrier { display: none; }
   }
 </style>
 </head>
 <body>
 
 <div class="cc">
+
   <header class="cc-head">
     <div class="cc-brand">
       <span class="cc-brand-bar"></span>
@@ -330,8 +340,8 @@
       <span class="cc-brand-id">CCR-01</span>
     </div>
     <div class="cc-meta">
-      <span>SIG <b id="cc-bitrate">--</b></span>
-      <span>TIME <b id="cc-clock">--:--:--</b></span>
+      <span class="cc-sig">SIG <b id="cc-bitrate">--</b></span>
+      <span class="cc-time-wrap">TIME <b id="cc-clock">--:--:--</b></span>
       <span class="cc-status">
         <span id="cc-led" class="cc-led"></span>
         <span id="cc-status-text">STANDBY</span>
@@ -339,26 +349,20 @@
     </div>
   </header>
 
-  <main class="cc-main">
-    <section class="cc-screen">
-      <div class="cc-row">
-        <span class="cc-label">CHANNEL</span>
-        <span id="cc-channel" class="cc-readout-channel">--- NO SIGNAL ---</span>
+  <section class="cc-screen">
+    <span class="cc-screen-label">CHANNEL</span>
+    <div>
+      <div id="cc-channel" class="cc-channel">--- NO SIGNAL ---</div>
+      <div class="cc-meta-row">
+        <span id="cc-sub" class="cc-sub">awaiting selection</span>
+        <span id="cc-carrier" class="cc-carrier"></span>
       </div>
-      <div class="cc-row">
-        <span class="cc-label">CARRIER</span>
-        <span id="cc-src" class="cc-readout-src">awaiting selection</span>
-      </div>
-      <div class="cc-viz-wrap">
-        <div class="cc-viz-grid"></div>
-        <canvas id="cc-viz" class="cc-viz"></canvas>
-      </div>
-    </section>
-  </main>
+    </div>
+  </section>
 
   <footer class="cc-controls">
     <div class="cc-select-wrap">
-      <span class="cc-label">STATION</span>
+      <span class="cc-select-label">STATION</span>
       <select id="cc-station" class="cc-select" aria-label="Station">
         <option value="">-- SELECT TRANSMISSION --</option>
       </select>
@@ -371,15 +375,12 @@
     <button type="button" id="cc-stop" class="cc-btn cc-stop" aria-label="Stop">&#9632;</button>
 
     <div class="cc-vol">
-      <span class="cc-label">VOL</span>
+      <span class="cc-vol-label">VOL</span>
       <input type="range" id="cc-volume" min="0" max="1" step="0.01" value="0.8">
       <span id="cc-vol-read" class="cc-vol-readout">80</span>
     </div>
-
-    <button type="button" id="cc-viz-toggle" class="cc-btn cc-viz-btn">
-      <span>VIZ</span><span id="cc-viz-state">OFF</span>
-    </button>
   </footer>
+
 </div>
 
 <audio id="cc-audio" preload="none"></audio>
@@ -387,33 +388,33 @@
 <script>
 (function(){
   const STATIONS = [
-    { id: "groovesalad",  name: "GROOVE SALAD",       sub: "DOWNTEMPO / AMBIENT",       url: "https://ice2.somafm.com/groovesalad-128-mp3",   br: "128K" },
-    { id: "dronezone",    name: "DRONE ZONE",         sub: "ATMOSPHERIC / SPACE",       url: "https://ice2.somafm.com/dronezone-128-mp3",     br: "128K" },
-    { id: "reggae",       name: "HEAVYWEIGHT REGGAE", sub: "ROOTS / DUB",               url: "https://ice2.somafm.com/reggae-128-mp3",        br: "128K" },
-    { id: "deepspaceone", name: "DEEP SPACE ONE",     sub: "DEEP AMBIENT / ELECTRONIC", url: "https://ice2.somafm.com/deepspaceone-128-mp3",  br: "128K" },
-    { id: "secretagent",  name: "SECRET AGENT",       sub: "SPY JAZZ / LOUNGE",         url: "https://ice2.somafm.com/secretagent-128-mp3",   br: "128K" },
-    { id: "defcon",       name: "DEF CON RADIO",      sub: "HACKER ELECTRONICA",        url: "https://ice2.somafm.com/defcon-128-mp3",        br: "128K" },
-    { id: "missioncontrol", name: "MISSION CONTROL",  sub: "AMBIENT + NASA COMMS",      url: "https://ice2.somafm.com/missioncontrol-128-mp3", br: "128K" },
-    { id: "spacestation", name: "SPACE STATION",      sub: "AMBIENT ELECTRONICA",       url: "https://ice2.somafm.com/spacestation-128-mp3",  br: "128K" },
+    { name: "GROOVE SALAD",       sub: "DOWNTEMPO / AMBIENT",       url: "https://ice2.somafm.com/groovesalad-128-mp3",   br: "128K" },
+    { name: "DRONE ZONE",         sub: "ATMOSPHERIC / SPACE",       url: "https://ice2.somafm.com/dronezone-128-mp3",     br: "128K" },
+    { name: "HEAVYWEIGHT REGGAE", sub: "ROOTS / DUB",               url: "https://ice2.somafm.com/reggae-128-mp3",        br: "128K" },
+    { name: "DEEP SPACE ONE",     sub: "DEEP AMBIENT / ELECTRONIC", url: "https://ice2.somafm.com/deepspaceone-128-mp3",  br: "128K" },
+    { name: "SECRET AGENT",       sub: "SPY JAZZ / LOUNGE",         url: "https://ice2.somafm.com/secretagent-128-mp3",   br: "128K" },
+    { name: "DEF CON RADIO",      sub: "HACKER ELECTRONICA",        url: "https://ice2.somafm.com/defcon-128-mp3",        br: "128K" },
+    { name: "MISSION CONTROL",    sub: "AMBIENT + NASA COMMS",      url: "https://ice2.somafm.com/missioncontrol-128-mp3", br: "128K" },
+    { name: "SPACE STATION",      sub: "AMBIENT ELECTRONICA",       url: "https://ice2.somafm.com/spacestation-128-mp3",  br: "128K" },
+    { name: "BAGEL RADIO",        sub: "ECLECTIC ALT ROCK",         url: "https://ice2.somafm.com/bagel-128-mp3",         br: "128K" },
+    { name: "INDIE POP ROCKS",    sub: "INDIE POP",                 url: "https://ice2.somafm.com/indiepop-128-mp3",      br: "128K" },
   ];
 
-  const audio      = document.getElementById("cc-audio");
-  const select     = document.getElementById("cc-station");
-  const channel    = document.getElementById("cc-channel");
-  const srcReadout = document.getElementById("cc-src");
-  const led        = document.getElementById("cc-led");
-  const statusText = document.getElementById("cc-status-text");
-  const playBtn    = document.getElementById("cc-play");
-  const playIcon   = document.getElementById("cc-play-icon");
-  const stopBtn    = document.getElementById("cc-stop");
-  const volInput   = document.getElementById("cc-volume");
-  const volRead    = document.getElementById("cc-vol-read");
-  const vizBtn     = document.getElementById("cc-viz-toggle");
-  const vizState   = document.getElementById("cc-viz-state");
-  const vizCanvas  = document.getElementById("cc-viz");
-  const ctx        = vizCanvas.getContext("2d");
-  const bitrate    = document.getElementById("cc-bitrate");
-  const clock      = document.getElementById("cc-clock");
+  const $ = id => document.getElementById(id);
+  const audio   = $("cc-audio");
+  const select  = $("cc-station");
+  const channel = $("cc-channel");
+  const sub     = $("cc-sub");
+  const carrier = $("cc-carrier");
+  const led     = $("cc-led");
+  const statusT = $("cc-status-text");
+  const playBtn = $("cc-play");
+  const playIcn = $("cc-play-icon");
+  const stopBtn = $("cc-stop");
+  const volIn   = $("cc-volume");
+  const volRd   = $("cc-vol-read");
+  const bitrate = $("cc-bitrate");
+  const clock   = $("cc-clock");
 
   STATIONS.forEach((s, i) => {
     const o = document.createElement("option");
@@ -422,14 +423,14 @@
     select.appendChild(o);
   });
 
-  const state = { current: null, vizEnabled: false };
+  const state = { current: null };
 
   function setStatus(text, mode) {
-    statusText.textContent = text;
+    statusT.textContent = text;
     led.className = "cc-led" + (mode ? " " + mode : "");
   }
   function setPlayIcon(playing) {
-    playIcon.innerHTML = playing ? "&#10074;&#10074;" : "&#9658;";
+    playIcn.innerHTML = playing ? "&#10074;&#10074;" : "&#9658;";
   }
 
   function selectStation(idx) {
@@ -437,12 +438,13 @@
     if (!s) return;
     state.current = s;
     channel.textContent = s.name;
-    srcReadout.textContent = s.url;
+    sub.textContent     = s.sub;
+    carrier.textContent = "· " + s.url.replace(/^https?:\/\//, "");
     bitrate.textContent = s.br || "--";
     audio.src = s.url;
     audio.load();
-    setStatus("ACQUIRING SIGNAL...", "");
-    audio.play().catch(err => setStatus("FAULT: " + (err.message || "play blocked"), "error"));
+    setStatus("ACQUIRING...", "");
+    audio.play().catch(err => setStatus("FAULT", "error"));
   }
 
   select.addEventListener("change", () => {
@@ -455,7 +457,7 @@
       if (STATIONS.length) { select.value = "0"; selectStation(0); }
       return;
     }
-    if (audio.paused) audio.play().catch(err => setStatus("FAULT: " + err.message, "error"));
+    if (audio.paused) audio.play().catch(() => setStatus("FAULT", "error"));
     else audio.pause();
   });
 
@@ -465,16 +467,17 @@
     audio.load();
     state.current = null;
     channel.textContent = "--- NO SIGNAL ---";
-    srcReadout.textContent = "awaiting selection";
+    sub.textContent = "awaiting selection";
+    carrier.textContent = "";
     bitrate.textContent = "--";
     select.value = "";
     setStatus("STANDBY", "");
     setPlayIcon(false);
   });
 
-  function applyVol(v) { audio.volume = v; volRead.textContent = String(Math.round(v*100)); }
-  volInput.addEventListener("input", e => applyVol(parseFloat(e.target.value)));
-  applyVol(parseFloat(volInput.value));
+  function applyVol(v) { audio.volume = v; volRd.textContent = String(Math.round(v*100)); }
+  volIn.addEventListener("input", e => applyVol(parseFloat(e.target.value)));
+  applyVol(parseFloat(volIn.value));
 
   audio.addEventListener("playing", () => { setPlayIcon(true);  setStatus("TRANSMITTING", "live"); });
   audio.addEventListener("pause",   () => { setPlayIcon(false); if (state.current) setStatus("PAUSED", ""); });
@@ -490,105 +493,6 @@
     clock.textContent = hh + ":" + mm + ":" + ss;
   }
   tick(); setInterval(tick, 1000);
-
-  let audioCtx = null, analyser = null, dataArray = null, rafId = null;
-
-  function resizeCanvas() {
-    const r = vizCanvas.getBoundingClientRect();
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    vizCanvas.width  = Math.max(1, Math.floor(r.width  * dpr));
-    vizCanvas.height = Math.max(1, Math.floor(r.height * dpr));
-    ctx.setTransform(dpr,0,0,dpr,0,0);
-  }
-  resizeCanvas();
-  if (typeof ResizeObserver !== "undefined") new ResizeObserver(resizeCanvas).observe(vizCanvas);
-  window.addEventListener("resize", resizeCanvas);
-
-  function drawIdle() {
-    const w = vizCanvas.clientWidth, h = vizCanvas.clientHeight;
-    ctx.clearRect(0,0,w,h);
-    ctx.strokeStyle = "rgba(255,176,0,0.25)";
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(0, h/2);
-    for (let x = 0; x < w; x += 6) {
-      ctx.lineTo(x, h/2 + Math.sin((x + Date.now()*0.002) * 0.05) * 1.5);
-    }
-    ctx.stroke();
-  }
-  let idleRaf = null;
-  function idleLoop() { drawIdle(); idleRaf = requestAnimationFrame(idleLoop); }
-  idleLoop();
-
-  function drawBars() {
-    rafId = requestAnimationFrame(drawBars);
-    if (!analyser || !dataArray) return;
-    analyser.getByteFrequencyData(dataArray);
-    const w = vizCanvas.clientWidth, h = vizCanvas.clientHeight;
-    ctx.clearRect(0,0,w,h);
-    const bars = dataArray.length;
-    const barW = w / bars;
-    for (let i = 0; i < bars; i++) {
-      const v = dataArray[i] / 255;
-      const barH = Math.max(1, v * h * 0.95);
-      const hue = 40 - v * 40;
-      const grad = ctx.createLinearGradient(0, h, 0, h - barH);
-      grad.addColorStop(0, "hsla(" + hue + ", 100%, 50%, 0.95)");
-      grad.addColorStop(1, "hsla(" + (hue+30) + ", 100%, 65%, 0.20)");
-      ctx.fillStyle = grad;
-      ctx.fillRect(i * barW + 0.5, h - barH, Math.max(1, barW - 1), barH);
-    }
-  }
-
-  function enableViz() {
-    if (audioCtx) return true;
-    try {
-      audio.crossOrigin = "anonymous";
-      if (state.current) {
-        const playing = !audio.paused;
-        audio.src = state.current.url; audio.load();
-        if (playing) audio.play().catch(()=>{});
-      }
-      const AC = window.AudioContext || window.webkitAudioContext;
-      audioCtx = new AC();
-      const src = audioCtx.createMediaElementSource(audio);
-      analyser = audioCtx.createAnalyser();
-      analyser.fftSize = 256;
-      src.connect(analyser); analyser.connect(audioCtx.destination);
-      dataArray = new Uint8Array(analyser.frequencyBinCount);
-      if (idleRaf) { cancelAnimationFrame(idleRaf); idleRaf = null; }
-      drawBars();
-      return true;
-    } catch (e) {
-      audioCtx = null; analyser = null; dataArray = null;
-      return false;
-    }
-  }
-  function disableViz() {
-    if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
-    if (audioCtx) { try { audioCtx.close(); } catch(_){} }
-    audioCtx = null; analyser = null; dataArray = null;
-    audio.removeAttribute("crossorigin");
-    if (state.current) {
-      const playing = !audio.paused;
-      audio.src = state.current.url; audio.load();
-      if (playing) audio.play().catch(()=>{});
-    }
-    if (!idleRaf) idleLoop();
-  }
-  vizBtn.addEventListener("click", () => {
-    if (state.vizEnabled) {
-      state.vizEnabled = false;
-      vizState.textContent = "OFF";
-      vizBtn.classList.remove("active");
-      disableViz();
-    } else {
-      const ok = enableViz();
-      state.vizEnabled = ok;
-      vizState.textContent = ok ? "ON" : "BLOCKED";
-      if (ok) vizBtn.classList.add("active");
-    }
-  });
 })();
 </script>
 </body>
