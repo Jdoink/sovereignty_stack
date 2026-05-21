@@ -70,25 +70,46 @@ curl http://localhost:8787/ticker
 ```
 
 
-## Grafana Text panel iframe setup (recommended)
+## Grafana Business Text panel setup (recommended)
 
-Use a Grafana **Text panel** in **HTML mode**, turn on the panel's "Transparent background" toggle, and paste:
+This is the canonical setup. It uses the **Business Text** panel (`marcusolsson-dynamictext-panel`) + the **Infinity** data source + the `/ticker` JSON endpoint + the `/ticker.css` stylesheet endpoint served by this service. The marquee renders directly in the Grafana panel DOM — no iframe, no sanitization issues, scales across the full panel width on any device.
+
+**Step 1 — Add the panel.** Add a new panel, set Visualization to **Business Text**.
+
+**Step 2 — Query.** Set the data source to **Infinity**:
+- Type: `JSON`
+- Source: `URL`
+- Format: `Table`
+- URL: `http://192.168.1.189:8787/ticker`
+- Columns: one column with Selector `text`, Title `text`, Type `string`
+
+**Step 3 — Load the marquee styles.** In the panel options, find **CSS Styles → New Resource → URL** and paste:
+
+```
+http://192.168.1.189:8787/ticker.css
+```
+
+Click **Add**. The Business Text plugin will load the marquee CSS from the service on each render.
+
+**Step 4 — Content template.** In the panel options' **Content** editor (set Content Language to **HTML**), paste:
 
 ```html
-<div style="position:relative;width:100%;height:100%;min-height:120px;">
-  <iframe
-    src="http://192.168.1.189:8787/ticker-html"
-    style="position:absolute;inset:0;width:100%;height:100%;border:0;margin:0;padding:0;display:block;background:transparent;"
-    frameborder="0"
-    scrolling="no"
-    allowtransparency="true">
-  </iframe>
+<div class="ssticker-wrap">
+  <div class="ssticker-track">
+    <span class="ssticker-copy">{{#each data}}{{text}} | {{/each}}</span><span class="ssticker-copy">{{#each data}}{{text}} | {{/each}}</span>
+  </div>
 </div>
 ```
 
-The wrapping `<div>` with `position:relative` plus the absolutely-positioned iframe is what makes the iframe stretch to fill the panel — without that wrapper, `height:100%` on a bare iframe collapses to the iframe's default intrinsic height and you'll see a small fixed-size box inside a much larger panel.
+**Step 5 — Render mode.** Set **Rendering** to **All rows** (not "Every row"). This makes the template render once with all data, so the marquee gets the full ticker line.
 
-The page itself uses `clamp(22px, 10vh, 96px)` font sizing, so the text scales with the panel's height as you resize it. Data refreshes every 30s in place (no page reload, no scroll snap-back). Scroll loop is seamless — the line is rendered twice and the animation translates by exactly 50%, so the next pass picks up where the previous one left off.
+**Step 6 — Refresh.** Set the dashboard refresh interval to **30s** (top-right of the dashboard). The data refreshes via Grafana's panel-refresh; the scroll animation never restarts because the CSS is loaded once and only the text content changes.
+
+The marquee scales to the panel via `font-size: clamp(20px, 10vh, 80px)` — resize the panel taller or wider and the text scales with it. The scroll loop is seamless: the line is rendered twice in a single track and animates `translate3d(0) → translate3d(-50%)`, so when copy A scrolls off the left, copy B is already where copy A started.
+
+### Optional — standalone iframe page
+
+For embedding outside Grafana (kiosk browser pointed straight at the URL, a TV display, etc.), the service also exposes a complete standalone marquee page at `http://192.168.1.189:8787/ticker-html`. Open it directly in a browser — same styling, with a built-in 30-second JS poll for fresh data. **Note:** this works as a standalone page but does **not** work reliably embedded in a Grafana Text panel iframe, because Grafana sanitizes inline iframe styles and the iframe collapses to its default intrinsic size. Use the Business Text setup above for Grafana.
 
 ## Grafana Infinity setup
 
