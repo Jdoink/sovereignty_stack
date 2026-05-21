@@ -50,13 +50,7 @@
     content: "";
     position: absolute; inset: 0;
     pointer-events: none;
-    background-image: repeating-linear-gradient(
-      to bottom,
-      rgba(255,255,255,0.022) 0px,
-      rgba(255,255,255,0.022) 1px,
-      transparent 1px,
-      transparent 3px
-    );
+    background-image: repeating-linear-gradient(to bottom, rgba(255,255,255,0.022) 0px, rgba(255,255,255,0.022) 1px, transparent 1px, transparent 3px);
     mix-blend-mode: overlay;
     opacity: 0.55;
     z-index: 1;
@@ -65,9 +59,7 @@
     content: "";
     position: absolute; inset: 0;
     pointer-events: none;
-    box-shadow:
-      inset 0 0 60px rgba(0,0,0,0.7),
-      inset 0 0 6px rgba(255,176,0,0.05);
+    box-shadow: inset 0 0 60px rgba(0,0,0,0.7), inset 0 0 6px rgba(255,176,0,0.05);
     z-index: 2;
   }
 
@@ -84,16 +76,8 @@
     min-height: 22px;
   }
   .cc-brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
-  .cc-brand-bar {
-    width: 4px; height: 12px;
-    background: var(--cc-amber);
-    box-shadow: 0 0 10px rgba(255,176,0,0.7);
-    flex: 0 0 auto;
-  }
-  .cc-brand-title {
-    color: var(--cc-amber); font-weight: 700;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  }
+  .cc-brand-bar { width: 4px; height: 12px; background: var(--cc-amber); box-shadow: 0 0 10px rgba(255,176,0,0.7); flex: 0 0 auto; }
+  .cc-brand-title { color: var(--cc-amber); font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .cc-brand-id { color: var(--cc-text-dim); flex: 0 0 auto; }
 
   .cc-meta { display: flex; align-items: center; gap: 14px; color: var(--cc-text-dim); flex: 0 0 auto; }
@@ -101,24 +85,18 @@
   .cc-status { display: inline-flex; align-items: center; gap: 6px; }
   .cc-led {
     width: 8px; height: 8px; border-radius: 50%;
-    background: var(--cc-amber-dim);
-    box-shadow: 0 0 8px currentColor;
-    color: var(--cc-amber-dim);
+    background: var(--cc-amber-dim); box-shadow: 0 0 8px currentColor; color: var(--cc-amber-dim);
     flex: 0 0 auto;
   }
-  .cc-led.live  { background: var(--cc-green); color: var(--cc-green);
-                  animation: cc-pulse 1.6s ease-in-out infinite; }
-  .cc-led.error { background: var(--cc-red);   color: var(--cc-red);
-                  animation: cc-blink 0.45s steps(2,end) infinite; }
+  .cc-led.live  { background: var(--cc-green); color: var(--cc-green); animation: cc-pulse 1.6s ease-in-out infinite; }
+  .cc-led.error { background: var(--cc-red);   color: var(--cc-red);   animation: cc-blink 0.45s steps(2,end) infinite; }
   @keyframes cc-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
   @keyframes cc-blink { 0% { opacity: 1; } 100% { opacity: 0.15; } }
 
   /* ============ Display ============ */
   .cc-screen {
     position: relative; z-index: 3;
-    background:
-      linear-gradient(180deg, rgba(255,176,0,0.05), transparent 60%),
-      var(--cc-bg-2);
+    background: linear-gradient(180deg, rgba(255,176,0,0.05), transparent 60%), var(--cc-bg-2);
     border: 1px solid var(--cc-line);
     padding: 12px 16px;
     display: grid;
@@ -140,7 +118,7 @@
   }
   .cc-channel {
     color: var(--cc-amber);
-    font-size: clamp(22px, 5.5vw, 44px);
+    font-size: clamp(20px, 5vw, 40px);
     font-weight: 700;
     letter-spacing: 0.06em;
     text-shadow: 0 0 10px rgba(255,176,0,0.45);
@@ -149,10 +127,8 @@
     text-overflow: ellipsis; overflow: hidden; white-space: nowrap;
   }
   .cc-meta-row {
-    display: flex; align-items: center;
-    gap: 14px;
-    font-size: 10px;
-    letter-spacing: 0.18em;
+    display: flex; align-items: center; gap: 14px;
+    font-size: 10px; letter-spacing: 0.18em;
     color: var(--cc-text-dim);
     text-transform: uppercase;
     margin-top: 4px;
@@ -180,54 +156,38 @@
     border: 1px solid var(--cc-line);
   }
 
-  /* ============ Custom dropdown (replaces <select> so options
-     never get clipped by the iframe boundary) ============ */
+  /* ============ Custom dropdown with tabs ============ */
   .cc-dd { position: relative; min-width: 0; }
   .cc-dd-trigger {
-    appearance: none;
-    width: 100%;
+    appearance: none; width: 100%;
     background: linear-gradient(180deg, #0e1a23, #0a131a);
     color: var(--cc-amber);
     border: 1px solid var(--cc-line-hi);
     padding: 9px 32px 9px 12px;
-    font-family: inherit;
-    font-size: 12px;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    cursor: pointer;
-    outline: none;
+    font-family: inherit; font-size: 12px;
+    letter-spacing: 0.08em; text-transform: uppercase;
+    cursor: pointer; outline: none;
     text-align: left;
     display: flex; align-items: center; gap: 10px;
-    min-width: 0;
-    position: relative;
+    min-width: 0; position: relative;
     transition: border-color 120ms ease, box-shadow 120ms ease;
   }
   .cc-dd-trigger:hover { border-color: var(--cc-amber-dim); }
   .cc-dd-trigger:focus { border-color: var(--cc-amber); box-shadow: 0 0 0 1px rgba(255,176,0,0.35), 0 0 10px rgba(255,176,0,0.15); }
-  .cc-dd-label {
-    color: var(--cc-text-dim);
-    font-size: 9px; letter-spacing: 0.25em;
-    flex: 0 0 auto;
-  }
-  .cc-dd-value {
-    flex: 1; min-width: 0;
-    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  }
+  .cc-dd-label { color: var(--cc-text-dim); font-size: 9px; letter-spacing: 0.25em; flex: 0 0 auto; }
+  .cc-dd-value { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .cc-dd-chev {
     position: absolute; right: 10px; top: 50%;
     transform: translateY(-50%);
     color: var(--cc-amber);
-    font-size: 9px;
-    opacity: 0.7;
+    font-size: 9px; opacity: 0.7;
     pointer-events: none;
     transition: transform 150ms ease;
   }
   .cc-dd.open .cc-dd-chev { transform: translateY(-50%) rotate(180deg); }
 
-  /* Menu overlay: fills the entire iframe so it can never be clipped */
   .cc-dd-menu {
-    position: fixed;
-    inset: 0;
+    position: fixed; inset: 0;
     z-index: 100;
     background: rgba(5, 7, 10, 0.97);
     backdrop-filter: blur(4px);
@@ -242,29 +202,46 @@
     to   { opacity: 1; transform: translateY(0); }
   }
   .cc-dd-menu-head {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 10px 14px;
+    display: flex; align-items: center; gap: 4px;
+    padding: 6px 10px;
     border-bottom: 1px solid var(--cc-line);
     background: linear-gradient(180deg, rgba(255,176,0,0.06), transparent);
-    color: var(--cc-amber);
-    font-size: 10px; letter-spacing: 0.25em;
-    text-transform: uppercase;
     flex: 0 0 auto;
+  }
+  .cc-dd-tabs { display: flex; gap: 2px; flex: 1; min-width: 0; }
+  .cc-dd-tab {
+    appearance: none;
+    background: transparent;
+    color: var(--cc-text-dim);
+    border: 1px solid transparent;
+    border-bottom: 0;
+    padding: 8px 14px;
+    font-family: inherit;
+    font-size: 10px; letter-spacing: 0.22em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: color 120ms ease, background 120ms ease, border-color 120ms ease;
+  }
+  .cc-dd-tab:hover { color: var(--cc-text); }
+  .cc-dd-tab.active {
+    color: var(--cc-amber);
+    background: linear-gradient(180deg, rgba(255,176,0,0.10), transparent);
+    border-color: var(--cc-amber-dim);
+    border-bottom-color: transparent;
   }
   .cc-dd-close {
     background: none; border: 0;
     color: var(--cc-text-dim);
-    font-size: 18px; line-height: 1;
+    font-size: 20px; line-height: 1;
     cursor: pointer;
-    padding: 4px 8px;
+    padding: 4px 10px;
     transition: color 120ms ease;
+    flex: 0 0 auto;
   }
   .cc-dd-close:hover { color: var(--cc-amber); }
-  .cc-dd-list {
-    list-style: none;
-    overflow-y: auto;
-    flex: 1;
-  }
+
+  .cc-dd-list { list-style: none; overflow-y: auto; flex: 1; }
+  .cc-dd-list[hidden] { display: none; }
   .cc-dd-item {
     display: grid;
     grid-template-columns: auto 1fr;
@@ -290,6 +267,7 @@
     color: var(--cc-text);
     font-size: 13px; font-weight: 700;
     letter-spacing: 0.06em;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
   .cc-dd-item.selected .cc-dd-name { color: var(--cc-amber); text-shadow: 0 0 6px rgba(255,176,0,0.35); }
   .cc-dd-sub {
@@ -297,6 +275,7 @@
     font-size: 10px; letter-spacing: 0.18em;
     text-transform: uppercase;
     margin-top: 2px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
 
   /* ============ Buttons & volume ============ */
@@ -306,8 +285,7 @@
     color: var(--cc-text);
     border: 1px solid var(--cc-line-hi);
     padding: 0;
-    font-family: inherit;
-    font-size: 12px;
+    font-family: inherit; font-size: 12px;
     letter-spacing: 0.15em;
     cursor: pointer;
     display: inline-flex; align-items: center; justify-content: center;
@@ -347,11 +325,7 @@
     height: 36px;
     min-width: 0;
   }
-  .cc-vol-label {
-    color: var(--cc-text-dim);
-    font-size: 9px; letter-spacing: 0.25em;
-    text-transform: uppercase;
-  }
+  .cc-vol-label { color: var(--cc-text-dim); font-size: 9px; letter-spacing: 0.25em; text-transform: uppercase; }
   .cc-vol input[type="range"] {
     -webkit-appearance: none; appearance: none;
     width: 80px; height: 3px;
@@ -373,11 +347,7 @@
     box-shadow: 0 0 5px rgba(255,176,0,0.7);
     cursor: pointer;
   }
-  .cc-vol-readout {
-    font-size: 10px; letter-spacing: 0.1em;
-    color: var(--cc-text-dim);
-    min-width: 22px; text-align: right;
-  }
+  .cc-vol-readout { font-size: 10px; letter-spacing: 0.1em; color: var(--cc-text-dim); min-width: 22px; text-align: right; }
 
   /* ============ Responsive ============ */
   @media (max-width: 620px) {
@@ -388,15 +358,15 @@
         "vol      vol  vol";
       gap: 8px;
     }
-    .cc-dd          { grid-area: select; }
-    .cc-play        { grid-area: play; }
-    .cc-stop        { grid-area: stop; }
-    .cc-vol         { grid-area: vol; justify-self: stretch; }
+    .cc-dd   { grid-area: select; }
+    .cc-play { grid-area: play; }
+    .cc-stop { grid-area: stop; }
+    .cc-vol  { grid-area: vol; justify-self: stretch; }
     .cc-vol input[type="range"] { width: 100%; flex: 1; }
   }
   @media (max-width: 440px) {
     .cc-brand-id, .cc-meta .cc-sig, .cc-meta .cc-time-wrap { display: none; }
-    .cc-channel { font-size: clamp(18px, 6vw, 28px); }
+    .cc-channel { font-size: clamp(16px, 5.5vw, 26px); }
   }
   @media (max-height: 200px) {
     .cc-meta-row .cc-carrier { display: none; }
@@ -414,7 +384,7 @@
       <span class="cc-brand-id">CCR-01</span>
     </div>
     <div class="cc-meta">
-      <span class="cc-sig">SIG <b id="cc-bitrate">--</b></span>
+      <span class="cc-sig">SRC <b id="cc-source">RADIO</b></span>
       <span class="cc-time-wrap">TIME <b id="cc-clock">--:--:--</b></span>
       <span class="cc-status">
         <span id="cc-led" class="cc-led"></span>
@@ -424,7 +394,7 @@
   </header>
 
   <section class="cc-screen">
-    <span class="cc-screen-label">CHANNEL</span>
+    <span id="cc-screen-label" class="cc-screen-label">CHANNEL</span>
     <div>
       <div id="cc-channel" class="cc-channel">--- NO SIGNAL ---</div>
       <div class="cc-meta-row">
@@ -437,16 +407,20 @@
   <footer class="cc-controls">
     <div class="cc-dd" id="cc-dd">
       <button type="button" class="cc-dd-trigger" id="cc-dd-trigger" aria-haspopup="listbox" aria-expanded="false">
-        <span class="cc-dd-label">STATION</span>
+        <span class="cc-dd-label">SOURCE</span>
         <span class="cc-dd-value" id="cc-dd-value">SELECT TRANSMISSION</span>
         <span class="cc-dd-chev">&#9662;</span>
       </button>
-      <div class="cc-dd-menu" id="cc-dd-menu" hidden role="listbox" aria-labelledby="cc-dd-trigger">
+      <div class="cc-dd-menu" id="cc-dd-menu" hidden>
         <div class="cc-dd-menu-head">
-          <span>SELECT TRANSMISSION</span>
+          <div class="cc-dd-tabs">
+            <button type="button" class="cc-dd-tab active" data-tab="stations">STATIONS</button>
+            <button type="button" class="cc-dd-tab" data-tab="library">LIBRARY</button>
+          </div>
           <button type="button" id="cc-dd-close" class="cc-dd-close" aria-label="Close">&times;</button>
         </div>
-        <ul class="cc-dd-list" id="cc-dd-list"></ul>
+        <ul class="cc-dd-list" id="cc-dd-list-stations"></ul>
+        <ul class="cc-dd-list" id="cc-dd-list-library" hidden></ul>
       </div>
     </div>
 
@@ -468,17 +442,35 @@
 
 <script>
 (function(){
+  // === Live radio stations (SomaFM) ============================================
   const STATIONS = [
-    { name: "GROOVE SALAD",       sub: "DOWNTEMPO / AMBIENT",       url: "https://ice2.somafm.com/groovesalad-128-mp3",   br: "128K" },
-    { name: "DRONE ZONE",         sub: "ATMOSPHERIC / SPACE",       url: "https://ice2.somafm.com/dronezone-128-mp3",     br: "128K" },
-    { name: "HEAVYWEIGHT REGGAE", sub: "ROOTS / DUB",               url: "https://ice2.somafm.com/reggae-128-mp3",        br: "128K" },
-    { name: "DEEP SPACE ONE",     sub: "DEEP AMBIENT / ELECTRONIC", url: "https://ice2.somafm.com/deepspaceone-128-mp3",  br: "128K" },
-    { name: "SECRET AGENT",       sub: "SPY JAZZ / LOUNGE",         url: "https://ice2.somafm.com/secretagent-128-mp3",   br: "128K" },
-    { name: "DEF CON RADIO",      sub: "HACKER ELECTRONICA",        url: "https://ice2.somafm.com/defcon-128-mp3",        br: "128K" },
-    { name: "MISSION CONTROL",    sub: "AMBIENT + NASA COMMS",      url: "https://ice2.somafm.com/missioncontrol-128-mp3", br: "128K" },
-    { name: "SPACE STATION",      sub: "AMBIENT ELECTRONICA",       url: "https://ice2.somafm.com/spacestation-128-mp3",  br: "128K" },
-    { name: "BAGEL RADIO",        sub: "ECLECTIC ALT ROCK",         url: "https://ice2.somafm.com/bagel-128-mp3",         br: "128K" },
-    { name: "INDIE POP ROCKS",    sub: "INDIE POP",                 url: "https://ice2.somafm.com/indiepop-128-mp3",      br: "128K" },
+    { name: "GROOVE SALAD",       sub: "DOWNTEMPO / AMBIENT",       url: "https://ice2.somafm.com/groovesalad-128-mp3" },
+    { name: "DRONE ZONE",         sub: "ATMOSPHERIC / SPACE",       url: "https://ice2.somafm.com/dronezone-128-mp3" },
+    { name: "HEAVYWEIGHT REGGAE", sub: "ROOTS / DUB",               url: "https://ice2.somafm.com/reggae-128-mp3" },
+    { name: "DEEP SPACE ONE",     sub: "DEEP AMBIENT / ELECTRONIC", url: "https://ice2.somafm.com/deepspaceone-128-mp3" },
+    { name: "SECRET AGENT",       sub: "SPY JAZZ / LOUNGE",         url: "https://ice2.somafm.com/secretagent-128-mp3" },
+    { name: "DEF CON RADIO",      sub: "HACKER ELECTRONICA",        url: "https://ice2.somafm.com/defcon-128-mp3" },
+    { name: "MISSION CONTROL",    sub: "AMBIENT + NASA COMMS",      url: "https://ice2.somafm.com/missioncontrol-128-mp3" },
+    { name: "SPACE STATION",      sub: "AMBIENT ELECTRONICA",       url: "https://ice2.somafm.com/spacestation-128-mp3" },
+    { name: "BAGEL RADIO",        sub: "ECLECTIC ALT ROCK",         url: "https://ice2.somafm.com/bagel-128-mp3" },
+    { name: "INDIE POP ROCKS",    sub: "INDIE POP",                 url: "https://ice2.somafm.com/indiepop-128-mp3" },
+  ];
+
+  // === Library (Internet Archive) ==============================================
+  // Curated jazz / vintage / classical from archive.org.
+  // To add more: copy the .mp3 link from any archive.org item's Download page
+  // and add an entry below.
+  const LIBRARY = [
+    { name: "TAKE THE A TRAIN",   sub: "DUKE ELLINGTON · 1941",     url: "https://archive.org/download/78_take-the-a-train_duke-ellington-and-his-famous-orchestra-billy-strayhorn_gbia0011068b/Take%20The%20%27A%27%20Train%20-%20Duke%20Ellington%20and%20his%20Famous%20Orchestra-restored.mp3" },
+    { name: "WEST END BLUES",     sub: "LOUIS ARMSTRONG · 1928",    url: "https://archive.org/download/78_west-end-blues_louis-armstrong-and-his-hot-five-king-oliver_gbia0011175a/West%20End%20Blues%20-%20Louis%20Armstrong%20and%20his%20Hot%20Five-restored.mp3" },
+    { name: "IN THE MOOD",        sub: "GLENN MILLER · 1939",       url: "https://archive.org/download/78_in-the-mood_glenn-miller-and-his-orchestra-joe-garland_gbia0011175b/In%20The%20Mood%20-%20Glenn%20Miller%20and%20his%20Orchestra-restored.mp3" },
+    { name: "STRANGE FRUIT",      sub: "BILLIE HOLIDAY · 1939",     url: "https://archive.org/download/78_strange-fruit_billie-holiday-with-frankie-newtons-cafe-society-band-lewis-allan_gbia0010894b/Strange%20Fruit%20-%20Billie%20Holiday%20with%20Frankie%20Newton%27s%20Cafe%20Society%20Band-restored.mp3" },
+    { name: "SING SING SING",     sub: "BENNY GOODMAN · 1937",      url: "https://archive.org/download/78_sing-sing-sing-part-1_benny-goodman-and-his-orchestra-louis-prima_gbia0011036b/Sing%2C%20Sing%2C%20Sing%20%28Part%201%29%20-%20Benny%20Goodman%20and%20his%20Orchestra-restored.mp3" },
+    { name: "ST. LOUIS BLUES",    sub: "BESSIE SMITH · 1925",       url: "https://archive.org/download/78_st-louis-blues_bessie-smith-louis-armstrong-fred-longshaw-w.-c.-handy_gbia0010897a/St.%20Louis%20Blues%20-%20Bessie%20Smith-restored.mp3" },
+    { name: "BRANDENBURG NO. 3",  sub: "J.S. BACH · BWV 1048",      url: "https://archive.org/download/MIT_Concert_Choir_-_J.S._Bach_-_Mass_in_B_Minor/Brandenburg_Concerto_No._3_in_G_major%2C_BWV_1048_-_I._Allegro.mp3" },
+    { name: "MOONLIGHT SONATA",   sub: "BEETHOVEN · OP. 27 NO. 2",  url: "https://archive.org/download/MoonlightSonata_755/Beethoven-MoonlightSonata.mp3" },
+    { name: "EINE KLEINE NACHTMUSIK", sub: "MOZART · K. 525",       url: "https://archive.org/download/EineKleineNachtmusik_551/Mozart-EineKleineNachtmusik.mp3" },
+    { name: "CLAIR DE LUNE",      sub: "DEBUSSY · SUITE BERGAMASQUE", url: "https://archive.org/download/ClairDeLune_201/Debussy-ClairDeLune.mp3" },
   ];
 
   const $ = id => document.getElementById(id);
@@ -493,32 +485,51 @@
   const stopBtn  = $("cc-stop");
   const volIn    = $("cc-volume");
   const volRd    = $("cc-vol-read");
-  const bitrate  = $("cc-bitrate");
+  const sourceL  = $("cc-source");
   const clock    = $("cc-clock");
   const dd       = $("cc-dd");
   const ddTrig   = $("cc-dd-trigger");
   const ddMenu   = $("cc-dd-menu");
-  const ddList   = $("cc-dd-list");
+  const ddListS  = $("cc-dd-list-stations");
+  const ddListL  = $("cc-dd-list-library");
   const ddVal    = $("cc-dd-value");
   const ddClose  = $("cc-dd-close");
+  const screenLb = $("cc-screen-label");
+  const tabs     = document.querySelectorAll(".cc-dd-tab");
 
-  // Populate custom dropdown items
-  STATIONS.forEach((s, i) => {
-    const li = document.createElement("li");
-    li.className = "cc-dd-item";
-    li.setAttribute("role", "option");
-    li.dataset.idx = String(i);
-    li.innerHTML =
-      '<span class="cc-dd-num">CH ' + String(i+1).padStart(2,"0") + '</span>' +
-      '<span><span class="cc-dd-name">' + s.name + '</span>' +
-      '<div class="cc-dd-sub">' + s.sub + ' &middot; ' + s.br + '</div></span>';
-    li.addEventListener("click", () => { selectStation(i); closeDropdown(); });
-    ddList.appendChild(li);
-  });
+  // Populate both lists
+  function populate(listEl, items, kind) {
+    items.forEach((s, i) => {
+      const li = document.createElement("li");
+      li.className = "cc-dd-item";
+      li.dataset.idx = String(i);
+      li.dataset.kind = kind;
+      const num = kind === "library" ? "TR " + String(i+1).padStart(2,"0")
+                                     : "CH " + String(i+1).padStart(2,"0");
+      li.innerHTML =
+        '<span class="cc-dd-num">' + num + '</span>' +
+        '<span><span class="cc-dd-name">' + s.name + '</span>' +
+        '<div class="cc-dd-sub">' + s.sub + '</div></span>';
+      li.addEventListener("click", () => { selectItem(kind, i); closeDropdown(); });
+      listEl.appendChild(li);
+    });
+  }
+  populate(ddListS, STATIONS, "stations");
+  populate(ddListL, LIBRARY,  "library");
 
-  const state = { current: null, currentIdx: -1 };
+  const state = { kind: null, idx: -1, current: null };
+
+  // Tab switching
+  function setActiveTab(name) {
+    tabs.forEach(t => t.classList.toggle("active", t.dataset.tab === name));
+    ddListS.hidden = name !== "stations";
+    ddListL.hidden = name !== "library";
+  }
+  tabs.forEach(t => t.addEventListener("click", () => setActiveTab(t.dataset.tab)));
 
   function openDropdown() {
+    // Open on the tab matching whatever's currently playing, falling back to stations.
+    setActiveTab(state.kind === "library" ? "library" : "stations");
     ddMenu.hidden = false;
     dd.classList.add("open");
     ddTrig.setAttribute("aria-expanded", "true");
@@ -540,16 +551,25 @@
     playIcn.innerHTML = playing ? "&#10074;&#10074;" : "&#9658;";
   }
 
-  function selectStation(idx) {
-    const s = STATIONS[idx];
+  function selectItem(kind, idx) {
+    const items = kind === "library" ? LIBRARY : STATIONS;
+    const s = items[idx];
     if (!s) return;
-    state.current = s; state.currentIdx = idx;
+    state.kind = kind; state.idx = idx; state.current = s;
     channel.textContent = s.name;
     sub.textContent     = s.sub;
-    carrier.textContent = "· " + s.url.replace(/^https?:\/\//, "");
-    bitrate.textContent = s.br || "--";
-    ddVal.textContent   = s.name;
-    Array.from(ddList.children).forEach((li, i) => li.classList.toggle("selected", i === idx));
+    carrier.textContent = "· " + s.url.replace(/^https?:\/\//, "").split("?")[0];
+    sourceL.textContent = kind === "library" ? "ARCHIVE" : "RADIO";
+    screenLb.textContent = kind === "library" ? "NOW PLAYING" : "CHANNEL";
+    ddVal.textContent = s.name;
+
+    // Reflect selection visually
+    [ddListS, ddListL].forEach(list => {
+      Array.from(list.children).forEach((li, i) => {
+        li.classList.toggle("selected", list === (kind === "library" ? ddListL : ddListS) && i === idx);
+      });
+    });
+
     audio.src = s.url;
     audio.load();
     setStatus("ACQUIRING...", "");
@@ -558,7 +578,7 @@
 
   playBtn.addEventListener("click", () => {
     if (!state.current) {
-      selectStation(0);
+      selectItem("stations", 0);
       return;
     }
     if (audio.paused) audio.play().catch(() => setStatus("FAULT", "error"));
@@ -569,13 +589,14 @@
     audio.pause();
     audio.removeAttribute("src");
     audio.load();
-    state.current = null; state.currentIdx = -1;
+    state.kind = null; state.idx = -1; state.current = null;
     channel.textContent = "--- NO SIGNAL ---";
     sub.textContent = "awaiting selection";
     carrier.textContent = "";
-    bitrate.textContent = "--";
+    sourceL.textContent = "RADIO";
+    screenLb.textContent = "CHANNEL";
     ddVal.textContent = "SELECT TRANSMISSION";
-    Array.from(ddList.children).forEach(li => li.classList.remove("selected"));
+    [ddListS, ddListL].forEach(list => Array.from(list.children).forEach(li => li.classList.remove("selected")));
     setStatus("STANDBY", "");
     setPlayIcon(false);
   });
@@ -589,6 +610,14 @@
   audio.addEventListener("waiting", () => setStatus("BUFFERING...", ""));
   audio.addEventListener("stalled", () => setStatus("STALLED", "error"));
   audio.addEventListener("error",   () => { setStatus("SIGNAL LOST", "error"); setPlayIcon(false); });
+
+  // When an Archive.org track ends, auto-advance to the next library item.
+  audio.addEventListener("ended", () => {
+    if (state.kind === "library") {
+      const next = (state.idx + 1) % LIBRARY.length;
+      selectItem("library", next);
+    }
+  });
 
   function tick() {
     const d = new Date();
