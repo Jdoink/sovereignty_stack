@@ -9,6 +9,7 @@ Endpoints:
 - `GET /ticker` → JSON list with `text` fields
 - `GET /ticker-line` → plain text single-line ticker
 - `GET /ticker-html` → standalone scrolling HTML ticker page (for iframe embed)
+- `GET /radio` → standalone Command Center Radio page (for iframe embed in Grafana)
 
 Data sources:
 - CoinGecko prices (BTC, ETH, LINK, AAVE, CRV)
