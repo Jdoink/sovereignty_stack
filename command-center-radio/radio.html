@@ -15,7 +15,6 @@
     --cc-line:      #1a2832;
     --cc-line-hi:   #2a3f4f;
     --cc-amber:     #ffb000;
-    --cc-amber-2:   #ffd166;
     --cc-amber-dim: #6b4500;
     --cc-cyan:      #5ad3ff;
     --cc-green:     #34ff7a;
@@ -36,7 +35,6 @@
     -webkit-tap-highlight-color: transparent;
   }
 
-  /* Outer shell - fills the iframe viewport regardless of size */
   .cc {
     position: fixed; inset: 0;
     display: grid;
@@ -73,7 +71,7 @@
     z-index: 2;
   }
 
-  /* ============ Header (row 1) ============ */
+  /* ============ Header ============ */
   .cc-head {
     position: relative; z-index: 3;
     display: flex; align-items: center; justify-content: space-between;
@@ -115,7 +113,7 @@
   @keyframes cc-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
   @keyframes cc-blink { 0% { opacity: 1; } 100% { opacity: 0.15; } }
 
-  /* ============ Display (row 2 - the big readout) ============ */
+  /* ============ Display ============ */
   .cc-screen {
     position: relative; z-index: 3;
     background:
@@ -170,7 +168,7 @@
     min-width: 0; flex: 1;
   }
 
-  /* ============ Controls (row 3) ============ */
+  /* ============ Controls ============ */
   .cc-controls {
     position: relative; z-index: 3;
     display: grid;
@@ -182,20 +180,12 @@
     border: 1px solid var(--cc-line);
   }
 
-  .cc-select-wrap {
-    position: relative;
-    display: flex; align-items: center; gap: 8px;
-    min-width: 0;
-  }
-  .cc-select-label {
-    color: var(--cc-text-dim);
-    font-size: 9px; letter-spacing: 0.25em;
-    text-transform: uppercase;
-    flex: 0 0 auto;
-  }
-  .cc-select {
-    appearance: none; -webkit-appearance: none;
-    flex: 1; min-width: 0;
+  /* ============ Custom dropdown (replaces <select> so options
+     never get clipped by the iframe boundary) ============ */
+  .cc-dd { position: relative; min-width: 0; }
+  .cc-dd-trigger {
+    appearance: none;
+    width: 100%;
     background: linear-gradient(180deg, #0e1a23, #0a131a);
     color: var(--cc-amber);
     border: 1px solid var(--cc-line-hi);
@@ -206,21 +196,110 @@
     text-transform: uppercase;
     cursor: pointer;
     outline: none;
-    text-overflow: ellipsis;
+    text-align: left;
+    display: flex; align-items: center; gap: 10px;
+    min-width: 0;
+    position: relative;
     transition: border-color 120ms ease, box-shadow 120ms ease;
   }
-  .cc-select:hover { border-color: var(--cc-amber-dim); }
-  .cc-select:focus { border-color: var(--cc-amber); box-shadow: 0 0 0 1px rgba(255,176,0,0.35), 0 0 10px rgba(255,176,0,0.15); }
-  .cc-select option { background: #0a131a; color: var(--cc-text); }
-  .cc-select-chev {
+  .cc-dd-trigger:hover { border-color: var(--cc-amber-dim); }
+  .cc-dd-trigger:focus { border-color: var(--cc-amber); box-shadow: 0 0 0 1px rgba(255,176,0,0.35), 0 0 10px rgba(255,176,0,0.15); }
+  .cc-dd-label {
+    color: var(--cc-text-dim);
+    font-size: 9px; letter-spacing: 0.25em;
+    flex: 0 0 auto;
+  }
+  .cc-dd-value {
+    flex: 1; min-width: 0;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .cc-dd-chev {
     position: absolute; right: 10px; top: 50%;
     transform: translateY(-50%);
-    pointer-events: none;
     color: var(--cc-amber);
     font-size: 9px;
     opacity: 0.7;
+    pointer-events: none;
+    transition: transform 150ms ease;
+  }
+  .cc-dd.open .cc-dd-chev { transform: translateY(-50%) rotate(180deg); }
+
+  /* Menu overlay: fills the entire iframe so it can never be clipped */
+  .cc-dd-menu {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    background: rgba(5, 7, 10, 0.97);
+    backdrop-filter: blur(4px);
+    border: 1px solid var(--cc-amber);
+    box-shadow: 0 0 40px rgba(0,0,0,0.6), inset 0 0 20px rgba(255,176,0,0.08);
+    display: flex; flex-direction: column;
+    animation: cc-dd-in 140ms ease-out;
+  }
+  .cc-dd-menu[hidden] { display: none; }
+  @keyframes cc-dd-in {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .cc-dd-menu-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--cc-line);
+    background: linear-gradient(180deg, rgba(255,176,0,0.06), transparent);
+    color: var(--cc-amber);
+    font-size: 10px; letter-spacing: 0.25em;
+    text-transform: uppercase;
+    flex: 0 0 auto;
+  }
+  .cc-dd-close {
+    background: none; border: 0;
+    color: var(--cc-text-dim);
+    font-size: 18px; line-height: 1;
+    cursor: pointer;
+    padding: 4px 8px;
+    transition: color 120ms ease;
+  }
+  .cc-dd-close:hover { color: var(--cc-amber); }
+  .cc-dd-list {
+    list-style: none;
+    overflow-y: auto;
+    flex: 1;
+  }
+  .cc-dd-item {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 12px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--cc-line);
+    cursor: pointer;
+    transition: background 120ms ease, border-color 120ms ease;
+  }
+  .cc-dd-item:hover { background: rgba(255,176,0,0.06); }
+  .cc-dd-item.selected {
+    background: linear-gradient(180deg, rgba(255,176,0,0.12), rgba(255,176,0,0.03));
+    border-left: 2px solid var(--cc-amber);
+    padding-left: 12px;
+  }
+  .cc-dd-num {
+    color: var(--cc-text-dim);
+    font-size: 10px; letter-spacing: 0.2em;
+    align-self: center;
+  }
+  .cc-dd-item.selected .cc-dd-num { color: var(--cc-amber); }
+  .cc-dd-name {
+    color: var(--cc-text);
+    font-size: 13px; font-weight: 700;
+    letter-spacing: 0.06em;
+  }
+  .cc-dd-item.selected .cc-dd-name { color: var(--cc-amber); text-shadow: 0 0 6px rgba(255,176,0,0.35); }
+  .cc-dd-sub {
+    color: var(--cc-text-dim);
+    font-size: 10px; letter-spacing: 0.18em;
+    text-transform: uppercase;
+    margin-top: 2px;
   }
 
+  /* ============ Buttons & volume ============ */
   .cc-btn {
     appearance: none;
     background: linear-gradient(180deg, #131e27, #0c141a);
@@ -301,7 +380,6 @@
   }
 
   /* ============ Responsive ============ */
-  /* Narrow panels: stack controls into 2 rows */
   @media (max-width: 620px) {
     .cc-controls {
       grid-template-columns: 1fr auto auto;
@@ -310,20 +388,16 @@
         "vol      vol  vol";
       gap: 8px;
     }
-    .cc-select-wrap { grid-area: select; }
+    .cc-dd          { grid-area: select; }
     .cc-play        { grid-area: play; }
     .cc-stop        { grid-area: stop; }
     .cc-vol         { grid-area: vol; justify-self: stretch; }
     .cc-vol input[type="range"] { width: 100%; flex: 1; }
   }
-
-  /* Very narrow: hide brand-id and the time/sig meta */
   @media (max-width: 440px) {
     .cc-brand-id, .cc-meta .cc-sig, .cc-meta .cc-time-wrap { display: none; }
     .cc-channel { font-size: clamp(18px, 6vw, 28px); }
   }
-
-  /* Ultra short panels (< 200px tall): hide carrier line entirely */
   @media (max-height: 200px) {
     .cc-meta-row .cc-carrier { display: none; }
   }
@@ -361,12 +435,19 @@
   </section>
 
   <footer class="cc-controls">
-    <div class="cc-select-wrap">
-      <span class="cc-select-label">STATION</span>
-      <select id="cc-station" class="cc-select" aria-label="Station">
-        <option value="">-- SELECT TRANSMISSION --</option>
-      </select>
-      <span class="cc-select-chev">&#9662;</span>
+    <div class="cc-dd" id="cc-dd">
+      <button type="button" class="cc-dd-trigger" id="cc-dd-trigger" aria-haspopup="listbox" aria-expanded="false">
+        <span class="cc-dd-label">STATION</span>
+        <span class="cc-dd-value" id="cc-dd-value">SELECT TRANSMISSION</span>
+        <span class="cc-dd-chev">&#9662;</span>
+      </button>
+      <div class="cc-dd-menu" id="cc-dd-menu" hidden role="listbox" aria-labelledby="cc-dd-trigger">
+        <div class="cc-dd-menu-head">
+          <span>SELECT TRANSMISSION</span>
+          <button type="button" id="cc-dd-close" class="cc-dd-close" aria-label="Close">&times;</button>
+        </div>
+        <ul class="cc-dd-list" id="cc-dd-list"></ul>
+      </div>
     </div>
 
     <button type="button" id="cc-play" class="cc-btn cc-play" aria-label="Play / pause">
@@ -401,29 +482,55 @@
   ];
 
   const $ = id => document.getElementById(id);
-  const audio   = $("cc-audio");
-  const select  = $("cc-station");
-  const channel = $("cc-channel");
-  const sub     = $("cc-sub");
-  const carrier = $("cc-carrier");
-  const led     = $("cc-led");
-  const statusT = $("cc-status-text");
-  const playBtn = $("cc-play");
-  const playIcn = $("cc-play-icon");
-  const stopBtn = $("cc-stop");
-  const volIn   = $("cc-volume");
-  const volRd   = $("cc-vol-read");
-  const bitrate = $("cc-bitrate");
-  const clock   = $("cc-clock");
+  const audio    = $("cc-audio");
+  const channel  = $("cc-channel");
+  const sub      = $("cc-sub");
+  const carrier  = $("cc-carrier");
+  const led      = $("cc-led");
+  const statusT  = $("cc-status-text");
+  const playBtn  = $("cc-play");
+  const playIcn  = $("cc-play-icon");
+  const stopBtn  = $("cc-stop");
+  const volIn    = $("cc-volume");
+  const volRd    = $("cc-vol-read");
+  const bitrate  = $("cc-bitrate");
+  const clock    = $("cc-clock");
+  const dd       = $("cc-dd");
+  const ddTrig   = $("cc-dd-trigger");
+  const ddMenu   = $("cc-dd-menu");
+  const ddList   = $("cc-dd-list");
+  const ddVal    = $("cc-dd-value");
+  const ddClose  = $("cc-dd-close");
 
+  // Populate custom dropdown items
   STATIONS.forEach((s, i) => {
-    const o = document.createElement("option");
-    o.value = String(i);
-    o.textContent = String(i+1).padStart(2,"0") + "  " + s.name + "  -  " + s.sub;
-    select.appendChild(o);
+    const li = document.createElement("li");
+    li.className = "cc-dd-item";
+    li.setAttribute("role", "option");
+    li.dataset.idx = String(i);
+    li.innerHTML =
+      '<span class="cc-dd-num">CH ' + String(i+1).padStart(2,"0") + '</span>' +
+      '<span><span class="cc-dd-name">' + s.name + '</span>' +
+      '<div class="cc-dd-sub">' + s.sub + ' &middot; ' + s.br + '</div></span>';
+    li.addEventListener("click", () => { selectStation(i); closeDropdown(); });
+    ddList.appendChild(li);
   });
 
-  const state = { current: null };
+  const state = { current: null, currentIdx: -1 };
+
+  function openDropdown() {
+    ddMenu.hidden = false;
+    dd.classList.add("open");
+    ddTrig.setAttribute("aria-expanded", "true");
+  }
+  function closeDropdown() {
+    ddMenu.hidden = true;
+    dd.classList.remove("open");
+    ddTrig.setAttribute("aria-expanded", "false");
+  }
+  ddTrig.addEventListener("click", () => { ddMenu.hidden ? openDropdown() : closeDropdown(); });
+  ddClose.addEventListener("click", closeDropdown);
+  document.addEventListener("keydown", e => { if (e.key === "Escape" && !ddMenu.hidden) closeDropdown(); });
 
   function setStatus(text, mode) {
     statusT.textContent = text;
@@ -436,25 +543,22 @@
   function selectStation(idx) {
     const s = STATIONS[idx];
     if (!s) return;
-    state.current = s;
+    state.current = s; state.currentIdx = idx;
     channel.textContent = s.name;
     sub.textContent     = s.sub;
     carrier.textContent = "· " + s.url.replace(/^https?:\/\//, "");
     bitrate.textContent = s.br || "--";
+    ddVal.textContent   = s.name;
+    Array.from(ddList.children).forEach((li, i) => li.classList.toggle("selected", i === idx));
     audio.src = s.url;
     audio.load();
     setStatus("ACQUIRING...", "");
-    audio.play().catch(err => setStatus("FAULT", "error"));
+    audio.play().catch(() => setStatus("FAULT", "error"));
   }
-
-  select.addEventListener("change", () => {
-    const idx = parseInt(select.value, 10);
-    if (!isNaN(idx)) selectStation(idx);
-  });
 
   playBtn.addEventListener("click", () => {
     if (!state.current) {
-      if (STATIONS.length) { select.value = "0"; selectStation(0); }
+      selectStation(0);
       return;
     }
     if (audio.paused) audio.play().catch(() => setStatus("FAULT", "error"));
@@ -465,12 +569,13 @@
     audio.pause();
     audio.removeAttribute("src");
     audio.load();
-    state.current = null;
+    state.current = null; state.currentIdx = -1;
     channel.textContent = "--- NO SIGNAL ---";
     sub.textContent = "awaiting selection";
     carrier.textContent = "";
     bitrate.textContent = "--";
-    select.value = "";
+    ddVal.textContent = "SELECT TRANSMISSION";
+    Array.from(ddList.children).forEach(li => li.classList.remove("selected"));
     setStatus("STANDBY", "");
     setPlayIcon(false);
   });
