@@ -457,21 +457,30 @@
   ];
 
   // === Library (Internet Archive) ==============================================
-  // Curated jazz / vintage / classical from archive.org.
-  // To add more: copy the .mp3 link from any archive.org item's Download page
-  // and add an entry below.
+  // Each item has a search query. At click time we hit archive.org's API to
+  // resolve the actual identifier and pick the best MP3 file. This avoids
+  // hardcoding fragile filenames - we only need to know "what to search for",
+  // which is much more stable than guessing file paths inside each upload.
   const LIBRARY = [
-    { name: "TAKE THE A TRAIN",   sub: "DUKE ELLINGTON · 1941",     url: "https://archive.org/download/78_take-the-a-train_duke-ellington-and-his-famous-orchestra-billy-strayhorn_gbia0011068b/Take%20The%20%27A%27%20Train%20-%20Duke%20Ellington%20and%20his%20Famous%20Orchestra-restored.mp3" },
-    { name: "WEST END BLUES",     sub: "LOUIS ARMSTRONG · 1928",    url: "https://archive.org/download/78_west-end-blues_louis-armstrong-and-his-hot-five-king-oliver_gbia0011175a/West%20End%20Blues%20-%20Louis%20Armstrong%20and%20his%20Hot%20Five-restored.mp3" },
-    { name: "IN THE MOOD",        sub: "GLENN MILLER · 1939",       url: "https://archive.org/download/78_in-the-mood_glenn-miller-and-his-orchestra-joe-garland_gbia0011175b/In%20The%20Mood%20-%20Glenn%20Miller%20and%20his%20Orchestra-restored.mp3" },
-    { name: "STRANGE FRUIT",      sub: "BILLIE HOLIDAY · 1939",     url: "https://archive.org/download/78_strange-fruit_billie-holiday-with-frankie-newtons-cafe-society-band-lewis-allan_gbia0010894b/Strange%20Fruit%20-%20Billie%20Holiday%20with%20Frankie%20Newton%27s%20Cafe%20Society%20Band-restored.mp3" },
-    { name: "SING SING SING",     sub: "BENNY GOODMAN · 1937",      url: "https://archive.org/download/78_sing-sing-sing-part-1_benny-goodman-and-his-orchestra-louis-prima_gbia0011036b/Sing%2C%20Sing%2C%20Sing%20%28Part%201%29%20-%20Benny%20Goodman%20and%20his%20Orchestra-restored.mp3" },
-    { name: "ST. LOUIS BLUES",    sub: "BESSIE SMITH · 1925",       url: "https://archive.org/download/78_st-louis-blues_bessie-smith-louis-armstrong-fred-longshaw-w.-c.-handy_gbia0010897a/St.%20Louis%20Blues%20-%20Bessie%20Smith-restored.mp3" },
-    { name: "BRANDENBURG NO. 3",  sub: "J.S. BACH · BWV 1048",      url: "https://archive.org/download/MIT_Concert_Choir_-_J.S._Bach_-_Mass_in_B_Minor/Brandenburg_Concerto_No._3_in_G_major%2C_BWV_1048_-_I._Allegro.mp3" },
-    { name: "MOONLIGHT SONATA",   sub: "BEETHOVEN · OP. 27 NO. 2",  url: "https://archive.org/download/MoonlightSonata_755/Beethoven-MoonlightSonata.mp3" },
-    { name: "EINE KLEINE NACHTMUSIK", sub: "MOZART · K. 525",       url: "https://archive.org/download/EineKleineNachtmusik_551/Mozart-EineKleineNachtmusik.mp3" },
-    { name: "CLAIR DE LUNE",      sub: "DEBUSSY · SUITE BERGAMASQUE", url: "https://archive.org/download/ClairDeLune_201/Debussy-ClairDeLune.mp3" },
+    { name: "TAKE THE A TRAIN",       sub: "DUKE ELLINGTON · 1941",       q: 'title:("Take the A Train") creator:("Duke Ellington") mediatype:(audio)' },
+    { name: "WEST END BLUES",         sub: "LOUIS ARMSTRONG · 1928",      q: 'title:("West End Blues") creator:("Louis Armstrong") mediatype:(audio)' },
+    { name: "IN THE MOOD",            sub: "GLENN MILLER · 1939",         q: 'title:("In the Mood") creator:("Glenn Miller") mediatype:(audio)' },
+    { name: "STRANGE FRUIT",          sub: "BILLIE HOLIDAY · 1939",       q: 'title:("Strange Fruit") creator:("Billie Holiday") mediatype:(audio)' },
+    { name: "SING SING SING",         sub: "BENNY GOODMAN · 1937",        q: 'title:("Sing Sing Sing") creator:("Benny Goodman") mediatype:(audio)' },
+    { name: "ST. LOUIS BLUES",        sub: "BESSIE SMITH · 1925",         q: 'title:("St. Louis Blues") creator:("Bessie Smith") mediatype:(audio)' },
+    { name: "SUMMERTIME",             sub: "BILLIE HOLIDAY · 1936",       q: 'title:(Summertime) creator:("Billie Holiday") mediatype:(audio)' },
+    { name: "MOONLIGHT SERENADE",     sub: "GLENN MILLER · 1939",         q: 'title:("Moonlight Serenade") creator:("Glenn Miller") mediatype:(audio)' },
+    { name: "BRANDENBURG NO. 3",      sub: "J.S. BACH · BWV 1048",        q: 'title:(Brandenburg) creator:(Bach) mediatype:(audio)' },
+    { name: "GOLDBERG VARIATIONS",    sub: "J.S. BACH · BWV 988",         q: 'title:(Goldberg) creator:(Bach) mediatype:(audio)' },
+    { name: "MOONLIGHT SONATA",       sub: "BEETHOVEN · OP. 27 NO. 2",    q: 'title:("Moonlight Sonata") creator:(Beethoven) mediatype:(audio)' },
+    { name: "SYMPHONY NO. 5",         sub: "BEETHOVEN · OP. 67",          q: 'title:("Symphony No. 5") creator:(Beethoven) mediatype:(audio)' },
+    { name: "EINE KLEINE NACHTMUSIK", sub: "MOZART · K. 525",             q: 'title:("Eine kleine Nachtmusik") creator:(Mozart) mediatype:(audio)' },
+    { name: "REQUIEM IN D MINOR",     sub: "MOZART · K. 626",             q: 'title:(Requiem) creator:(Mozart) mediatype:(audio)' },
+    { name: "CLAIR DE LUNE",          sub: "DEBUSSY · SUITE BERGAMASQUE", q: 'title:("Clair de Lune") creator:(Debussy) mediatype:(audio)' },
   ];
+
+  // In-memory cache so re-clicking a library item is instant after the first resolve.
+  const libResolved = new Map();  // index -> { url, identifier }
 
   const $ = id => document.getElementById(id);
   const audio    = $("cc-audio");
@@ -551,14 +560,57 @@
     playIcn.innerHTML = playing ? "&#10074;&#10074;" : "&#9658;";
   }
 
-  function selectItem(kind, idx) {
+  // Resolve a library item's actual playable MP3 URL via archive.org's API.
+  // 1) advancedsearch -> find an item identifier matching the query
+  // 2) metadata -> list files in that item
+  // 3) pick the smallest plausible MP3 (preferring VBR derivative)
+  // Returns { url, identifier } or throws.
+  async function resolveLibraryURL(idx) {
+    if (libResolved.has(idx)) return libResolved.get(idx);
+    const item = LIBRARY[idx];
+
+    // Search
+    const searchUrl =
+      "https://archive.org/advancedsearch.php?q=" + encodeURIComponent(item.q) +
+      "&fl%5B%5D=identifier&fl%5B%5D=title&rows=1&page=1&output=json";
+    const sRes = await fetch(searchUrl);
+    if (!sRes.ok) throw new Error("search " + sRes.status);
+    const sJson = await sRes.json();
+    const docs = sJson && sJson.response && sJson.response.docs;
+    if (!docs || !docs.length) throw new Error("no match");
+    const identifier = docs[0].identifier;
+
+    // Metadata
+    const mRes = await fetch("https://archive.org/metadata/" + encodeURIComponent(identifier));
+    if (!mRes.ok) throw new Error("meta " + mRes.status);
+    const mJson = await mRes.json();
+    const files = (mJson && mJson.files) || [];
+    if (!files.length) throw new Error("no files");
+
+    // Pick best MP3: prefer derivative VBR/64kb, fall back to any .mp3
+    const mp3s = files.filter(f => f.name && f.name.toLowerCase().endsWith(".mp3"));
+    if (!mp3s.length) throw new Error("no mp3");
+    const pick =
+      mp3s.find(f => /vbr/i.test(f.name)) ||
+      mp3s.find(f => /64kb/i.test(f.name)) ||
+      mp3s.find(f => (f.source || "").toLowerCase() === "derivative") ||
+      mp3s[0];
+
+    const url = "https://archive.org/download/" +
+                encodeURIComponent(identifier) + "/" +
+                encodeURIComponent(pick.name);
+    const resolved = { url, identifier };
+    libResolved.set(idx, resolved);
+    return resolved;
+  }
+
+  async function selectItem(kind, idx) {
     const items = kind === "library" ? LIBRARY : STATIONS;
     const s = items[idx];
     if (!s) return;
     state.kind = kind; state.idx = idx; state.current = s;
     channel.textContent = s.name;
     sub.textContent     = s.sub;
-    carrier.textContent = "· " + s.url.replace(/^https?:\/\//, "").split("?")[0];
     sourceL.textContent = kind === "library" ? "ARCHIVE" : "RADIO";
     screenLb.textContent = kind === "library" ? "NOW PLAYING" : "CHANNEL";
     ddVal.textContent = s.name;
@@ -570,7 +622,27 @@
       });
     });
 
-    audio.src = s.url;
+    let url;
+    if (kind === "library") {
+      setStatus("SEARCHING ARCHIVE...", "");
+      carrier.textContent = "· resolving " + s.q.slice(0, 60) + "...";
+      try {
+        const r = await resolveLibraryURL(idx);
+        // Guard: user may have clicked something else while we were resolving.
+        if (state.kind !== "library" || state.idx !== idx) return;
+        url = r.url;
+        carrier.textContent = "· archive.org/" + r.identifier;
+      } catch (err) {
+        setStatus("NOT FOUND ON ARCHIVE", "error");
+        carrier.textContent = "· " + (err.message || "lookup failed");
+        return;
+      }
+    } else {
+      url = s.url;
+      carrier.textContent = "· " + url.replace(/^https?:\/\//, "");
+    }
+
+    audio.src = url;
     audio.load();
     setStatus("ACQUIRING...", "");
     audio.play().catch(() => setStatus("FAULT", "error"));
