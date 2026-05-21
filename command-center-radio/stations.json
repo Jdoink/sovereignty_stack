@@ -1,0 +1,33 @@
+{
+  "_comment": "Station registry. Add a new entry, regenerate the .cc-station buttons in content.html (CH NN / NAME / SUB / data-station-url) and the panel picks it up. Use direct MP3 stream URLs only - .pls/.m3u playlists do not work with the HTML5 audio element.",
+  "stations": [
+    {
+      "id": "groovesalad",
+      "channel": "CH 01",
+      "name": "GROOVE SALAD",
+      "sub": "DOWNTEMPO / AMBIENT",
+      "url": "https://ice2.somafm.com/groovesalad-128-mp3"
+    },
+    {
+      "id": "dronezone",
+      "channel": "CH 02",
+      "name": "DRONE ZONE",
+      "sub": "ATMOSPHERIC / SPACE",
+      "url": "https://ice2.somafm.com/dronezone-128-mp3"
+    },
+    {
+      "id": "reggae",
+      "channel": "CH 03",
+      "name": "HEAVYWEIGHT REGGAE",
+      "sub": "ROOTS / DUB",
+      "url": "https://ice2.somafm.com/reggae-128-mp3"
+    },
+    {
+      "id": "deepspaceone",
+      "channel": "CH 04",
+      "name": "DEEP SPACE ONE",
+      "sub": "DEEP AMBIENT / ELECTRONIC",
+      "url": "https://ice2.somafm.com/deepspaceone-128-mp3"
+    }
+  ]
+}

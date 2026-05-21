@@ -1,0 +1,252 @@
+/*
+  Command Center Radio - Styles
+  Paste into the Business Text panel "Styles" field.
+  Aesthetic: Bloomberg terminal / NORAD / CRT-amber. All selectors scoped to #cc-radio
+  so they cannot bleed into other Grafana panels.
+*/
+
+#cc-radio {
+  --cc-bg:        #07090b;
+  --cc-bg-2:      #0d1216;
+  --cc-panel:     #11181f;
+  --cc-line:      #1f2a33;
+  --cc-amber:     #ffb000;
+  --cc-amber-dim: #8a5f00;
+  --cc-green:     #34ff7a;
+  --cc-red:       #ff3b3b;
+  --cc-text:      #c8d3dc;
+  --cc-text-dim:  #6c7a85;
+
+  font-family: "JetBrains Mono", "Fira Code", "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+  color: var(--cc-text);
+  background:
+    linear-gradient(180deg, rgba(255,176,0,0.02) 0%, transparent 30%),
+    radial-gradient(ellipse at top, rgba(52,255,122,0.04), transparent 60%),
+    var(--cc-bg);
+  border: 1px solid var(--cc-line);
+  padding: 14px 16px 12px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  position: relative;
+  overflow: hidden;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Faint CRT scanlines */
+#cc-radio::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: repeating-linear-gradient(
+    to bottom,
+    rgba(255,255,255,0.025) 0px,
+    rgba(255,255,255,0.025) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+  mix-blend-mode: overlay;
+  opacity: 0.6;
+}
+
+/* ===== Header ===== */
+#cc-radio .cc-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--cc-line);
+  padding-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 11px;
+}
+#cc-radio .cc-brand { display: flex; align-items: center; gap: 10px; }
+#cc-radio .cc-brand-bar {
+  display: inline-block; width: 6px; height: 14px;
+  background: var(--cc-amber);
+  box-shadow: 0 0 8px rgba(255,176,0,0.6);
+}
+#cc-radio .cc-brand-title { color: var(--cc-amber); font-weight: 700; }
+#cc-radio .cc-brand-id    { color: var(--cc-text-dim); }
+
+#cc-radio .cc-status { display: flex; align-items: center; gap: 8px; }
+#cc-radio .cc-status-light {
+  width: 10px; height: 10px; border-radius: 50%;
+  background: var(--cc-text-dim);
+  box-shadow: 0 0 6px currentColor;
+}
+#cc-radio .cc-status-light.cc-status-standby { color: var(--cc-amber-dim); background: var(--cc-amber-dim); }
+#cc-radio .cc-status-light.cc-status-live    { color: var(--cc-green);     background: var(--cc-green);    animation: cc-pulse 1.6s ease-in-out infinite; }
+#cc-radio .cc-status-light.cc-status-error   { color: var(--cc-red);       background: var(--cc-red);      animation: cc-blink 0.5s steps(2,end) infinite; }
+#cc-radio .cc-status-text { color: var(--cc-text-dim); font-size: 11px; }
+
+@keyframes cc-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
+@keyframes cc-blink { 0% { opacity: 1; } 100% { opacity: 0.2; } }
+
+/* ===== Display ===== */
+#cc-radio .cc-display {
+  background: var(--cc-bg-2);
+  border: 1px solid var(--cc-line);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+#cc-radio .cc-display-row {
+  display: flex; align-items: baseline; gap: 12px;
+  font-size: 12px;
+}
+#cc-radio .cc-label {
+  color: var(--cc-text-dim);
+  letter-spacing: 0.15em;
+  font-size: 10px;
+  min-width: 56px;
+  text-transform: uppercase;
+}
+#cc-radio .cc-value {
+  color: var(--cc-amber);
+  text-shadow: 0 0 6px rgba(255,176,0,0.35);
+  letter-spacing: 0.08em;
+  font-weight: 700;
+}
+#cc-radio .cc-value-dim {
+  color: var(--cc-text-dim);
+  font-weight: 400;
+}
+#cc-radio .cc-visualizer {
+  width: 100%;
+  height: 64px;
+  display: block;
+  margin-top: 4px;
+  background:
+    linear-gradient(180deg, rgba(255,176,0,0.04), transparent 70%),
+    #06090c;
+  border: 1px solid var(--cc-line);
+}
+
+/* ===== Stations grid ===== */
+#cc-radio .cc-stations {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 8px;
+}
+#cc-radio .cc-station {
+  appearance: none;
+  background: var(--cc-panel);
+  color: var(--cc-text);
+  border: 1px solid var(--cc-line);
+  padding: 10px 12px;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color 120ms ease, background 120ms ease, transform 80ms ease;
+  touch-action: manipulation;
+  min-height: 64px;
+}
+#cc-radio .cc-station:hover { border-color: var(--cc-amber-dim); background: #131c24; }
+#cc-radio .cc-station:active { transform: translateY(1px); }
+#cc-radio .cc-station.cc-active {
+  border-color: var(--cc-amber);
+  background: linear-gradient(180deg, rgba(255,176,0,0.10), rgba(255,176,0,0.02));
+  box-shadow: inset 0 0 0 1px rgba(255,176,0,0.25), 0 0 12px rgba(255,176,0,0.12);
+}
+#cc-radio .cc-station-tag {
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  color: var(--cc-text-dim);
+}
+#cc-radio .cc-station.cc-active .cc-station-tag { color: var(--cc-amber); }
+#cc-radio .cc-station-name {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: var(--cc-text);
+}
+#cc-radio .cc-station.cc-active .cc-station-name { color: var(--cc-amber); text-shadow: 0 0 6px rgba(255,176,0,0.35); }
+#cc-radio .cc-station-sub {
+  font-size: 10px;
+  color: var(--cc-text-dim);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+/* ===== Controls ===== */
+#cc-radio .cc-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  border-top: 1px solid var(--cc-line);
+  padding-top: 10px;
+}
+#cc-radio .cc-btn {
+  appearance: none;
+  background: var(--cc-panel);
+  color: var(--cc-text);
+  border: 1px solid var(--cc-line);
+  padding: 10px 14px;
+  font-family: inherit;
+  font-size: 12px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  touch-action: manipulation;
+  min-height: 40px;
+  min-width: 40px;
+}
+#cc-radio .cc-btn:hover { border-color: var(--cc-amber-dim); }
+#cc-radio .cc-btn:active { transform: translateY(1px); }
+#cc-radio .cc-btn-primary {
+  border-color: var(--cc-amber);
+  color: var(--cc-amber);
+  background: linear-gradient(180deg, rgba(255,176,0,0.10), rgba(255,176,0,0.02));
+  box-shadow: 0 0 10px rgba(255,176,0,0.15);
+}
+#cc-radio .cc-btn-ghost { color: var(--cc-text-dim); }
+#cc-radio .cc-btn-icon { font-size: 14px; line-height: 1; }
+
+#cc-radio .cc-volume {
+  display: flex; align-items: center; gap: 8px;
+  margin-left: auto;
+  min-width: 180px;
+}
+#cc-radio .cc-volume input[type="range"] {
+  flex: 1;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  background: var(--cc-line);
+  border-radius: 0;
+  outline: none;
+}
+#cc-radio .cc-volume input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px; height: 16px;
+  background: var(--cc-amber);
+  border: 1px solid #000;
+  box-shadow: 0 0 6px rgba(255,176,0,0.6);
+  cursor: pointer;
+}
+#cc-radio .cc-volume input[type="range"]::-moz-range-thumb {
+  width: 16px; height: 16px;
+  background: var(--cc-amber);
+  border: 1px solid #000;
+  box-shadow: 0 0 6px rgba(255,176,0,0.6);
+  cursor: pointer;
+}
+
+/* ===== Narrow layouts ===== */
+@media (max-width: 520px) {
+  #cc-radio .cc-volume { margin-left: 0; width: 100%; }
+  #cc-radio .cc-brand-id { display: none; }
+}
