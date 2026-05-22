@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Command Center Web3</title>
+<style>
+  :root { color-scheme: dark; }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --cc-bg:        #05070a;
+    --cc-bg-2:      #0a1015;
+    --cc-panel:     #0f1820;
+    --cc-line:      #1a2832;
+    --cc-line-hi:   #2a3f4f;
+    --cc-amber:     #ffb000;
+    --cc-amber-dim: #6b4500;
+    --cc-cyan:      #5ad3ff;
+    --cc-cyan-dim:  #2a6680;
+    --cc-green:     #34ff7a;
+    --cc-yellow:    #ffd166;
+    --cc-red:       #ff4747;
+    --cc-text:      #d4dde4;
+    --cc-text-dim:  #5e6e7a;
+  }
+
+  html, body {
+    width: 100%; height: 100%;
+    background: var(--cc-bg);
+    color: var(--cc-text);
+    font-family: "JetBrains Mono", "Fira Code", "IBM Plex Mono",
+                 ui-monospace, Menlo, Consolas, monospace;
+    -webkit-font-smoothing: antialiased;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .cc {
+    position: fixed; inset: 0;
+    display: grid;
+    grid-template-rows: auto auto 1fr;
+    gap: 10px;
+    padding: 12px 14px;
+    overflow: hidden;
+    background:
+      radial-gradient(ellipse at 50% -30%, rgba(90,211,255,0.07), transparent 55%),
+      radial-gradient(ellipse at 50% 130%, rgba(255,176,0,0.04), transparent 55%),
+      linear-gradient(180deg, #060a0e 0%, #04070a 100%);
+  }
+  .cc::before {
+    content: ""; position: absolute; inset: 0; pointer-events: none;
+    background-image: repeating-linear-gradient(to bottom,
+      rgba(255,255,255,0.022) 0px, rgba(255,255,255,0.022) 1px,
+      transparent 1px, transparent 3px);
+    mix-blend-mode: overlay;
+    opacity: 0.55;
+    z-index: 1;
+  }
+  .cc::after {
+    content: ""; position: absolute; inset: 0; pointer-events: none;
+    box-shadow:
+      inset 0 0 60px rgba(0,0,0,0.7),
+      inset 0 0 6px rgba(90,211,255,0.05);
+    z-index: 2;
+  }
+
+  /* ============ Header ============ */
+  .cc-head {
+    position: relative; z-index: 3;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 14px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--cc-line);
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    font-size: 10px;
+    min-height: 22px;
+  }
+  .cc-brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .cc-brand-bar {
+    width: 4px; height: 12px;
+    background: var(--cc-cyan);
+    box-shadow: 0 0 10px rgba(90,211,255,0.7);
+    flex: 0 0 auto;
+  }
+  .cc-brand-title { color: var(--cc-cyan); font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cc-brand-id { color: var(--cc-text-dim); flex: 0 0 auto; }
+
+  .cc-status {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 10px;
+    border: 1px solid var(--cc-green);
+    border-radius: 999px;
+    color: var(--cc-green);
+    font-size: 9px; letter-spacing: 0.22em;
+    background: rgba(52,255,122,0.06);
+    flex: 0 0 auto;
+  }
+  .cc-status .led {
+    width: 7px; height: 7px; background: var(--cc-green);
+    border-radius: 50%;
+    box-shadow: 0 0 8px var(--cc-green);
+    animation: cc-pulse 1.6s ease-in-out infinite;
+  }
+  @keyframes cc-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
+
+  /* ============ Warning banner ============ */
+  .cc-warn {
+    position: relative; z-index: 3;
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px;
+    background: linear-gradient(90deg, rgba(255,176,0,0.12), rgba(255,176,0,0.02));
+    border: 1px solid var(--cc-amber-dim);
+    border-left: 3px solid var(--cc-amber);
+    color: var(--cc-yellow);
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    line-height: 1.4;
+  }
+  .cc-warn-icon { color: var(--cc-amber); font-size: 16px; flex: 0 0 auto; }
+  .cc-warn b { color: var(--cc-amber); }
+
+  /* ============ Body (scrollable) ============ */
+  .cc-body {
+    position: relative; z-index: 3;
+    display: flex; flex-direction: column; gap: 12px;
+    min-height: 0;
+    overflow-y: auto;
+    padding-right: 4px;
+  }
+  .cc-body::-webkit-scrollbar { width: 6px; }
+  .cc-body::-webkit-scrollbar-thumb { background: var(--cc-line-hi); border-radius: 3px; }
+
+  /* ============ Input card ============ */
+  .cc-input-card {
+    background: linear-gradient(180deg, rgba(90,211,255,0.04), transparent 60%), var(--cc-bg-2);
+    border: 1px solid var(--cc-line);
+    padding: 12px 14px;
+    display: flex; flex-direction: column; gap: 10px;
+    position: relative;
+  }
+  .cc-input-card::before {
+    content: ""; position: absolute; inset: 0;
+    background: radial-gradient(ellipse at 25% 0%, rgba(90,211,255,0.08), transparent 70%);
+    pointer-events: none;
+  }
+  .cc-label {
+    color: var(--cc-text-dim);
+    font-size: 9px; letter-spacing: 0.25em;
+    text-transform: uppercase;
+    position: relative;
+  }
+  .cc-input {
+    background: linear-gradient(180deg, #0e1a23, #0a131a);
+    color: var(--cc-cyan);
+    border: 1px solid var(--cc-line-hi);
+    padding: 12px;
+    font-family: inherit;
+    font-size: 13px;
+    letter-spacing: 0.02em;
+    outline: none;
+    width: 100%;
+    transition: border-color 120ms ease, box-shadow 120ms ease;
+    position: relative;
+    text-shadow: 0 0 6px rgba(90,211,255,0.25);
+  }
+  .cc-input:focus {
+    border-color: var(--cc-cyan);
+    box-shadow: 0 0 0 1px rgba(90,211,255,0.35), 0 0 12px rgba(90,211,255,0.2);
+  }
+  .cc-input::placeholder { color: var(--cc-text-dim); text-shadow: none; }
+  .cc-input.invalid {
+    border-color: var(--cc-red);
+    box-shadow: 0 0 0 1px rgba(255,71,71,0.4);
+    animation: cc-shake 0.3s ease;
+  }
+  @keyframes cc-shake {
+    0%,100% { transform: translateX(0); }
+    25% { transform: translateX(-4px); }
+    75% { transform: translateX(4px); }
+  }
+
+  .cc-row {
+    display: grid;
+    grid-template-columns: minmax(140px, auto) 1fr 1fr;
+    gap: 8px;
+    align-items: stretch;
+    position: relative;
+  }
+  .cc-select {
+    appearance: none; -webkit-appearance: none;
+    background-color: #0a131a;
+    background-image:
+      linear-gradient(180deg, rgba(255,176,0,0.06), transparent),
+      linear-gradient(45deg, transparent 50%, var(--cc-amber) 50%),
+      linear-gradient(135deg, var(--cc-amber) 50%, transparent 50%);
+    background-position: 0 0, calc(100% - 14px) 50%, calc(100% - 9px) 50%;
+    background-size: 100% 100%, 5px 5px, 5px 5px;
+    background-repeat: no-repeat;
+    color: var(--cc-amber);
+    border: 1px solid var(--cc-line-hi);
+    padding: 10px 28px 10px 12px;
+    font-family: inherit;
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    outline: none;
+  }
+  .cc-select:hover { border-color: var(--cc-amber-dim); }
+  .cc-select:focus { border-color: var(--cc-amber); box-shadow: 0 0 0 1px rgba(255,176,0,0.35), 0 0 10px rgba(255,176,0,0.15); }
+  .cc-select option { background: #0a131a; color: var(--cc-text); }
+
+  /* ============ Buttons ============ */
+  .cc-btn {
+    appearance: none;
+    background: linear-gradient(180deg, #131e27, #0c141a);
+    color: var(--cc-text);
+    border: 1px solid var(--cc-line-hi);
+    padding: 11px 14px;
+    font-family: inherit;
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center;
+    gap: 6px;
+    touch-action: manipulation;
+    text-decoration: none;
+    transition: border-color 120ms ease, transform 80ms ease, box-shadow 120ms ease, color 120ms ease;
+  }
+  .cc-btn:hover  { border-color: var(--cc-cyan-dim); color: var(--cc-cyan); }
+  .cc-btn:active { transform: translateY(1px); }
+  .cc-btn.primary {
+    border-color: var(--cc-cyan);
+    color: var(--cc-cyan);
+    background:
+      radial-gradient(circle at 30% 30%, rgba(90,211,255,0.18), transparent 60%),
+      linear-gradient(180deg, #15222c, #0a131a);
+    box-shadow:
+      inset 0 0 10px rgba(90,211,255,0.18),
+      0 0 14px rgba(90,211,255,0.20),
+      0 0 0 1px rgba(90,211,255,0.20);
+    text-shadow: 0 0 6px rgba(90,211,255,0.35);
+  }
+  .cc-btn.primary:hover {
+    box-shadow:
+      inset 0 0 14px rgba(90,211,255,0.25),
+      0 0 20px rgba(90,211,255,0.30),
+      0 0 0 1px rgba(90,211,255,0.45);
+  }
+
+  /* ============ Sections ============ */
+  .cc-section { display: flex; flex-direction: column; gap: 8px; }
+  .cc-section-head {
+    display: flex; align-items: center; gap: 10px;
+    color: var(--cc-text-dim);
+    font-size: 9px; letter-spacing: 0.25em;
+    text-transform: uppercase;
+    padding-top: 2px;
+  }
+  .cc-section-head::after {
+    content: ""; flex: 1; height: 1px;
+    background: linear-gradient(90deg, var(--cc-line), transparent);
+  }
+
+  .cc-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 8px;
+  }
+
+  /* ============ Checklist ============ */
+  .cc-checklist {
+    background: rgba(15,24,32,0.5);
+    border: 1px solid var(--cc-line);
+    padding: 12px 14px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px 16px;
+    font-size: 11px;
+    color: var(--cc-text);
+    letter-spacing: 0.02em;
+  }
+  .cc-checklist > div { display: flex; align-items: baseline; gap: 8px; }
+  .cc-check { color: var(--cc-green); flex: 0 0 auto; text-shadow: 0 0 5px rgba(52,255,122,0.5); }
+
+  /* ============ Responsive ============ */
+  @media (max-width: 580px) {
+    .cc-row { grid-template-columns: 1fr; }
+    .cc-checklist { grid-template-columns: 1fr; }
+    .cc-brand-id { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="cc">
+
+  <header class="cc-head">
+    <div class="cc-brand">
+      <span class="cc-brand-bar"></span>
+      <span class="cc-brand-title">COMMAND CENTER // WEB3 SECURE</span>
+      <span class="cc-brand-id">CCW-01</span>
+    </div>
+    <div class="cc-status">
+      <span class="led"></span>
+      <span>LAUNCHPAD ONLY</span>
+    </div>
+  </header>
+
+  <div class="cc-warn">
+    <span class="cc-warn-icon">&#9888;</span>
+    <span><b>NEVER</b> enter seed phrases or private keys. Verify URL, chain, contract, and transaction details before signing in your wallet.</span>
+  </div>
+
+  <div class="cc-body">
+
+    <!-- Address / TX input + chain selector -->
+    <div class="cc-input-card">
+      <span class="cc-label">ADDRESS / CONTRACT / TX HASH</span>
+      <input type="text" id="cc-input" class="cc-input"
+             placeholder="0x..." autocomplete="off" spellcheck="false" />
+      <div class="cc-row">
+        <select id="cc-chain" class="cc-select" aria-label="Chain">
+          <option value="ethereum">ETHEREUM</option>
+          <option value="base">BASE</option>
+          <option value="arbitrum">ARBITRUM</option>
+          <option value="optimism">OPTIMISM</option>
+          <option value="polygon">POLYGON</option>
+        </select>
+        <button type="button" id="cc-open-addr" class="cc-btn primary">OPEN ADDRESS</button>
+        <button type="button" id="cc-open-tx"   class="cc-btn">OPEN TX</button>
+      </div>
+    </div>
+
+    <!-- Chain explorers -->
+    <div class="cc-section">
+      <div class="cc-section-head">CHAIN EXPLORERS</div>
+      <div class="cc-grid">
+        <a class="cc-btn" target="_blank" rel="noopener noreferrer" href="https://etherscan.io">ETHERSCAN</a>
+        <a class="cc-btn" target="_blank" rel="noopener noreferrer" href="https://basescan.org">BASESCAN</a>
+        <a class="cc-btn" target="_blank" rel="noopener noreferrer" href="https://arbiscan.io">ARBISCAN</a>
+        <a class="cc-btn" target="_blank" rel="noopener noreferrer" href="https://optimistic.etherscan.io">OPTIMISM</a>
+        <a class="cc-btn" target="_blank" rel="noopener noreferrer" href="https://polygonscan.com">POLYGONSCAN</a>
+      </div>
+    </div>
+
+    <!-- Risk / Wallet tools -->
+    <div class="cc-section">
+      <div class="cc-section-head">RISK / WALLET TOOLS</div>
+      <div class="cc-grid">
+        <a class="cc-btn" target="_blank" rel="noopener noreferrer" href="https://revoke.cash">REVOKE.CASH</a>
+        <a class="cc-btn" target="_blank" rel="noopener noreferrer" href="https://debank.com">DEBANK</a>
+        <a class="cc-btn" target="_blank" rel="noopener noreferrer" href="https://app.safe.global">SAFE</a>
+        <a class="cc-btn" target="_blank" rel="noopener noreferrer" href="https://defillama.com">DEFILLAMA</a>
+      </div>
+    </div>
+
+    <!-- Protocols -->
+    <div class="cc-section">
+      <div class="cc-section-head">PROTOCOLS</div>
+      <div class="cc-grid">
+        <a class="cc-btn" target="_blank" rel="noopener noreferrer" href="https://app.aave.com">AAVE</a>
+        <a class="cc-btn" target="_blank" rel="noopener noreferrer" href="https://curve.fi">CURVE</a>
+        <a class="cc-btn" target="_blank" rel="noopener noreferrer" href="https://app.uniswap.org">UNISWAP</a>
+        <a class="cc-btn" target="_blank" rel="noopener noreferrer" href="https://docs.chain.link">CHAINLINK DOCS</a>
+      </div>
+    </div>
+
+    <!-- Security checklist -->
+    <div class="cc-section">
+      <div class="cc-section-head">SECURITY CHECKLIST</div>
+      <div class="cc-checklist">
+        <div><span class="cc-check">&check;</span>Verify URL manually</div>
+        <div><span class="cc-check">&check;</span>Confirm active chain</div>
+        <div><span class="cc-check">&check;</span>Verify contract from multiple sources</div>
+        <div><span class="cc-check">&check;</span>Review approvals before &amp; after</div>
+        <div><span class="cc-check">&check;</span>Simulate transaction when possible</div>
+        <div><span class="cc-check">&check;</span>Never sign rushed or unclear txns</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+(function(){
+  const EXPLORERS = {
+    ethereum: "https://etherscan.io",
+    base:     "https://basescan.org",
+    arbitrum: "https://arbiscan.io",
+    optimism: "https://optimistic.etherscan.io",
+    polygon:  "https://polygonscan.com"
+  };
+
+  const input   = document.getElementById("cc-input");
+  const chain   = document.getElementById("cc-chain");
+  const addrBtn = document.getElementById("cc-open-addr");
+  const txBtn   = document.getElementById("cc-open-tx");
+
+  function flashInvalid() {
+    input.classList.add("invalid");
+    input.focus();
+    setTimeout(() => input.classList.remove("invalid"), 800);
+  }
+
+  function openExplorer(kind) {
+    const v = (input.value || "").trim();
+    if (!v) return flashInvalid();
+    // Best-effort validation: any 0x-prefixed hex string. Don't block, just
+    // refuse obvious junk like "hello" - user can still click anyway by typing
+    // anything that starts with 0x.
+    if (!/^0x[0-9a-fA-F]+$/.test(v)) return flashInvalid();
+
+    const base = EXPLORERS[chain.value] || EXPLORERS.ethereum;
+    const path = kind === "tx" ? "/tx/" : "/address/";
+    const url  = base + path + encodeURIComponent(v);
+    // _blank + noopener so the explorer tab has no reference back to this iframe
+    window.open(url, "_blank", "noopener,noreferrer");
+  }
+
+  addrBtn.addEventListener("click", () => openExplorer("address"));
+  txBtn.addEventListener("click",   () => openExplorer("tx"));
+
+  // Enter in the input = open as address (default). Shift+Enter = open as tx.
+  input.addEventListener("keydown", e => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      openExplorer(e.shiftKey ? "tx" : "address");
+    }
+  });
+
+  // Auto-highlight the right primary action based on shape of input.
+  // 64-hex-char (after 0x) => looks like a tx hash
+  // 40-hex-char (after 0x) => looks like an address
+  input.addEventListener("input", () => {
+    const v = (input.value || "").trim().toLowerCase();
+    const isTx   = /^0x[0-9a-f]{64}$/.test(v);
+    const isAddr = /^0x[0-9a-f]{40}$/.test(v);
+    addrBtn.classList.toggle("primary", !isTx);
+    txBtn.classList.toggle("primary", isTx);
+  });
+})();
+</script>
+</body>
+</html>
