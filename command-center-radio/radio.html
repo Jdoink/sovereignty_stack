@@ -739,7 +739,7 @@
   populate(ddListS, STATIONS, "stations");
   populate(ddListL, LIBRARY,  "library");
 
-  const state = { kind: null, idx: -1, current: null, shuffle: false };
+  const state = { kind: null, idx: -1, current: null, trackIdx: 0, shuffle: false };
 
   const toolbar    = $("cc-dd-toolbar");
   const searchIn   = $("cc-search");
@@ -823,39 +823,52 @@
   // 2) metadata -> list files in that item
   // 3) pick the smallest plausible MP3 (preferring VBR derivative)
   // Returns { url, identifier } or throws.
-  async function pickMp3FromIdentifier(identifier) {
+  // Pull every MP3 from an archive.org item. Multi-track items (e.g. concerts)
+  // expose 15+ files; we group duplicates (original vs derivative encoding)
+  // and prefer the smallest playable version of each track.
+  async function fetchTracksForIdentifier(identifier) {
     const mRes = await fetch("https://archive.org/metadata/" + encodeURIComponent(identifier));
     if (!mRes.ok) throw new Error("meta " + mRes.status);
     const mJson = await mRes.json();
     const files = (mJson && mJson.files) || [];
-    if (!files.length) throw new Error("no files");
     const mp3s = files.filter(f => f.name && f.name.toLowerCase().endsWith(".mp3"));
-    if (!mp3s.length) throw new Error("no mp3");
-    const pick =
-      mp3s.find(f => /vbr/i.test(f.name)) ||
-      mp3s.find(f => /64kb/i.test(f.name)) ||
-      mp3s.find(f => (f.source || "").toLowerCase() === "derivative") ||
-      mp3s[0];
-    return {
-      url: "https://archive.org/download/" + encodeURIComponent(identifier) + "/" + encodeURIComponent(pick.name),
-      identifier,
-      meta: mJson.metadata || {}
-    };
+    if (!mp3s.length) throw new Error("no mp3 in item");
+
+    // Group by base name (strip vbr/64kb/128kb suffix). Prefer derivative encoding
+    // when available - same audio, smaller download.
+    const byBase = new Map();
+    const baseOf = n => n.replace(/_(?:vbr|64kb|128kb|256kb)\.mp3$/i, ".mp3");
+    const isDeriv = f => /(vbr|64kb)/i.test(f.name) || (f.source || "").toLowerCase() === "derivative";
+    mp3s.forEach(f => {
+      const base = baseOf(f.name);
+      const existing = byBase.get(base);
+      if (!existing || (isDeriv(f) && !isDeriv(existing))) byBase.set(base, f);
+    });
+
+    const tracks = Array.from(byBase.values())
+      .sort((a, b) => (a.name || "").localeCompare(b.name || "", undefined, { numeric: true }))
+      .map(f => ({
+        name: f.name,
+        title: (f.title || f.name.replace(/\.mp3$/i, "").replace(/^\d+[-_\s]*/, "")).trim(),
+        url: "https://archive.org/download/" + encodeURIComponent(identifier) + "/" + encodeURIComponent(f.name)
+      }));
+
+    return { identifier, tracks, meta: mJson.metadata || {} };
   }
 
-  // Resolve a library item's playable MP3 URL. Cache lives on the item object
-  // itself (not indexed by position), so reordering after add/delete is safe.
+  // Resolve a library item to its track list. Cache lives on the item itself
+  // (item._resolved), so reordering after add/delete is safe.
   async function resolveLibraryURL(idx) {
     const item = LIBRARY[idx];
     if (item._resolved) return item._resolved;
 
-    // User-added items already store the identifier directly - skip search.
+    // User-added items already know their identifier - skip search.
     if (item.identifier) {
-      item._resolved = await pickMp3FromIdentifier(item.identifier);
+      item._resolved = await fetchTracksForIdentifier(item.identifier);
       return item._resolved;
     }
 
-    // Curated items: search archive.org for a matching identifier.
+    // Curated items: archive.org search to find a matching identifier.
     const searchUrl =
       "https://archive.org/advancedsearch.php?q=" + encodeURIComponent(item.q) +
       "&fl%5B%5D=identifier&fl%5B%5D=title&rows=1&page=1&output=json";
@@ -864,15 +877,42 @@
     const sJson = await sRes.json();
     const docs = sJson && sJson.response && sJson.response.docs;
     if (!docs || !docs.length) throw new Error("no match");
-    item._resolved = await pickMp3FromIdentifier(docs[0].identifier);
+    item._resolved = await fetchTracksForIdentifier(docs[0].identifier);
     return item._resolved;
+  }
+
+  // Play a specific track within the currently-selected library item.
+  // Updates the sub line with "TRACK X/Y · Title" when the item is multi-track.
+  function playTrackAt(trackIdx) {
+    const item = state.current;
+    if (!item || !item._resolved) return;
+    const tracks = item._resolved.tracks;
+    if (!tracks || !tracks.length) return;
+    if (trackIdx < 0 || trackIdx >= tracks.length) return;
+
+    state.trackIdx = trackIdx;
+    const track = tracks[trackIdx];
+
+    if (tracks.length > 1) {
+      const pos = "TRACK " + (trackIdx + 1) + "/" + tracks.length;
+      const title = track.title ? " · " + track.title.toUpperCase() : "";
+      sub.textContent = pos + title;
+    } else {
+      sub.textContent = item.sub;
+    }
+    carrier.textContent = "· archive.org/" + item._resolved.identifier;
+
+    audio.src = track.url;
+    audio.load();
+    setStatus("ACQUIRING...", "");
+    audio.play().catch(() => setStatus("FAULT", "error"));
   }
 
   async function selectItem(kind, idx) {
     const items = kind === "library" ? LIBRARY : STATIONS;
     const s = items[idx];
     if (!s) return;
-    state.kind = kind; state.idx = idx; state.current = s;
+    state.kind = kind; state.idx = idx; state.current = s; state.trackIdx = 0;
     channel.textContent = s.name;
     sub.textContent     = s.sub;
     sourceL.textContent = kind === "library" ? "ARCHIVE" : "RADIO";
@@ -886,30 +926,31 @@
       });
     });
 
-    let url;
-    if (kind === "library") {
-      setStatus("SEARCHING ARCHIVE...", "");
-      carrier.textContent = "· resolving " + s.q.slice(0, 60) + "...";
-      try {
-        const r = await resolveLibraryURL(idx);
-        // Guard: user may have clicked something else while we were resolving.
-        if (state.kind !== "library" || state.idx !== idx) return;
-        url = r.url;
-        carrier.textContent = "· archive.org/" + r.identifier;
-      } catch (err) {
-        setStatus("NOT FOUND ON ARCHIVE", "error");
-        carrier.textContent = "· " + (err.message || "lookup failed");
-        return;
-      }
-    } else {
-      url = s.url;
-      carrier.textContent = "· " + url.replace(/^https?:\/\//, "");
+    if (kind === "stations") {
+      carrier.textContent = "· " + s.url.replace(/^https?:\/\//, "");
+      audio.src = s.url;
+      audio.load();
+      setStatus("ACQUIRING...", "");
+      audio.play().catch(() => setStatus("FAULT", "error"));
+      return;
     }
 
-    audio.src = url;
-    audio.load();
-    setStatus("ACQUIRING...", "");
-    audio.play().catch(() => setStatus("FAULT", "error"));
+    // Library
+    const isUser = !!s.user;
+    setStatus(isUser ? "LOADING TRACK..." : "SEARCHING ARCHIVE...", "");
+    carrier.textContent = "· " + (isUser
+      ? ("archive.org/" + s.identifier)
+      : ("resolving " + (s.q || "").slice(0, 60) + "..."));
+
+    try {
+      await resolveLibraryURL(idx);
+      // Guard: user may have clicked something else while we were resolving.
+      if (state.kind !== "library" || state.idx !== idx) return;
+      playTrackAt(0);
+    } catch (err) {
+      setStatus("NOT FOUND ON ARCHIVE", "error");
+      carrier.textContent = "· " + (err.message || "lookup failed");
+    }
   }
 
   playBtn.addEventListener("click", () => {
@@ -942,6 +983,22 @@
   const nextBtn = $("cc-next");
   function skipBy(direction) {
     if (!state.current) { selectItem("stations", 0); return; }
+
+    // Multi-track library item: skip within tracks first. Only fall through to
+    // changing the library item when we'd walk past the start/end of the
+    // current item's track list. Shuffle short-circuits this - shuffle always
+    // jumps to a new item.
+    if (state.kind === "library" && !state.shuffle && state.current._resolved) {
+      const tracks = state.current._resolved.tracks;
+      if (tracks && tracks.length > 1) {
+        const newTrack = state.trackIdx + direction;
+        if (newTrack >= 0 && newTrack < tracks.length) {
+          playTrackAt(newTrack);
+          return;
+        }
+      }
+    }
+
     if (state.kind === "library" && state.shuffle) {
       selectItem("library", pickRandomLibraryIdx(state.idx));
       return;
@@ -1065,14 +1122,24 @@
   audio.addEventListener("stalled", () => setStatus("STALLED", "error"));
   audio.addEventListener("error",   () => { setStatus("SIGNAL LOST", "error"); setPlayIcon(false); });
 
-  // When an Archive.org track ends, auto-advance to the next library item.
+  // When an Archive.org track ends:
+  // - If the current item has more tracks queued (concert / album), play next.
+  // - Otherwise advance to the next library item (or random if shuffle is on).
   audio.addEventListener("ended", () => {
-    if (state.kind === "library") {
-      const next = state.shuffle
-        ? pickRandomLibraryIdx(state.idx)
-        : (state.idx + 1) % LIBRARY.length;
-      selectItem("library", next);
+    if (state.kind !== "library") return;
+
+    if (!state.shuffle && state.current && state.current._resolved) {
+      const tracks = state.current._resolved.tracks;
+      if (tracks && state.trackIdx + 1 < tracks.length) {
+        playTrackAt(state.trackIdx + 1);
+        return;
+      }
     }
+
+    const next = state.shuffle
+      ? pickRandomLibraryIdx(state.idx)
+      : (state.idx + 1) % LIBRARY.length;
+    selectItem("library", next);
   });
 
   function tick() {
