@@ -1,15 +1,17 @@
 import asyncio
 import html
+import json
 import logging
 import os
 import time
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 import httpx
 from dotenv import load_dotenv
-from fastapi import FastAPI, Response
-from fastapi.responses import HTMLResponse, PlainTextResponse
+from fastapi import Body, FastAPI, HTTPException, Response
+from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse
 
 load_dotenv()
 
@@ -51,6 +53,75 @@ async def lifespan(_app: FastAPI):
 
 
 app = FastAPI(title="Sovereignty Stack Ticker Service", lifespan=lifespan)
+
+
+# === Radio library persistence ==============================================
+# Library is just a JSON array of { name, sub, identifier, user }.
+# Stored on the host's Seagate (mounted as /data via docker-compose volume)
+# so it survives container rebuilds and syncs across every device that hits
+# the same Pi.
+RADIO_LIBRARY_PATH = Path(os.getenv("RADIO_LIBRARY_PATH", "/data/radio-library.json"))
+
+CORS_HEADERS = {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Max-Age": "86400",
+}
+
+
+def _read_radio_library() -> List[Dict[str, Any]]:
+    try:
+        if RADIO_LIBRARY_PATH.exists():
+            data = json.loads(RADIO_LIBRARY_PATH.read_text())
+            if isinstance(data, list):
+                return data
+    except Exception:
+        logger.exception("Failed to read radio library at %s", RADIO_LIBRARY_PATH)
+    return []
+
+
+def _write_radio_library(items: List[Dict[str, Any]]) -> None:
+    try:
+        RADIO_LIBRARY_PATH.parent.mkdir(parents=True, exist_ok=True)
+        tmp = RADIO_LIBRARY_PATH.with_suffix(RADIO_LIBRARY_PATH.suffix + ".tmp")
+        tmp.write_text(json.dumps(items, indent=2))
+        tmp.replace(RADIO_LIBRARY_PATH)
+    except Exception:
+        logger.exception("Failed to write radio library at %s", RADIO_LIBRARY_PATH)
+        raise
+
+
+@app.get("/radio-library")
+async def get_radio_library() -> JSONResponse:
+    return JSONResponse(content=_read_radio_library(), headers=CORS_HEADERS)
+
+
+@app.post("/radio-library")
+async def post_radio_library(items: Any = Body(...)) -> JSONResponse:
+    if not isinstance(items, list):
+        raise HTTPException(status_code=400, detail="body must be a JSON array")
+    # Normalize: keep only objects with an identifier
+    clean = [
+        {
+            "name": str(item.get("name", "UNKNOWN"))[:200],
+            "sub": str(item.get("sub", ""))[:200],
+            "identifier": str(item.get("identifier")),
+            "user": True,
+        }
+        for item in items
+        if isinstance(item, dict) and item.get("identifier")
+    ]
+    _write_radio_library(clean)
+    return JSONResponse(
+        content={"ok": True, "count": len(clean)},
+        headers=CORS_HEADERS,
+    )
+
+
+@app.options("/radio-library")
+async def options_radio_library() -> Response:
+    return Response(headers=CORS_HEADERS)
 
 
 async def fetch_json(url: str, params: Optional[Dict[str, str]] = None) -> Any:
@@ -995,8 +1066,28 @@ RADIO_HTML = """<!DOCTYPE html>
 </html>"""
 
 
+RADIO_HTML_REMOTE = os.getenv(
+    "RADIO_HTML_URL",
+    "https://raw.githubusercontent.com/Jdoink/sovereignty_stack/main/command-center-radio/radio.html",
+)
+
+
 @app.get("/radio", response_class=HTMLResponse)
 async def radio() -> HTMLResponse:
+    # Try to fetch the latest radio.html from GitHub so updates flow without
+    # rebuilding this container. If GitHub is unreachable for any reason, fall
+    # back to the version embedded in this Python file.
+    if http_client is not None:
+        try:
+            r = await http_client.get(RADIO_HTML_REMOTE, timeout=httpx.Timeout(5.0))
+            if r.status_code == 200 and r.text:
+                return HTMLResponse(
+                    content=r.text,
+                    headers={"Cache-Control": "no-store, max-age=0"},
+                )
+        except Exception:
+            logger.exception("Failed to fetch %s, falling back to embedded copy", RADIO_HTML_REMOTE)
+
     return HTMLResponse(
         content=RADIO_HTML,
         headers={"Cache-Control": "no-store, max-age=0"},

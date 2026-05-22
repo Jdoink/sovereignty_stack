@@ -242,11 +242,13 @@
 
   .cc-dd-toolbar {
     display: flex; gap: 8px;
+    flex-wrap: wrap;
     padding: 8px 10px;
     border-bottom: 1px solid var(--cc-line);
     background: rgba(255,176,0,0.02);
     flex: 0 0 auto;
   }
+  .cc-dd-toolbar .cc-search { flex: 1 1 220px; }
   .cc-dd-toolbar[hidden] { display: none; }
   .cc-search {
     flex: 1; min-width: 0;
@@ -531,6 +533,15 @@
             <span class="cc-shuffle-icon">&#43;</span>
             <span>ADD</span>
           </button>
+          <button type="button" id="cc-export" class="cc-shuffle" title="Export your library as JSON">
+            <span class="cc-shuffle-icon">&#8615;</span>
+            <span>EXPORT</span>
+          </button>
+          <button type="button" id="cc-import" class="cc-shuffle" title="Import a library JSON file">
+            <span class="cc-shuffle-icon">&#8613;</span>
+            <span>IMPORT</span>
+          </button>
+          <input type="file" id="cc-import-file" accept="application/json,.json" style="display:none">
         </div>
         <div class="cc-dd-addbar" id="cc-dd-addbar" hidden>
           <input type="text" id="cc-add-url" class="cc-search" placeholder="PASTE ARCHIVE.ORG URL OR ITEM ID..." aria-label="Add item URL" autocomplete="off">
@@ -668,6 +679,57 @@
   }
   function saveUserLibrary(items) {
     try { localStorage.setItem(USER_LIB_KEY, JSON.stringify(items)); } catch (e) {}
+  }
+
+  // ===== Backend sync (Pi via ticker-service /radio-library) =====
+  // If the radio is served from a non-CDN origin we treat that origin as the
+  // sync backend. You can also force a backend via ?backend=http://host:port
+  // in the iframe URL. When no backend is reachable, everything still works -
+  // we just stay on localStorage (and export/import handles bulk transfer).
+  function detectBackendUrl() {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const forced = params.get("backend");
+      if (forced) return forced.replace(/\/+$/, "");
+      const origin = window.location.origin || "";
+      if (origin && !/^https?:\/\/(?:[^/]+\.)?(?:githack|jsdelivr|github\.io|raw\.githubusercontent)/i.test(origin)) {
+        return origin.replace(/\/+$/, "");
+      }
+    } catch (e) {}
+    return null;
+  }
+  const BACKEND_URL = detectBackendUrl();
+
+  async function fetchBackendLibrary() {
+    if (!BACKEND_URL) return null;
+    try {
+      const r = await fetch(BACKEND_URL + "/radio-library", { cache: "no-store" });
+      if (!r.ok) return null;
+      const data = await r.json();
+      return Array.isArray(data) ? data : null;
+    } catch (e) { return null; }
+  }
+  async function pushBackendLibrary(items) {
+    if (!BACKEND_URL) return false;
+    try {
+      const r = await fetch(BACKEND_URL + "/radio-library", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(items)
+      });
+      return r.ok;
+    } catch (e) { return false; }
+  }
+  function mergeLibraries(a, b) {
+    const out = [];
+    const seen = new Set();
+    [...a, ...b].forEach(item => {
+      if (item && item.identifier && !seen.has(item.identifier)) {
+        seen.add(item.identifier);
+        out.push(item);
+      }
+    });
+    return out;
   }
 
   // Composite library: user items first, then curated.
@@ -1079,9 +1141,11 @@
       populate(ddListL, LIBRARY, "library");
       applyFilter();
 
-      setAddMsg("Added: " + title, "ok");
+      // Best-effort sync to Pi - never block the UI on it.
+      pushBackendLibrary(user);
+
+      setAddMsg("Added: " + title + (BACKEND_URL ? " (syncing)" : ""), "ok");
       addUrlInput.value = "";
-      // Auto-hide message after a moment
       setTimeout(() => setAddMsg("", null), 2500);
     } catch (err) {
       setAddMsg("Error: " + (err.message || "unknown"), "err");
@@ -1091,18 +1155,85 @@
   function removeUserItem(idxInLibrary) {
     const item = LIBRARY[idxInLibrary];
     if (!item || !item.user) return;
-    // Pull from persisted store
     const user = loadUserLibrary().filter(u => u.identifier !== item.identifier);
     saveUserLibrary(user);
     LIBRARY.splice(idxInLibrary, 1);
-    // If the removed item was currently playing, reset state.idx so skip still works
     if (state.kind === "library") {
       if (state.idx === idxInLibrary) { state.idx = -1; state.current = null; }
       else if (state.idx > idxInLibrary) { state.idx -= 1; }
     }
     populate(ddListL, LIBRARY, "library");
     applyFilter();
+    pushBackendLibrary(user);
   }
+
+  // ===== Export / Import =====
+  const exportBtn = $("cc-export");
+  const importBtn = $("cc-import");
+  const importFile = $("cc-import-file");
+
+  exportBtn.addEventListener("click", () => {
+    const items = loadUserLibrary();
+    if (!items.length) { setAddMsg("Library is empty", "err"); setTimeout(() => setAddMsg("", null), 2500); return; }
+    const blob = new Blob([JSON.stringify(items, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    const ts = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
+    a.download = "command-center-library-" + ts + ".json";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    setAddMsg("Exported " + items.length + " items", "ok");
+    setTimeout(() => setAddMsg("", null), 2500);
+  });
+
+  importBtn.addEventListener("click", () => importFile.click());
+  importFile.addEventListener("change", async (ev) => {
+    const file = ev.target.files && ev.target.files[0];
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const incoming = JSON.parse(text);
+      if (!Array.isArray(incoming)) throw new Error("not an array");
+      const existing = loadUserLibrary();
+      const merged = mergeLibraries(existing, incoming.map(i => ({
+        name: String(i.name || "UNKNOWN"),
+        sub: String(i.sub || ""),
+        identifier: i.identifier,
+        user: true
+      })).filter(i => i.identifier));
+      const added = merged.length - existing.length;
+      saveUserLibrary(merged);
+      LIBRARY.splice(0, LIBRARY.length - LIBRARY_CURATED.length, ...merged);
+      populate(ddListL, LIBRARY, "library");
+      applyFilter();
+      pushBackendLibrary(merged);
+      setAddMsg("Imported " + added + " new, skipped " + (incoming.length - added) + " duplicates", "ok");
+      setTimeout(() => setAddMsg("", null), 3500);
+    } catch (err) {
+      setAddMsg("Import error: " + (err.message || "unknown"), "err");
+    } finally {
+      importFile.value = "";
+    }
+  });
+
+  // ===== Initial backend pull =====
+  // On boot, if a backend is reachable, merge its library with whatever's in
+  // localStorage and push the merged set back. After this the user sees the
+  // same library on every device that talks to the same Pi.
+  (async () => {
+    const backendItems = await fetchBackendLibrary();
+    if (backendItems === null) return;
+    const local = loadUserLibrary();
+    const merged = mergeLibraries(backendItems, local);
+    saveUserLibrary(merged);
+    LIBRARY.splice(0, LIBRARY.length - LIBRARY_CURATED.length, ...merged);
+    populate(ddListL, LIBRARY, "library");
+    applyFilter();
+    if (merged.length > backendItems.length) pushBackendLibrary(merged);
+  })();
 
   addOpenBtn.addEventListener("click", () => showAddBar(true));
   addCancelBtn.addEventListener("click", () => showAddBar(false));

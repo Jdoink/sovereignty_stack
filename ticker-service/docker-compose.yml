@@ -8,4 +8,10 @@ services:
       - .env
     ports:
       - "8787:8787"
+    volumes:
+      # Library JSON lives on the Seagate so it survives container rebuilds and
+      # syncs across every device that talks to this Pi.
+      - /media/devmon/sda1-usb-Seagate_BUP_Slim/sovereignty-stack:/data
+    environment:
+      - RADIO_LIBRARY_PATH=/data/radio-library.json
     command: uvicorn server:app --host 0.0.0.0 --port 8787
