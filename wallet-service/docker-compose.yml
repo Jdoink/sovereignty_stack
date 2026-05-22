@@ -1,0 +1,24 @@
+services:
+  wallet-service:
+    container_name: wallet-service
+    build: .
+    image: sovereignty-stack/wallet-service:latest
+    restart: unless-stopped
+    # LAN-only: bind to all interfaces, but use a host firewall rule to block
+    # WAN. If you ever want this only reachable from the Pi itself, change to
+    # "127.0.0.1:8788:8788".
+    ports:
+      - "8788:8788"
+    volumes:
+      # Primary keystore + audit log on the Seagate.
+      - /media/devmon/sda1-usb-Seagate_BUP_Slim/sovereignty-stack/wallet:/data
+      # Mirror backup on the SD card (survives Seagate unmount). The container
+      # writes both on every keystore change.
+      - /var/lib/wallet-service-backup:/backup
+    environment:
+      - WALLET_DATA_PATH=/data
+      - WALLET_BACKUP_PATH=/backup
+      # Where the latest console.html should be fetched from. Default points
+      # at this repo's main branch so radio-style "push, no rebuild" works.
+      - WALLET_CONSOLE_URL=https://raw.githubusercontent.com/Jdoink/sovereignty_stack/main/command-center-web3/console.html
+    command: uvicorn server:app --host 0.0.0.0 --port 8788
