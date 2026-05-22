@@ -148,9 +148,9 @@
   .cc-controls {
     position: relative; z-index: 3;
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto auto auto;
+    grid-template-columns: minmax(0, 1fr) auto auto auto auto auto;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
     padding: 8px 10px;
     background: var(--cc-panel);
     border: 1px solid var(--cc-line);
@@ -295,6 +295,44 @@
   }
   .cc-dd-empty[hidden] { display: none; }
 
+  /* ADD-item bar (replaces toolbar when adding) */
+  .cc-dd-addbar {
+    display: flex; gap: 8px;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--cc-amber-dim);
+    background: linear-gradient(180deg, rgba(255,176,0,0.05), transparent);
+    flex: 0 0 auto;
+  }
+  .cc-dd-addbar[hidden] { display: none; }
+  .cc-dd-addmsg {
+    padding: 6px 14px;
+    font-size: 10px; letter-spacing: 0.18em;
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--cc-line);
+    flex: 0 0 auto;
+  }
+  .cc-dd-addmsg[hidden] { display: none; }
+  .cc-dd-addmsg.ok    { color: var(--cc-green); }
+  .cc-dd-addmsg.err   { color: var(--cc-red); }
+  .cc-dd-addmsg.info  { color: var(--cc-cyan); }
+
+  /* User-added item styling: small star + delete button */
+  .cc-dd-item.user .cc-dd-num::before { content: "\2605 "; color: var(--cc-amber); }
+  .cc-dd-item-del {
+    appearance: none;
+    background: none; border: 0;
+    color: var(--cc-text-dim);
+    font-size: 14px; line-height: 1;
+    cursor: pointer;
+    padding: 0 6px;
+    align-self: center;
+    opacity: 0;
+    transition: opacity 120ms ease, color 120ms ease;
+  }
+  .cc-dd-item:hover .cc-dd-item-del { opacity: 1; }
+  .cc-dd-item-del:hover { color: var(--cc-red); }
+  .cc-dd-item.user { grid-template-columns: auto 1fr auto; }
+
   .cc-dd-list { list-style: none; overflow-y: auto; flex: 1; }
   .cc-dd-list[hidden] { display: none; }
   .cc-dd-item {
@@ -372,6 +410,13 @@
     color: var(--cc-text-dim);
   }
 
+  .cc-skip {
+    width: 36px; height: 36px;
+    font-size: 13px;
+    color: var(--cc-text-dim);
+  }
+  .cc-skip:hover { color: var(--cc-amber); }
+
   .cc-vol {
     display: inline-flex; align-items: center; gap: 8px;
     padding: 0 10px;
@@ -407,16 +452,18 @@
   /* ============ Responsive ============ */
   @media (max-width: 620px) {
     .cc-controls {
-      grid-template-columns: 1fr auto auto;
+      grid-template-columns: auto auto auto auto 1fr;
       grid-template-areas:
-        "select   play stop"
-        "vol      vol  vol";
+        "select select select select select"
+        "prev   play   next   stop   vol";
       gap: 8px;
     }
-    .cc-dd   { grid-area: select; }
+    .cc-dd   { grid-area: select; min-width: 0; }
+    #cc-prev { grid-area: prev; }
     .cc-play { grid-area: play; }
+    #cc-next { grid-area: next; }
     .cc-stop { grid-area: stop; }
-    .cc-vol  { grid-area: vol; justify-self: stretch; }
+    .cc-vol  { grid-area: vol; justify-self: stretch; min-width: 0; }
     .cc-vol input[type="range"] { width: 100%; flex: 1; }
   }
   @media (max-width: 440px) {
@@ -480,16 +527,34 @@
             <span class="cc-shuffle-icon">&#8646;</span>
             <span>SHUFFLE</span>
           </button>
+          <button type="button" id="cc-add-open" class="cc-shuffle" title="Add a track from archive.org">
+            <span class="cc-shuffle-icon">&#43;</span>
+            <span>ADD</span>
+          </button>
         </div>
+        <div class="cc-dd-addbar" id="cc-dd-addbar" hidden>
+          <input type="text" id="cc-add-url" class="cc-search" placeholder="PASTE ARCHIVE.ORG URL OR ITEM ID..." aria-label="Add item URL" autocomplete="off">
+          <button type="button" id="cc-add-save" class="cc-shuffle" title="Save to library">
+            <span class="cc-shuffle-icon">&#10003;</span>
+            <span>SAVE</span>
+          </button>
+          <button type="button" id="cc-add-cancel" class="cc-shuffle" title="Cancel">
+            <span class="cc-shuffle-icon">&times;</span>
+            <span>CANCEL</span>
+          </button>
+        </div>
+        <div class="cc-dd-addmsg" id="cc-dd-addmsg" hidden></div>
         <ul class="cc-dd-list" id="cc-dd-list-stations"></ul>
         <ul class="cc-dd-list" id="cc-dd-list-library" hidden></ul>
         <div class="cc-dd-empty" id="cc-dd-empty" hidden>NO MATCHES</div>
       </div>
     </div>
 
+    <button type="button" id="cc-prev" class="cc-btn cc-skip" aria-label="Previous">&#9198;</button>
     <button type="button" id="cc-play" class="cc-btn cc-play" aria-label="Play / pause">
       <span id="cc-play-icon">&#9658;</span>
     </button>
+    <button type="button" id="cc-next" class="cc-btn cc-skip" aria-label="Next">&#9197;</button>
     <button type="button" id="cc-stop" class="cc-btn cc-stop" aria-label="Stop">&#9632;</button>
 
     <div class="cc-vol">
@@ -523,7 +588,7 @@
   // Each item is a search query. At click time we hit archive.org's API to
   // resolve the actual identifier and pick the best MP3 file. To add more
   // items, copy the pattern - the query just needs to find a unique recording.
-  const LIBRARY = [
+  const LIBRARY_CURATED = [
     // ───── Early jazz / blues (1917-1929) ─────
     { name: "TIGER RAG",              sub: "ORIGINAL DIXIELAND JAZZ BAND · 1917", q: 'title:("Tiger Rag") creator:("Original Dixieland Jazz Band") mediatype:(audio)' },
     { name: "DIPPERMOUTH BLUES",      sub: "KING OLIVER · 1923",          q: 'title:("Dippermouth Blues") creator:("King Oliver") mediatype:(audio)' },
@@ -594,8 +659,22 @@
     { name: "FINLANDIA",              sub: "SIBELIUS · OP. 26",           q: 'title:(Finlandia) creator:(Sibelius) mediatype:(audio)' },
   ];
 
+  // User-added items live in localStorage so they survive refreshes per-browser.
+  // Each entry: { name, sub, identifier, user: true }
+  const USER_LIB_KEY = "cc-radio-user-library-v1";
+  function loadUserLibrary() {
+    try { return JSON.parse(localStorage.getItem(USER_LIB_KEY) || "[]"); }
+    catch (e) { return []; }
+  }
+  function saveUserLibrary(items) {
+    try { localStorage.setItem(USER_LIB_KEY, JSON.stringify(items)); } catch (e) {}
+  }
+
+  // Composite library: user items first, then curated.
+  const LIBRARY = [...loadUserLibrary(), ...LIBRARY_CURATED];
+
   // In-memory cache so re-clicking a library item is instant after the first resolve.
-  const libResolved = new Map();  // index -> { url, identifier }
+  // Resolved playback URLs are cached on each LIBRARY item via _resolved.
 
   const $ = id => document.getElementById(id);
   const audio    = $("cc-audio");
@@ -622,19 +701,38 @@
   const tabs     = document.querySelectorAll(".cc-dd-tab");
 
   // Populate both lists
+  function escapeHTML(s) {
+    return String(s).replace(/[&<>"']/g, c =>
+      ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
+  }
+
   function populate(listEl, items, kind) {
+    listEl.innerHTML = "";
     items.forEach((s, i) => {
       const li = document.createElement("li");
-      li.className = "cc-dd-item";
+      li.className = "cc-dd-item" + (s.user ? " user" : "");
       li.dataset.idx = String(i);
       li.dataset.kind = kind;
       const num = kind === "library" ? "TR " + String(i+1).padStart(2,"0")
                                      : "CH " + String(i+1).padStart(2,"0");
-      li.innerHTML =
+      let html =
         '<span class="cc-dd-num">' + num + '</span>' +
-        '<span><span class="cc-dd-name">' + s.name + '</span>' +
-        '<div class="cc-dd-sub">' + s.sub + '</div></span>';
-      li.addEventListener("click", () => { selectItem(kind, i); closeDropdown(); });
+        '<span><span class="cc-dd-name">' + escapeHTML(s.name) + '</span>' +
+        '<div class="cc-dd-sub">' + escapeHTML(s.sub) + '</div></span>';
+      if (s.user) html += '<button type="button" class="cc-dd-item-del" title="Remove from library" aria-label="Remove">&times;</button>';
+      li.innerHTML = html;
+      li.addEventListener("click", ev => {
+        if (ev.target.closest(".cc-dd-item-del")) return; // handled separately
+        selectItem(kind, i);
+        closeDropdown();
+      });
+      const delBtn = li.querySelector(".cc-dd-item-del");
+      if (delBtn) {
+        delBtn.addEventListener("click", ev => {
+          ev.stopPropagation();
+          removeUserItem(i);
+        });
+      }
       listEl.appendChild(li);
     });
   }
@@ -647,12 +745,17 @@
   const searchIn   = $("cc-search");
   const shuffleBtn = $("cc-shuffle");
   const emptyMsg   = $("cc-dd-empty");
+  const addbar     = $("cc-dd-addbar");
+  const addmsg     = $("cc-dd-addmsg");
 
   // Tab switching - also show/hide library toolbar
   function setActiveTab(name) {
     tabs.forEach(t => t.classList.toggle("active", t.dataset.tab === name));
     ddListS.hidden = name !== "stations";
     ddListL.hidden = name !== "library";
+    // Hide the addbar if we leave the library tab
+    addbar.hidden = true;
+    addmsg.hidden = true;
     toolbar.hidden = name !== "library";
     if (name !== "library") emptyMsg.hidden = true;
     if (name === "library") applyFilter();
@@ -720,11 +823,39 @@
   // 2) metadata -> list files in that item
   // 3) pick the smallest plausible MP3 (preferring VBR derivative)
   // Returns { url, identifier } or throws.
-  async function resolveLibraryURL(idx) {
-    if (libResolved.has(idx)) return libResolved.get(idx);
-    const item = LIBRARY[idx];
+  async function pickMp3FromIdentifier(identifier) {
+    const mRes = await fetch("https://archive.org/metadata/" + encodeURIComponent(identifier));
+    if (!mRes.ok) throw new Error("meta " + mRes.status);
+    const mJson = await mRes.json();
+    const files = (mJson && mJson.files) || [];
+    if (!files.length) throw new Error("no files");
+    const mp3s = files.filter(f => f.name && f.name.toLowerCase().endsWith(".mp3"));
+    if (!mp3s.length) throw new Error("no mp3");
+    const pick =
+      mp3s.find(f => /vbr/i.test(f.name)) ||
+      mp3s.find(f => /64kb/i.test(f.name)) ||
+      mp3s.find(f => (f.source || "").toLowerCase() === "derivative") ||
+      mp3s[0];
+    return {
+      url: "https://archive.org/download/" + encodeURIComponent(identifier) + "/" + encodeURIComponent(pick.name),
+      identifier,
+      meta: mJson.metadata || {}
+    };
+  }
 
-    // Search
+  // Resolve a library item's playable MP3 URL. Cache lives on the item object
+  // itself (not indexed by position), so reordering after add/delete is safe.
+  async function resolveLibraryURL(idx) {
+    const item = LIBRARY[idx];
+    if (item._resolved) return item._resolved;
+
+    // User-added items already store the identifier directly - skip search.
+    if (item.identifier) {
+      item._resolved = await pickMp3FromIdentifier(item.identifier);
+      return item._resolved;
+    }
+
+    // Curated items: search archive.org for a matching identifier.
     const searchUrl =
       "https://archive.org/advancedsearch.php?q=" + encodeURIComponent(item.q) +
       "&fl%5B%5D=identifier&fl%5B%5D=title&rows=1&page=1&output=json";
@@ -733,30 +864,8 @@
     const sJson = await sRes.json();
     const docs = sJson && sJson.response && sJson.response.docs;
     if (!docs || !docs.length) throw new Error("no match");
-    const identifier = docs[0].identifier;
-
-    // Metadata
-    const mRes = await fetch("https://archive.org/metadata/" + encodeURIComponent(identifier));
-    if (!mRes.ok) throw new Error("meta " + mRes.status);
-    const mJson = await mRes.json();
-    const files = (mJson && mJson.files) || [];
-    if (!files.length) throw new Error("no files");
-
-    // Pick best MP3: prefer derivative VBR/64kb, fall back to any .mp3
-    const mp3s = files.filter(f => f.name && f.name.toLowerCase().endsWith(".mp3"));
-    if (!mp3s.length) throw new Error("no mp3");
-    const pick =
-      mp3s.find(f => /vbr/i.test(f.name)) ||
-      mp3s.find(f => /64kb/i.test(f.name)) ||
-      mp3s.find(f => (f.source || "").toLowerCase() === "derivative") ||
-      mp3s[0];
-
-    const url = "https://archive.org/download/" +
-                encodeURIComponent(identifier) + "/" +
-                encodeURIComponent(pick.name);
-    const resolved = { url, identifier };
-    libResolved.set(idx, resolved);
-    return resolved;
+    item._resolved = await pickMp3FromIdentifier(docs[0].identifier);
+    return item._resolved;
   }
 
   async function selectItem(kind, idx) {
@@ -826,6 +935,124 @@
     [ddListS, ddListL].forEach(list => Array.from(list.children).forEach(li => li.classList.remove("selected")));
     setStatus("STANDBY", "");
     setPlayIcon(false);
+  });
+
+  // ===== Skip (prev / next) =====
+  const prevBtn = $("cc-prev");
+  const nextBtn = $("cc-next");
+  function skipBy(direction) {
+    if (!state.current) { selectItem("stations", 0); return; }
+    if (state.kind === "library" && state.shuffle) {
+      selectItem("library", pickRandomLibraryIdx(state.idx));
+      return;
+    }
+    const list = state.kind === "library" ? LIBRARY : STATIONS;
+    const len = list.length;
+    if (!len) return;
+    const next = (state.idx + direction + len) % len;
+    selectItem(state.kind, next);
+  }
+  prevBtn.addEventListener("click", () => skipBy(-1));
+  nextBtn.addEventListener("click", () => skipBy(+1));
+
+  // ===== User-added library items =====
+  const addOpenBtn   = $("cc-add-open");
+  const addSaveBtn   = $("cc-add-save");
+  const addCancelBtn = $("cc-add-cancel");
+  const addUrlInput  = $("cc-add-url");
+
+  function showAddBar(show) {
+    addbar.hidden = !show;
+    toolbar.hidden = show || (currentTab() !== "library");
+    if (show) { addUrlInput.value = ""; setAddMsg("", null); addUrlInput.focus(); }
+  }
+  function setAddMsg(text, level) {
+    if (!text) { addmsg.hidden = true; addmsg.className = "cc-dd-addmsg"; return; }
+    addmsg.hidden = false;
+    addmsg.className = "cc-dd-addmsg " + (level || "info");
+    addmsg.textContent = text;
+  }
+  function currentTab() {
+    const t = document.querySelector(".cc-dd-tab.active");
+    return t ? t.dataset.tab : "stations";
+  }
+
+  // Accept a full archive.org URL or just an identifier. Returns the identifier.
+  function parseIdentifier(input) {
+    const trimmed = (input || "").trim();
+    if (!trimmed) return null;
+    const m = trimmed.match(/archive\.org\/(?:details|download|metadata|embed)\/([^/?#]+)/i);
+    if (m) return decodeURIComponent(m[1]);
+    // Bare identifier - simple validation (no whitespace, no slashes)
+    if (/^[A-Za-z0-9._-]+$/.test(trimmed)) return trimmed;
+    return null;
+  }
+
+  async function addUserItem(input) {
+    const identifier = parseIdentifier(input);
+    if (!identifier) { setAddMsg("Not a valid archive.org URL or ID", "err"); return; }
+    setAddMsg("Fetching metadata...", "info");
+    try {
+      const r = await fetch("https://archive.org/metadata/" + encodeURIComponent(identifier));
+      if (!r.ok) throw new Error("item not found (" + r.status + ")");
+      const meta = await r.json();
+      const md = (meta && meta.metadata) || {};
+      // Reject items with no audio files - bail before saving
+      const audioFiles = (meta.files || []).filter(f => f.name && f.name.toLowerCase().endsWith(".mp3"));
+      if (!audioFiles.length) throw new Error("no playable mp3 in this item");
+
+      const title  = String(md.title || identifier).toUpperCase().slice(0, 80);
+      const creator = Array.isArray(md.creator) ? md.creator.join(", ") : (md.creator || "ARCHIVE.ORG");
+      const year   = md.year || md.date || "";
+      const sub    = String(creator + (year ? " · " + String(year).slice(0,4) : "")).toUpperCase().slice(0, 80);
+
+      const item = { name: title, sub: sub, identifier, user: true };
+
+      // Prevent duplicates
+      const user = loadUserLibrary();
+      if (user.some(u => u.identifier === identifier)) {
+        setAddMsg("Already in your library", "err");
+        return;
+      }
+      user.unshift(item);
+      saveUserLibrary(user);
+
+      // Splice into the live LIBRARY array (at the top) and rebuild the list
+      LIBRARY.unshift(item);
+      populate(ddListL, LIBRARY, "library");
+      applyFilter();
+
+      setAddMsg("Added: " + title, "ok");
+      addUrlInput.value = "";
+      // Auto-hide message after a moment
+      setTimeout(() => setAddMsg("", null), 2500);
+    } catch (err) {
+      setAddMsg("Error: " + (err.message || "unknown"), "err");
+    }
+  }
+
+  function removeUserItem(idxInLibrary) {
+    const item = LIBRARY[idxInLibrary];
+    if (!item || !item.user) return;
+    // Pull from persisted store
+    const user = loadUserLibrary().filter(u => u.identifier !== item.identifier);
+    saveUserLibrary(user);
+    LIBRARY.splice(idxInLibrary, 1);
+    // If the removed item was currently playing, reset state.idx so skip still works
+    if (state.kind === "library") {
+      if (state.idx === idxInLibrary) { state.idx = -1; state.current = null; }
+      else if (state.idx > idxInLibrary) { state.idx -= 1; }
+    }
+    populate(ddListL, LIBRARY, "library");
+    applyFilter();
+  }
+
+  addOpenBtn.addEventListener("click", () => showAddBar(true));
+  addCancelBtn.addEventListener("click", () => showAddBar(false));
+  addSaveBtn.addEventListener("click", () => addUserItem(addUrlInput.value));
+  addUrlInput.addEventListener("keydown", e => {
+    if (e.key === "Enter") { e.preventDefault(); addUserItem(addUrlInput.value); }
+    else if (e.key === "Escape") { e.preventDefault(); showAddBar(false); }
   });
 
   function applyVol(v) { audio.volume = v; volRd.textContent = String(Math.round(v*100)); }
