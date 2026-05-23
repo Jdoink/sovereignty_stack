@@ -1,17 +1,14 @@
 """
-Sovereignty Stack Wallet Service - Phase 1.
+Sovereignty Stack Wallet Service.
 
-This service generates and securely stores a single Ethereum keypair on the
-Pi. The private key never leaves this process; the keystore on disk is
-encrypted with an Argon2id-derived AES-256-GCM key.
+Phase 1: encrypted keystore + creation flow.
+Phase 2.0: unlock/lock + 5-min idle session + chain registry (Mainnet, Base)
+  + balance + ETH/USD price.
 
-Phase 1 (this file) intentionally covers ONLY:
-  - account creation (returns BIP-39 mnemonic exactly once)
-  - keystore existence / address listing
-  - serving the latest console.html so the UI is same-origin with the API
-
-Signing, allowlist, simulation, multisig, and YubiKey unlock are deferred to
-later phases. See the project README for the phase plan.
+The private key never leaves this process. The keystore on disk is encrypted
+with an Argon2id-derived AES-256-GCM key. While unlocked, the decrypted
+mnemonic lives in an in-memory session entry that auto-expires after 5
+minutes of idle (any session use resets the timer).
 
 All crypto comes from well-known libraries:
   - argon2-cffi (RFC 9106 Argon2id)
@@ -23,11 +20,13 @@ No custom crypto. No hashlib for security purposes.
 
 from __future__ import annotations
 
+import asyncio
 import datetime as dt
 import json
 import logging
 import os
 import secrets
+import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -205,21 +204,158 @@ def audit(event: str, **details: Any) -> None:
 
 
 # ============================================================================
+# Chain registry
+# ============================================================================
+# Public RPCs by default. Override with WALLET_RPC_MAINNET / WALLET_RPC_BASE.
+CHAINS: Dict[int, Dict[str, str]] = {
+    1: {
+        "name": "Ethereum",
+        "symbol": "ETH",
+        "rpc_url": os.getenv("WALLET_RPC_MAINNET", "https://cloudflare-eth.com"),
+        "explorer": "https://etherscan.io",
+    },
+    8453: {
+        "name": "Base",
+        "symbol": "ETH",
+        "rpc_url": os.getenv("WALLET_RPC_BASE", "https://mainnet.base.org"),
+        "explorer": "https://basescan.org",
+    },
+}
+
+
+async def rpc_call(chain_id: int, method: str, params: list) -> Any:
+    """Minimal JSON-RPC client over httpx. Raises HTTPException on failure."""
+    chain = CHAINS.get(chain_id)
+    if not chain:
+        raise HTTPException(status_code=400, detail=f"unsupported chain {chain_id}")
+    if http_client is None:
+        raise HTTPException(status_code=503, detail="http client not initialized")
+    payload = {"jsonrpc": "2.0", "id": 1, "method": method, "params": params}
+    try:
+        r = await http_client.post(chain["rpc_url"], json=payload, timeout=10.0)
+        r.raise_for_status()
+    except httpx.HTTPError as e:
+        raise HTTPException(status_code=502, detail=f"RPC transport error: {e}")
+    j = r.json()
+    if "error" in j and j["error"] is not None:
+        raise HTTPException(status_code=502, detail=f"RPC error: {j['error']}")
+    return j.get("result")
+
+
+# ============================================================================
+# ETH/USD price (CoinGecko free API, 60s cache)
+# ============================================================================
+_price_cache: Dict[str, Any] = {"ts": 0.0, "value": None}
+
+
+async def get_eth_usd_price() -> Optional[float]:
+    now = time.time()
+    if _price_cache["value"] is not None and (now - _price_cache["ts"]) < 60.0:
+        return _price_cache["value"]
+    if http_client is None:
+        return _price_cache["value"]
+    try:
+        r = await http_client.get(
+            "https://api.coingecko.com/api/v3/simple/price",
+            params={"ids": "ethereum", "vs_currencies": "usd"},
+            timeout=6.0,
+        )
+        r.raise_for_status()
+        price = float(r.json()["ethereum"]["usd"])
+        _price_cache["ts"] = now
+        _price_cache["value"] = price
+        return price
+    except Exception:
+        logger.warning("eth/usd price fetch failed; returning cached value")
+        return _price_cache["value"]
+
+
+# ============================================================================
+# Session management (in-memory, 5-min idle)
+# ============================================================================
+SESSION_TTL_SECONDS = 300
+
+# token -> {"mnemonic": bytes, "address": str, "expires_at": float}
+_sessions: Dict[str, Dict[str, Any]] = {}
+
+
+def _zeroize(b: bytes) -> None:
+    """Best-effort wipe. Python doesn't truly let us wipe immutable bytes, but
+    we can overwrite a mutable view if the original was a bytearray."""
+    try:
+        if isinstance(b, bytearray):
+            for i in range(len(b)):
+                b[i] = 0
+    except Exception:
+        pass
+
+
+def zeroize_session(token: str) -> None:
+    s = _sessions.pop(token, None)
+    if s is None:
+        return
+    mnemonic = s.get("mnemonic")
+    if isinstance(mnemonic, (bytes, bytearray)):
+        _zeroize(bytearray(mnemonic) if isinstance(mnemonic, bytes) else mnemonic)
+    s["mnemonic"] = b""
+
+
+def touch_session(token: str) -> Optional[Dict[str, Any]]:
+    """Return the session if valid, resetting its TTL. None if expired/missing."""
+    s = _sessions.get(token)
+    if s is None:
+        return None
+    now = time.time()
+    if s["expires_at"] < now:
+        zeroize_session(token)
+        audit("session.expire", token_prefix=token[:8])
+        return None
+    s["expires_at"] = now + SESSION_TTL_SECONDS
+    return s
+
+
+async def session_sweep() -> None:
+    """Background task: every 30s, zeroize expired sessions."""
+    while True:
+        try:
+            await asyncio.sleep(30)
+            now = time.time()
+            expired = [t for t, s in _sessions.items() if s["expires_at"] < now]
+            for t in expired:
+                zeroize_session(t)
+                audit("session.expire", token_prefix=t[:8])
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.exception("session_sweep failure (continuing)")
+
+
+# ============================================================================
 # FastAPI app
 # ============================================================================
 http_client: Optional[httpx.AsyncClient] = None
+_sweep_task: Optional[asyncio.Task] = None
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    global http_client
+    global http_client, _sweep_task
     http_client = httpx.AsyncClient(timeout=httpx.Timeout(8.0))
     DATA_PATH.mkdir(parents=True, exist_ok=True)
     BACKUP_PATH.mkdir(parents=True, exist_ok=True)
-    logger.info("wallet-service ready; data=%s backup=%s", DATA_PATH, BACKUP_PATH)
+    _sweep_task = asyncio.create_task(session_sweep())
+    logger.info(
+        "wallet-service ready; data=%s backup=%s chains=%s",
+        DATA_PATH, BACKUP_PATH, list(CHAINS.keys()),
+    )
     try:
         yield
     finally:
+        if _sweep_task is not None:
+            _sweep_task.cancel()
+        # Best-effort: zeroize all active sessions on shutdown.
+        for token in list(_sessions.keys()):
+            zeroize_session(token)
         if http_client is not None:
             await http_client.aclose()
 
@@ -324,6 +460,125 @@ async def create_wallet(body: CreateRequest) -> CreateResponse:
             "sees it can drain this wallet."
         ),
     )
+
+
+# ----- Phase 2.0: unlock / lock / session / chains / balance -----
+class UnlockRequest(BaseModel):
+    passphrase: str = Field(min_length=1, max_length=512)
+
+
+class UnlockResponse(BaseModel):
+    session_token: str
+    expires_at: float
+    ttl_seconds: int
+    address: str
+
+
+class LockRequest(BaseModel):
+    session_token: str
+
+
+@app.post("/api/wallet/unlock", response_model=UnlockResponse)
+async def unlock_wallet(body: UnlockRequest) -> UnlockResponse:
+    if not keystore_exists():
+        raise HTTPException(status_code=404, detail="no wallet initialized")
+    try:
+        keystore = load_keystore()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"keystore load failed: {e}")
+
+    try:
+        mnemonic_bytes = decrypt_with_passphrase(
+            keystore["encrypted_mnemonic"], body.passphrase
+        )
+    except Exception:
+        audit("wallet.unlock.fail", address=keystore.get("address"))
+        # Don't leak whether the keystore was corrupted vs wrong passphrase;
+        # AES-GCM auth failure looks the same to the caller either way.
+        raise HTTPException(status_code=401, detail="incorrect passphrase")
+
+    token = secrets.token_urlsafe(32)
+    now = time.time()
+    expires_at = now + SESSION_TTL_SECONDS
+    _sessions[token] = {
+        "mnemonic": mnemonic_bytes,
+        "address": keystore["address"],
+        "expires_at": expires_at,
+    }
+    audit("wallet.unlock.ok", address=keystore["address"], token_prefix=token[:8])
+    return UnlockResponse(
+        session_token=token,
+        expires_at=expires_at,
+        ttl_seconds=SESSION_TTL_SECONDS,
+        address=keystore["address"],
+    )
+
+
+@app.post("/api/wallet/lock")
+async def lock_wallet(body: LockRequest) -> Dict[str, Any]:
+    had = body.session_token in _sessions
+    zeroize_session(body.session_token)
+    if had:
+        audit("wallet.lock", token_prefix=body.session_token[:8])
+    return {"ok": True}
+
+
+@app.get("/api/wallet/session")
+async def session_info(token: str) -> Dict[str, Any]:
+    s = touch_session(token)
+    if s is None:
+        return {"unlocked": False}
+    now = time.time()
+    return {
+        "unlocked": True,
+        "address": s["address"],
+        "expires_at": s["expires_at"],
+        "ttl_remaining": int(s["expires_at"] - now),
+        "ttl_seconds": SESSION_TTL_SECONDS,
+    }
+
+
+@app.get("/api/chains")
+async def list_chains() -> list:
+    return [
+        {
+            "chain_id": cid,
+            "name": c["name"],
+            "symbol": c["symbol"],
+            "explorer": c["explorer"],
+        }
+        for cid, c in CHAINS.items()
+    ]
+
+
+@app.get("/api/wallet/balance")
+async def get_balance(chain_id: int, address: str) -> Dict[str, Any]:
+    """Native balance for any address on a supported chain. No auth: balances
+    are public on-chain data and we never expose the private key here."""
+    if chain_id not in CHAINS:
+        raise HTTPException(status_code=400, detail=f"unsupported chain {chain_id}")
+    # Defensive address shape check (the RPC will reject malformed too, but a
+    # 400 from us is friendlier than a 502).
+    if not (isinstance(address, str) and address.startswith("0x") and len(address) == 42):
+        raise HTTPException(status_code=400, detail="invalid address")
+
+    chain = CHAINS[chain_id]
+    balance_hex = await rpc_call(chain_id, "eth_getBalance", [address, "latest"])
+    balance_wei = int(balance_hex, 16)
+    balance_native = balance_wei / 10**18
+    price = await get_eth_usd_price()
+    usd_value = (balance_native * price) if price else None
+    return {
+        "chain_id": chain_id,
+        "chain_name": chain["name"],
+        "symbol": chain["symbol"],
+        "explorer": chain["explorer"],
+        "address": address,
+        "balance_wei": str(balance_wei),
+        "balance_native": balance_native,
+        "usd_per_native": price,
+        "usd_value": usd_value,
+    }
 
 
 # ----- Console hosting (so the UI is same-origin with the API) -----

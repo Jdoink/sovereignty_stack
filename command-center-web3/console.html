@@ -358,7 +358,8 @@
   #pane-wallet[data-state="unreachable"] #w-unreachable { display: flex; }
   #pane-wallet[data-state="preinit"]     #w-preinit     { display: flex; }
   #pane-wallet[data-state="reveal"]      #w-reveal      { display: flex; }
-  #pane-wallet[data-state="ready"]       #w-ready       { display: flex; }
+  #pane-wallet[data-state="locked"]      #w-locked      { display: flex; }
+  #pane-wallet[data-state="unlocked"]    #w-unlocked    { display: flex; }
 
   .w-card {
     flex-direction: column;
@@ -452,6 +453,71 @@
   /* Narrow / phone: seed grid drops to 3 cols, then 2 */
   @media (max-width: 520px) { .w-seed { grid-template-columns: repeat(3, 1fr); } }
   @media (max-width: 360px) { .w-seed { grid-template-columns: repeat(2, 1fr); } }
+
+  /* Chain pill selector */
+  .w-chains { display: flex; gap: 8px; }
+  .w-chain-pill {
+    flex: 1 1 0;
+    min-height: var(--cc-tap);
+    background: var(--cc-bg);
+    border: 1px solid var(--cc-line-hi);
+    color: var(--cc-text-dim);
+    font-size: 12px;
+    letter-spacing: 0.12em;
+    font-weight: 600;
+    cursor: pointer;
+    transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
+  }
+  .w-chain-pill:hover { color: var(--cc-text); border-color: var(--cc-cyan-dim); }
+  .w-chain-pill.active {
+    color: var(--cc-cyan);
+    border-color: var(--cc-cyan);
+    background: linear-gradient(180deg, rgba(90,211,255,0.10), transparent 60%), var(--cc-bg);
+    box-shadow: 0 0 12px rgba(90,211,255,0.18);
+  }
+
+  /* Balance display */
+  .w-balance-native {
+    color: var(--cc-cyan);
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-shadow: 0 0 10px rgba(90,211,255,0.3);
+    font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
+  }
+  .w-balance-usd {
+    color: var(--cc-text-dim);
+    font-size: 12px;
+    letter-spacing: 0.04em;
+    font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
+  }
+
+  /* Session timer */
+  .w-session-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    padding-top: 6px;
+    border-top: 1px solid var(--cc-line);
+  }
+  .w-session-timer {
+    color: var(--cc-purple);
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
+  }
+  .w-session-timer.warn { color: var(--cc-red); }
+
+  /* Phase-2.0 "next up" placeholder section */
+  .w-actions-stub {
+    color: var(--cc-text-dim);
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-align: center;
+    padding: 8px 0;
+    border-top: 1px dashed var(--cc-line);
+  }
 
   /* ============ Smaller / narrow ============ */
   @media (max-width: 460px) {
@@ -662,17 +728,37 @@
         <button type="button" id="w-confirm" class="cc-btn primary full">I WROTE IT DOWN &mdash; CONTINUE</button>
       </div>
 
-      <!-- Ready -->
-      <div class="w-card" id="w-ready">
+      <!-- Locked: wallet exists, awaiting passphrase -->
+      <div class="w-card" id="w-locked">
+        <span class="cc-label">WALLET LOCKED</span>
+        <div id="w-locked-addr" class="w-mono" style="font-size:11px;"></div>
+        <input type="password" id="w-unlock-pass" class="cc-input"
+               placeholder="Passphrase" autocomplete="current-password" />
+        <div id="w-unlock-err" class="w-err"></div>
+        <button type="button" id="w-unlock-btn" class="cc-btn primary full">UNLOCK</button>
+      </div>
+
+      <!-- Unlocked: full wallet interface -->
+      <div class="w-card" id="w-unlocked">
         <span class="cc-label">WALLET ADDRESS</span>
         <div id="w-addr" class="w-mono"></div>
-        <div class="w-sub" style="display:flex;gap:10px;align-items:center;">
-          <span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--cc-purple);box-shadow:0 0 6px var(--cc-purple);"></span>
-          <span>PHASE 1 ACTIVE &mdash; keystore on Pi (Seagate + SD)</span>
-        </div>
         <div class="w-row">
-          <a class="cc-btn" id="w-etherscan" target="_blank" rel="noopener noreferrer">ETHERSCAN</a>
-          <button type="button" class="cc-btn" id="w-copy">COPY ADDRESS</button>
+          <a class="cc-btn" id="w-etherscan" target="_blank" rel="noopener noreferrer">EXPLORER</a>
+          <button type="button" class="cc-btn" id="w-copy">COPY</button>
+        </div>
+
+        <span class="cc-label" style="margin-top:4px;">CHAIN</span>
+        <div class="w-chains" id="w-chains"></div>
+
+        <span class="cc-label" style="margin-top:4px;">BALANCE</span>
+        <div id="w-balance-native" class="w-balance-native">&mdash;</div>
+        <div id="w-balance-usd" class="w-balance-usd">&mdash;</div>
+
+        <div class="w-actions-stub">SEND ETH &middot; SEND TOKEN &middot; PASTE TX &mdash; COMING IN 2.1&ndash;2.3</div>
+
+        <div class="w-session-bar">
+          <span class="w-session-timer" id="w-session-timer">--:--</span>
+          <button type="button" class="cc-btn" id="w-lock-btn" style="flex:0 0 auto;min-width:120px;">LOCK</button>
         </div>
       </div>
 
@@ -873,20 +959,19 @@
   // Initial render
   renderSaved();
 
-  // ===== WALLET (Phase 1) =====
-  // Single source of truth for which card is visible: data-state on the pane.
-  // CSS in <style> enforces mutex - it is impossible for two cards to show
-  // at once, regardless of JS race conditions.
+  // ===== WALLET (Phase 1 + Phase 2.0) =====
+  // States: unreachable | preinit | reveal | locked | unlocked
+  // Single source of truth: data-state on the pane. CSS enforces mutex.
   const walletPane = $("pane-wallet");
   function setWalletState(name) { walletPane.setAttribute("data-state", name); }
 
   function walletApiReachable() {
     const o = window.location.origin || "";
-    // Same-origin only. CDN-served console is HTTPS -> blocked from HTTP API.
     return o.startsWith("http://") && !/(githack|jsdelivr|github\.io|raw\.githubusercontent)/i.test(o);
   }
   const WALLET_API = walletApiReachable() ? window.location.origin : null;
 
+  // Preinit / Reveal handles
   const wPass1      = $("w-pass1");
   const wPass2      = $("w-pass2");
   const wErr        = $("w-err");
@@ -896,35 +981,80 @@
   const wQuizInput  = $("w-quiz-input");
   const wQuizErr    = $("w-quiz-err");
   const wConfirmBtn = $("w-confirm");
-  const wAddr       = $("w-addr");
-  const wEtherscan  = $("w-etherscan");
-  const wCopyBtn    = $("w-copy");
 
-  // If we're showing the seed reveal card, never let a background refresh
-  // overwrite it - that's the bug from the earlier screenshots.
+  // Locked handles
+  const wLockedAddr = $("w-locked-addr");
+  const wUnlockPass = $("w-unlock-pass");
+  const wUnlockErr  = $("w-unlock-err");
+  const wUnlockBtn  = $("w-unlock-btn");
+
+  // Unlocked handles
+  const wAddr        = $("w-addr");
+  const wEtherscan   = $("w-etherscan");
+  const wCopyBtn     = $("w-copy");
+  const wChainsEl    = $("w-chains");
+  const wBalNative   = $("w-balance-native");
+  const wBalUsd      = $("w-balance-usd");
+  const wSessTimer   = $("w-session-timer");
+  const wLockBtn     = $("w-lock-btn");
+
   let inSeedReveal = false;
   let pendingMnemonic = null;
   let quizPicks = [];
 
+  // Phase 2.0 state
+  let chains = [];                      // [{chain_id, name, symbol, explorer}, ...]
+  let currentChainId = parseInt(sessionStorage.getItem("wallet_chain_id") || "1", 10);
+  let sessionToken = sessionStorage.getItem("wallet_session") || null;
+  let sessionExpiresAt = 0;             // seconds since epoch
+  let walletAddress = null;
+  let balanceTimer = null;
+  let sessionTimerId = null;
+
+  // ---------- State refresh ----------
   async function refreshWalletPane() {
     if (inSeedReveal) return;
-    if (!WALLET_API)  { setWalletState("unreachable"); return; }
+    if (!WALLET_API)  { setWalletState("unreachable"); stopTimers(); return; }
+
+    // 1. If we have a session token, ask the server if it's still valid.
+    if (sessionToken) {
+      try {
+        const r = await fetch(WALLET_API + "/api/wallet/session?token=" + encodeURIComponent(sessionToken), { cache: "no-store" });
+        if (r.ok) {
+          const j = await r.json();
+          if (j.unlocked) {
+            walletAddress = j.address;
+            sessionExpiresAt = j.expires_at;
+            await enterUnlocked();
+            return;
+          }
+        }
+      } catch (_) { /* fall through */ }
+      sessionToken = null;
+      sessionStorage.removeItem("wallet_session");
+    }
+
+    // 2. No session: look at wallet status.
     try {
       const r = await fetch(WALLET_API + "/api/wallet/status", { cache: "no-store" });
       if (!r.ok) throw new Error("status " + r.status);
       const s = await r.json();
       if (s.initialized) {
-        wAddr.textContent = s.address || "(unknown)";
-        wEtherscan.href = "https://etherscan.io/address/" + encodeURIComponent(s.address || "");
-        setWalletState("ready");
+        walletAddress = s.address;
+        wLockedAddr.textContent = s.address || "(unknown)";
+        setWalletState("locked");
+        stopTimers();
       } else {
         setWalletState("preinit");
+        stopTimers();
       }
     } catch (e) {
       setWalletState("unreachable");
+      stopTimers();
     }
   }
 
+  // ---------- Create (Phase 1) ----------
   wCreateBtn.addEventListener("click", async () => {
     wErr.textContent = "";
     const p1 = wPass1.value || "";
@@ -946,8 +1076,7 @@
       }
       const data = await r.json();
       pendingMnemonic = data.words;
-      wAddr.textContent = data.address;
-      wEtherscan.href = "https://etherscan.io/address/" + encodeURIComponent(data.address);
+      walletAddress = data.address;
       renderSeed(data.words);
       wPass1.value = ""; wPass2.value = "";
       inSeedReveal = true;
@@ -965,28 +1094,20 @@
     words.forEach((w, i) => {
       const cell = document.createElement("div");
       cell.className = "w-seed-cell";
-      const n = document.createElement("span");
-      n.className = "n";
+      const n = document.createElement("span"); n.className = "n";
       n.textContent = String(i + 1).padStart(2, "0");
-      const ww = document.createElement("span");
-      ww.className = "w";
+      const ww = document.createElement("span"); ww.className = "w";
       ww.textContent = w;
-      cell.appendChild(n);
-      cell.appendChild(ww);
+      cell.appendChild(n); cell.appendChild(ww);
       wSeed.appendChild(cell);
     });
-
-    // Pick 3 random word indices, one from each third of the phrase.
     const total = words.length;
     quizPicks = [];
-    [[0, total / 3], [total / 3, 2 * total / 3], [2 * total / 3, total]].forEach(([lo, hi]) => {
+    [[0, total/3], [total/3, 2*total/3], [2*total/3, total]].forEach(([lo, hi]) => {
       quizPicks.push(Math.floor(lo + Math.random() * (hi - lo)));
     });
-    wQuiz.textContent = "Type word #" + (quizPicks[0] + 1) +
-      ", #" + (quizPicks[1] + 1) +
-      ", #" + (quizPicks[2] + 1) + " (space-separated)";
-    wQuizInput.value = "";
-    wQuizErr.textContent = "";
+    wQuiz.textContent = "Type word #" + (quizPicks[0]+1) + ", #" + (quizPicks[1]+1) + ", #" + (quizPicks[2]+1) + " (space-separated)";
+    wQuizInput.value = ""; wQuizErr.textContent = "";
   }
 
   wConfirmBtn.addEventListener("click", () => {
@@ -997,15 +1118,193 @@
       wQuizErr.textContent = "Doesn't match. Words must be in order, exactly as written.";
       return;
     }
-    // Quiz passed. Wipe the in-page copy of the mnemonic and move on.
-    pendingMnemonic = null;
-    quizPicks = [];
-    wSeed.innerHTML = "";
-    wQuizInput.value = "";
+    pendingMnemonic = null; quizPicks = [];
+    wSeed.innerHTML = ""; wQuizInput.value = "";
     inSeedReveal = false;
     refreshWalletPane();
   });
 
+  // ---------- Unlock / Lock (Phase 2.0) ----------
+  async function doUnlock() {
+    wUnlockErr.textContent = "";
+    const pass = wUnlockPass.value || "";
+    if (!pass) { wUnlockErr.textContent = "Enter your passphrase."; return; }
+    wUnlockBtn.disabled = true; wUnlockBtn.textContent = "UNLOCKING...";
+    try {
+      const r = await fetch(WALLET_API + "/api/wallet/unlock", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ passphrase: pass }),
+      });
+      if (r.status === 401) {
+        wUnlockErr.textContent = "Incorrect passphrase.";
+        return;
+      }
+      if (!r.ok) {
+        const j = await r.json().catch(() => ({}));
+        throw new Error(j.detail || ("unlock failed: " + r.status));
+      }
+      const j = await r.json();
+      sessionToken = j.session_token;
+      sessionExpiresAt = j.expires_at;
+      walletAddress = j.address;
+      sessionStorage.setItem("wallet_session", sessionToken);
+      wUnlockPass.value = "";
+      await enterUnlocked();
+    } catch (e) {
+      wUnlockErr.textContent = String(e.message || e);
+    } finally {
+      wUnlockBtn.disabled = false; wUnlockBtn.textContent = "UNLOCK";
+    }
+  }
+  wUnlockBtn.addEventListener("click", doUnlock);
+  wUnlockPass.addEventListener("keydown", (e) => { if (e.key === "Enter") doUnlock(); });
+
+  async function doLock() {
+    if (sessionToken) {
+      try {
+        await fetch(WALLET_API + "/api/wallet/lock", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ session_token: sessionToken }),
+        });
+      } catch (_) { /* ignore - we'll clear client state anyway */ }
+    }
+    sessionToken = null;
+    sessionExpiresAt = 0;
+    sessionStorage.removeItem("wallet_session");
+    stopTimers();
+    refreshWalletPane();
+  }
+  wLockBtn.addEventListener("click", doLock);
+
+  // ---------- Unlocked screen ----------
+  async function enterUnlocked() {
+    // Render address + explorer link
+    wAddr.textContent = walletAddress || "(unknown)";
+    // Ensure chains are loaded before rendering pills.
+    if (chains.length === 0) {
+      try {
+        const r = await fetch(WALLET_API + "/api/chains", { cache: "no-store" });
+        if (r.ok) chains = await r.json();
+      } catch (_) { /* will retry */ }
+    }
+    renderChainPills();
+    updateExplorerLink();
+    setWalletState("unlocked");
+    startSessionTimer();
+    startBalancePoll();
+  }
+
+  function renderChainPills() {
+    wChainsEl.innerHTML = "";
+    chains.forEach(c => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "w-chain-pill" + (c.chain_id === currentChainId ? " active" : "");
+      b.textContent = c.name.toUpperCase();
+      b.addEventListener("click", () => {
+        currentChainId = c.chain_id;
+        sessionStorage.setItem("wallet_chain_id", String(c.chain_id));
+        renderChainPills();
+        updateExplorerLink();
+        fetchBalance();
+      });
+      wChainsEl.appendChild(b);
+    });
+  }
+
+  function currentChain() {
+    return chains.find(c => c.chain_id === currentChainId) || null;
+  }
+
+  function updateExplorerLink() {
+    const c = currentChain();
+    if (c && walletAddress) {
+      wEtherscan.href = c.explorer + "/address/" + encodeURIComponent(walletAddress);
+      wEtherscan.textContent = (c.chain_id === 1) ? "ETHERSCAN" : "EXPLORER";
+    }
+  }
+
+  async function fetchBalance() {
+    if (!walletAddress) return;
+    wBalNative.textContent = "...";
+    wBalUsd.textContent = "";
+    try {
+      const url = WALLET_API + "/api/wallet/balance?chain_id=" + encodeURIComponent(currentChainId) +
+                  "&address=" + encodeURIComponent(walletAddress);
+      const r = await fetch(url, { cache: "no-store" });
+      if (!r.ok) throw new Error("status " + r.status);
+      const j = await r.json();
+      const native = Number(j.balance_native || 0);
+      wBalNative.textContent = native.toFixed(6) + " " + (j.symbol || "");
+      if (j.usd_value != null) {
+        wBalUsd.textContent = "$" + Number(j.usd_value).toLocaleString(undefined, { maximumFractionDigits: 2, minimumFractionDigits: 2 }) +
+          " @ $" + Number(j.usd_per_native).toLocaleString(undefined, { maximumFractionDigits: 0 }) + " / " + (j.symbol || "");
+      } else {
+        wBalUsd.textContent = "(price unavailable)";
+      }
+    } catch (e) {
+      wBalNative.textContent = "error";
+      wBalUsd.textContent = String(e.message || e);
+    }
+  }
+
+  function startBalancePoll() {
+    stopBalancePoll();
+    fetchBalance();
+    balanceTimer = setInterval(fetchBalance, 30000);
+  }
+  function stopBalancePoll() {
+    if (balanceTimer) { clearInterval(balanceTimer); balanceTimer = null; }
+  }
+
+  // ---------- Session timer ----------
+  function startSessionTimer() {
+    stopSessionTimer();
+    tickSessionTimer();
+    sessionTimerId = setInterval(tickSessionTimer, 1000);
+  }
+  function stopSessionTimer() {
+    if (sessionTimerId) { clearInterval(sessionTimerId); sessionTimerId = null; }
+  }
+  async function tickSessionTimer() {
+    const now = Date.now() / 1000;
+    const remaining = Math.max(0, Math.floor(sessionExpiresAt - now));
+    const mm = Math.floor(remaining / 60);
+    const ss = (remaining % 60).toString().padStart(2, "0");
+    wSessTimer.textContent = "SESSION " + mm + ":" + ss;
+    wSessTimer.classList.toggle("warn", remaining <= 30);
+    if (remaining === 0) {
+      // Verify with server; it'll either renew (if we still have time after a
+      // recent action) or confirm expiry.
+      stopSessionTimer();
+      const ok = await verifyAndMaybeRefresh();
+      if (!ok) {
+        sessionToken = null;
+        sessionStorage.removeItem("wallet_session");
+        stopTimers();
+        refreshWalletPane();
+      } else {
+        startSessionTimer();
+      }
+    }
+  }
+  async function verifyAndMaybeRefresh() {
+    if (!sessionToken) return false;
+    try {
+      const r = await fetch(WALLET_API + "/api/wallet/session?token=" + encodeURIComponent(sessionToken), { cache: "no-store" });
+      if (!r.ok) return false;
+      const j = await r.json();
+      if (!j.unlocked) return false;
+      sessionExpiresAt = j.expires_at;
+      return true;
+    } catch (_) { return false; }
+  }
+
+  function stopTimers() { stopBalancePoll(); stopSessionTimer(); }
+
+  // ---------- Copy address ----------
   wCopyBtn.addEventListener("click", async () => {
     const t = wAddr.textContent || "";
     if (!t) return;
@@ -1016,6 +1315,13 @@
       setTimeout(() => { wCopyBtn.textContent = orig; }, 1200);
     } catch (_) { /* ignore */ }
   });
+
+  // Auto-lock UX: when the tab is hidden for a while or the page unloads,
+  // we don't proactively call /lock (server idle-expires anyway), but we do
+  // forget the local session so re-opening prompts for the passphrase if the
+  // server has expired it. Browser closing the tab also clears sessionStorage
+  // automatically.
+  window.addEventListener("beforeunload", () => { /* sessionStorage handles this */ });
 })();
 </script>
 </body>
