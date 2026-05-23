@@ -6,6 +6,10 @@
 <title>Command Center Web3</title>
 <style>
   :root { color-scheme: dark; }
+  /* The HTML `hidden` attribute must beat any author display: rule. Without
+     this, anything we hide via JS `el.hidden = true` will still show if its
+     class sets display:flex / grid / block. */
+  [hidden] { display: none !important; }
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
   :root {
@@ -1485,8 +1489,11 @@
   const BI = (v) => BigInt(v);
 
   function decStrToWei(decStr, decimals) {
-    const s = String(decStr || "").trim();
+    let s = String(decStr || "").trim();
     if (!s) throw new Error("amount required");
+    // Normalize leading/trailing dot: ".5" -> "0.5", "5." -> "5.0"
+    if (s.startsWith(".")) s = "0" + s;
+    if (s.endsWith("."))   s = s + "0";
     if (!/^\d+(\.\d+)?$/.test(s)) throw new Error("invalid number");
     const [w, f = ""] = s.split(".");
     const fp = (f + "0".repeat(decimals)).slice(0, decimals);
