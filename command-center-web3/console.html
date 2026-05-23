@@ -18,6 +18,8 @@
     --cc-amber-dim: #6b4500;
     --cc-cyan:      #5ad3ff;
     --cc-cyan-dim:  #2a6680;
+    --cc-purple:    #b794f4;
+    --cc-purple-dim:#5a3f8c;
     --cc-green:     #34ff7a;
     --cc-yellow:    #ffd166;
     --cc-red:       #ff4747;
@@ -348,6 +350,109 @@
   .cc-saved-form { display: flex; flex-direction: column; gap: 8px; }
   .cc-saved-form .cc-actions { grid-template-columns: 1fr 1fr; }
 
+  /* ============ Wallet pane (CSS-enforced state mutex) ============ */
+  /* Wallet cards are display:none by default; only the one matching the
+     parent's data-state attribute is shown. This makes it impossible for
+     two state cards to be visible simultaneously, even under a JS race. */
+  #pane-wallet .w-card { display: none; }
+  #pane-wallet[data-state="unreachable"] #w-unreachable { display: flex; }
+  #pane-wallet[data-state="preinit"]     #w-preinit     { display: flex; }
+  #pane-wallet[data-state="reveal"]      #w-reveal      { display: flex; }
+  #pane-wallet[data-state="ready"]       #w-ready       { display: flex; }
+
+  .w-card {
+    flex-direction: column;
+    gap: 10px;
+    background: linear-gradient(180deg, rgba(183,148,244,0.04), transparent 60%), var(--cc-bg-2);
+    border: 1px solid var(--cc-line);
+    padding: 14px;
+  }
+  .w-headline {
+    color: var(--cc-cyan);
+    font-size: 14px;
+    letter-spacing: 0.04em;
+    font-weight: 700;
+  }
+  .w-headline.purple { color: var(--cc-purple); }
+  .w-headline.red    { color: var(--cc-red); }
+  .w-sub {
+    color: var(--cc-text-dim);
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    line-height: 1.5;
+  }
+  .w-mono {
+    font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
+    word-break: break-all;
+    background: var(--cc-bg);
+    border: 1px solid var(--cc-line-hi);
+    padding: 10px 12px;
+    color: var(--cc-cyan);
+    font-size: 12px;
+  }
+  .w-row { display: flex; gap: 8px; }
+  .w-row > * { flex: 1 1 0; min-width: 0; }
+
+  /* Seed reveal grid */
+  .w-seed {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+  }
+  .w-seed-cell {
+    background: var(--cc-bg);
+    border: 1px solid var(--cc-purple-dim);
+    padding: 8px 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+  }
+  .w-seed-cell .n {
+    color: var(--cc-text-dim);
+    font-size: 9px;
+    letter-spacing: 0.16em;
+  }
+  .w-seed-cell .w {
+    color: var(--cc-purple);
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: 0.02em;
+    text-shadow: 0 0 6px rgba(183, 148, 244, 0.25);
+  }
+  .w-seed-warn {
+    color: var(--cc-purple);
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    line-height: 1.5;
+    padding: 8px 10px;
+    background: rgba(183, 148, 244, 0.08);
+    border: 1px solid var(--cc-purple-dim);
+    border-left: 3px solid var(--cc-purple);
+  }
+  .w-err {
+    color: var(--cc-red);
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    min-height: 14px;
+  }
+
+  /* Touch-friendly button overrides for wallet pane */
+  #pane-wallet .cc-btn {
+    min-height: var(--cc-tap);
+    font-size: 13px;
+  }
+  #pane-wallet .cc-input {
+    min-height: var(--cc-tap);
+    font-size: 14px;
+  }
+
+  /* Narrow / phone: seed grid drops to 3 cols, then 2 */
+  @media (max-width: 520px) { .w-seed { grid-template-columns: repeat(3, 1fr); } }
+  @media (max-width: 360px) { .w-seed { grid-template-columns: repeat(2, 1fr); } }
+
   /* ============ Smaller / narrow ============ */
   @media (max-width: 460px) {
     .cc-actions { grid-template-columns: 1fr; }
@@ -520,80 +625,54 @@
     </section>
 
     <!-- WALLET pane -->
-    <section class="cc-pane" id="pane-wallet" hidden>
+    <section class="cc-pane" id="pane-wallet" data-state="unreachable" hidden>
 
-      <!-- Unreachable state: shown when the console isn't served from the Pi -->
-      <div class="cc-card" id="cc-wallet-unreachable" hidden>
+      <!-- Unreachable -->
+      <div class="w-card" id="w-unreachable">
         <span class="cc-label">WALLET SERVICE</span>
-        <div style="color: var(--cc-red); font-size: 13px; letter-spacing: 0.04em; line-height: 1.5;">
-          UNREACHABLE
-        </div>
-        <div style="color: var(--cc-text-dim); font-size: 11px; letter-spacing: 0.04em; line-height: 1.6;">
-          The wallet API is LAN-only and HTTP. Your browser blocks calls
-          from the HTTPS CDN-hosted console into an HTTP service (mixed
-          content). To use the wallet, switch your Grafana iframe to the
-          Pi-hosted console:
-        </div>
-        <div style="background: #0a131a; border: 1px solid var(--cc-line-hi); padding: 8px 10px; color: var(--cc-cyan); font-size: 11px; word-break: break-all;">
-          http://192.168.1.189:8788/console
-        </div>
+        <div class="w-headline red">UNREACHABLE</div>
+        <div class="w-sub">Switch your Grafana iframe to the Pi-hosted console:</div>
+        <div class="w-mono">http://192.168.1.189:8788/console</div>
       </div>
 
-      <!-- Pre-init state: no keystore yet, offer to create -->
-      <div class="cc-card" id="cc-wallet-preinit" hidden>
-        <span class="cc-label">WALLET STATUS</span>
-        <div style="color: var(--cc-text); font-size: 13px; letter-spacing: 0.02em;">
-          No wallet yet on this Pi.
-        </div>
-        <div style="color: var(--cc-text-dim); font-size: 11px; letter-spacing: 0.05em; line-height: 1.55;">
-          Create a fresh wallet. The Pi generates a new 24-word BIP-39 seed,
-          encrypts it with your passphrase (Argon2id + AES-256-GCM), and
-          writes copies to the Seagate and SD card. The seed will be shown
-          once - you must write it down.
-        </div>
-        <span class="cc-label" style="margin-top: 4px;">PASSPHRASE</span>
-        <input type="password" id="cc-wallet-pass1" class="cc-input"
-               placeholder="At least 8 characters" autocomplete="new-password" />
-        <span class="cc-label">CONFIRM PASSPHRASE</span>
-        <input type="password" id="cc-wallet-pass2" class="cc-input"
-               placeholder="Type it again" autocomplete="new-password" />
-        <div id="cc-wallet-err" style="color: var(--cc-red); font-size: 11px; letter-spacing: 0.04em; min-height: 14px;"></div>
-        <div class="cc-actions">
-          <button type="button" id="cc-wallet-create" class="cc-btn primary full">CREATE WALLET</button>
-        </div>
+      <!-- Preinit -->
+      <div class="w-card" id="w-preinit">
+        <span class="cc-label">NEW WALLET</span>
+        <div class="w-sub">Pi generates a fresh 24-word seed, encrypts with your passphrase (Argon2id + AES-256-GCM), writes copies to Seagate + SD. Seed is shown <b style="color:var(--cc-purple)">once</b>.</div>
+        <input type="password" id="w-pass1" class="cc-input"
+               placeholder="Passphrase (min 8 chars)" autocomplete="new-password" />
+        <input type="password" id="w-pass2" class="cc-input"
+               placeholder="Confirm passphrase" autocomplete="new-password" />
+        <div id="w-err" class="w-err"></div>
+        <button type="button" id="w-create" class="cc-btn primary full">CREATE WALLET</button>
       </div>
 
-      <!-- Reveal seed (shown exactly once after creation) -->
-      <div class="cc-card" id="cc-wallet-reveal" hidden>
-        <span class="cc-label" style="color: var(--cc-amber);">YOUR RECOVERY SEED -- SHOWN ONCE</span>
-        <div style="color: var(--cc-yellow); font-size: 11px; letter-spacing: 0.04em; line-height: 1.55; padding: 8px 10px; background: rgba(255,176,0,0.08); border: 1px solid var(--cc-amber-dim); border-left: 3px solid var(--cc-amber);">
-          Write these 24 words on PAPER or METAL, in order, right now.
-          Anyone who sees them can drain this wallet. They will never be
-          shown again after you continue.
+      <!-- Reveal -->
+      <div class="w-card" id="w-reveal">
+        <span class="cc-label purple" style="color:var(--cc-purple);">RECOVERY SEED &mdash; SHOWN ONCE</span>
+        <div class="w-seed-warn">
+          Write all 24 words on paper or metal, in order, now. Anyone who sees them can drain this wallet. Never shown again.
         </div>
-        <div id="cc-wallet-words" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 8px 0;"></div>
-        <div style="color: var(--cc-text-dim); font-size: 10px; letter-spacing: 0.18em;">CONFIRM YOU WROTE IT DOWN</div>
-        <div id="cc-wallet-quiz" style="color: var(--cc-text); font-size: 11px; letter-spacing: 0.04em; line-height: 1.5;"></div>
-        <input type="text" id="cc-wallet-quiz-input" class="cc-input"
-               placeholder="word #__   word #__   word #__" autocomplete="off" />
-        <div id="cc-wallet-quiz-err" style="color: var(--cc-red); font-size: 11px; min-height: 14px;"></div>
-        <div class="cc-actions">
-          <button type="button" id="cc-wallet-confirm" class="cc-btn primary full">I WROTE IT DOWN - CONTINUE</button>
-        </div>
+        <div id="w-seed" class="w-seed"></div>
+        <div class="cc-label">CONFIRM YOU WROTE IT DOWN</div>
+        <div id="w-quiz" class="w-sub" style="color:var(--cc-text);"></div>
+        <input type="text" id="w-quiz-input" class="cc-input"
+               placeholder="three words separated by spaces" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" />
+        <div id="w-quiz-err" class="w-err"></div>
+        <button type="button" id="w-confirm" class="cc-btn primary full">I WROTE IT DOWN &mdash; CONTINUE</button>
       </div>
 
-      <!-- Initialized state: wallet exists, show address + Phase 2+ placeholders -->
-      <div class="cc-card" id="cc-wallet-ready" hidden>
+      <!-- Ready -->
+      <div class="w-card" id="w-ready">
         <span class="cc-label">WALLET ADDRESS</span>
-        <div id="cc-wallet-addr" style="color: var(--cc-cyan); font-size: 13px; letter-spacing: 0.02em; word-break: break-all; text-shadow: 0 0 6px rgba(90,211,255,0.25); font-family: monospace;"></div>
-        <div style="color: var(--cc-text-dim); font-size: 10px; letter-spacing: 0.18em;">PHASE 1 ACTIVE</div>
-        <div style="color: var(--cc-text-dim); font-size: 11px; letter-spacing: 0.04em; line-height: 1.55;">
-          Signing, allowlist, simulation, and Safe multisig arrive in
-          phases 2-4. For now the keystore exists on the Pi (Seagate +
-          SD backup) and the address is visible above.
+        <div id="w-addr" class="w-mono"></div>
+        <div class="w-sub" style="display:flex;gap:10px;align-items:center;">
+          <span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--cc-purple);box-shadow:0 0 6px var(--cc-purple);"></span>
+          <span>PHASE 1 ACTIVE &mdash; keystore on Pi (Seagate + SD)</span>
         </div>
-        <div class="cc-actions">
-          <a class="cc-btn full" id="cc-wallet-view-explorer" target="_blank" rel="noopener noreferrer">VIEW ON ETHERSCAN</a>
+        <div class="w-row">
+          <a class="cc-btn" id="w-etherscan" target="_blank" rel="noopener noreferrer">ETHERSCAN</a>
+          <button type="button" class="cc-btn" id="w-copy">COPY ADDRESS</button>
         </div>
       </div>
 
@@ -795,62 +874,56 @@
   renderSaved();
 
   // ===== WALLET (Phase 1) =====
-  // Wallet API is same-origin with this page when the console is served from
-  // wallet-service. From the CDN there's no API to call (HTTPS->HTTP mixed
-  // content), so we show an "unreachable" message and bail.
+  // Single source of truth for which card is visible: data-state on the pane.
+  // CSS in <style> enforces mutex - it is impossible for two cards to show
+  // at once, regardless of JS race conditions.
+  const walletPane = $("pane-wallet");
+  function setWalletState(name) { walletPane.setAttribute("data-state", name); }
+
   function walletApiReachable() {
     const o = window.location.origin || "";
-    // Same-origin only. We don't try to call across origins because of CORS +
-    // mixed-content. Pi-served console = OK. CDN-served console = no.
+    // Same-origin only. CDN-served console is HTTPS -> blocked from HTTP API.
     return o.startsWith("http://") && !/(githack|jsdelivr|github\.io|raw\.githubusercontent)/i.test(o);
   }
   const WALLET_API = walletApiReachable() ? window.location.origin : null;
 
-  const wUnreachable = $("cc-wallet-unreachable");
-  const wPreinit     = $("cc-wallet-preinit");
-  const wReveal      = $("cc-wallet-reveal");
-  const wReady       = $("cc-wallet-ready");
-  const wPass1       = $("cc-wallet-pass1");
-  const wPass2       = $("cc-wallet-pass2");
-  const wErr         = $("cc-wallet-err");
-  const wCreateBtn   = $("cc-wallet-create");
-  const wWords       = $("cc-wallet-words");
-  const wQuiz        = $("cc-wallet-quiz");
-  const wQuizInput   = $("cc-wallet-quiz-input");
-  const wQuizErr     = $("cc-wallet-quiz-err");
-  const wConfirmBtn  = $("cc-wallet-confirm");
-  const wAddr        = $("cc-wallet-addr");
-  const wEtherscan   = $("cc-wallet-view-explorer");
+  const wPass1      = $("w-pass1");
+  const wPass2      = $("w-pass2");
+  const wErr        = $("w-err");
+  const wCreateBtn  = $("w-create");
+  const wSeed       = $("w-seed");
+  const wQuiz       = $("w-quiz");
+  const wQuizInput  = $("w-quiz-input");
+  const wQuizErr    = $("w-quiz-err");
+  const wConfirmBtn = $("w-confirm");
+  const wAddr       = $("w-addr");
+  const wEtherscan  = $("w-etherscan");
+  const wCopyBtn    = $("w-copy");
 
-  function showWalletState(name) {
-    [wUnreachable, wPreinit, wReveal, wReady].forEach(el => { el.hidden = true; });
-    if (name === "unreachable") wUnreachable.hidden = false;
-    else if (name === "preinit") wPreinit.hidden = false;
-    else if (name === "reveal")  wReveal.hidden = false;
-    else if (name === "ready")   wReady.hidden = false;
-  }
+  // If we're showing the seed reveal card, never let a background refresh
+  // overwrite it - that's the bug from the earlier screenshots.
+  let inSeedReveal = false;
+  let pendingMnemonic = null;
+  let quizPicks = [];
 
   async function refreshWalletPane() {
-    if (!WALLET_API) { showWalletState("unreachable"); return; }
+    if (inSeedReveal) return;
+    if (!WALLET_API)  { setWalletState("unreachable"); return; }
     try {
       const r = await fetch(WALLET_API + "/api/wallet/status", { cache: "no-store" });
       if (!r.ok) throw new Error("status " + r.status);
       const s = await r.json();
       if (s.initialized) {
         wAddr.textContent = s.address || "(unknown)";
-        wEtherscan.href = "https://etherscan.io/address/" + encodeURIComponent(s.address);
-        showWalletState("ready");
+        wEtherscan.href = "https://etherscan.io/address/" + encodeURIComponent(s.address || "");
+        setWalletState("ready");
       } else {
-        showWalletState("preinit");
+        setWalletState("preinit");
       }
     } catch (e) {
-      showWalletState("unreachable");
+      setWalletState("unreachable");
     }
   }
-
-  // ----- Create flow -----
-  let pendingMnemonic = null;  // cleared after confirm
-  let quizPicks = [];           // word indices we ask the user to type back
 
   wCreateBtn.addEventListener("click", async () => {
     wErr.textContent = "";
@@ -874,10 +947,11 @@
       const data = await r.json();
       pendingMnemonic = data.words;
       wAddr.textContent = data.address;
-      renderRevealCard(data.words);
-      // Clear passphrase fields from DOM
+      wEtherscan.href = "https://etherscan.io/address/" + encodeURIComponent(data.address);
+      renderSeed(data.words);
       wPass1.value = ""; wPass2.value = "";
-      showWalletState("reveal");
+      inSeedReveal = true;
+      setWalletState("reveal");
     } catch (e) {
       wErr.textContent = String(e.message || e);
     } finally {
@@ -886,31 +960,31 @@
     }
   });
 
-  function renderRevealCard(words) {
-    wWords.innerHTML = "";
+  function renderSeed(words) {
+    wSeed.innerHTML = "";
     words.forEach((w, i) => {
       const cell = document.createElement("div");
-      cell.style.cssText =
-        "background:#0a131a;border:1px solid var(--cc-line-hi);" +
-        "padding:8px 10px;display:flex;gap:8px;align-items:baseline;";
-      cell.innerHTML =
-        '<span style="color:var(--cc-text-dim);font-size:9px;letter-spacing:0.18em;min-width:18px;">' +
-        String(i + 1).padStart(2, "0") + '</span>' +
-        '<span style="color:var(--cc-amber);font-weight:700;letter-spacing:0.04em;">' + w + '</span>';
-      wWords.appendChild(cell);
+      cell.className = "w-seed-cell";
+      const n = document.createElement("span");
+      n.className = "n";
+      n.textContent = String(i + 1).padStart(2, "0");
+      const ww = document.createElement("span");
+      ww.className = "w";
+      ww.textContent = w;
+      cell.appendChild(n);
+      cell.appendChild(ww);
+      wSeed.appendChild(cell);
     });
 
-    // Pick 3 random word indices the user must type back. Spreads across thirds.
+    // Pick 3 random word indices, one from each third of the phrase.
     const total = words.length;
     quizPicks = [];
-    const thirds = [[0, total / 3], [total / 3, 2 * total / 3], [2 * total / 3, total]];
-    thirds.forEach(([lo, hi]) => {
+    [[0, total / 3], [total / 3, 2 * total / 3], [2 * total / 3, total]].forEach(([lo, hi]) => {
       quizPicks.push(Math.floor(lo + Math.random() * (hi - lo)));
     });
-    wQuiz.textContent = "Type word #" +
-      (quizPicks[0] + 1) + ", word #" +
-      (quizPicks[1] + 1) + ", and word #" +
-      (quizPicks[2] + 1) + " separated by spaces.";
+    wQuiz.textContent = "Type word #" + (quizPicks[0] + 1) +
+      ", #" + (quizPicks[1] + 1) +
+      ", #" + (quizPicks[2] + 1) + " (space-separated)";
     wQuizInput.value = "";
     wQuizErr.textContent = "";
   }
@@ -920,16 +994,27 @@
     const typed = (wQuizInput.value || "").trim().toLowerCase().split(/\s+/);
     const expected = quizPicks.map(i => pendingMnemonic[i].toLowerCase());
     if (typed.length !== 3 || typed.some((w, i) => w !== expected[i])) {
-      wQuizErr.textContent =
-        "Doesn't match. The words must be exactly as written, in order.";
+      wQuizErr.textContent = "Doesn't match. Words must be in order, exactly as written.";
       return;
     }
-    // Quiz passed. Wipe local copy of mnemonic and move on.
+    // Quiz passed. Wipe the in-page copy of the mnemonic and move on.
     pendingMnemonic = null;
     quizPicks = [];
-    wWords.innerHTML = "";
+    wSeed.innerHTML = "";
     wQuizInput.value = "";
+    inSeedReveal = false;
     refreshWalletPane();
+  });
+
+  wCopyBtn.addEventListener("click", async () => {
+    const t = wAddr.textContent || "";
+    if (!t) return;
+    try {
+      await navigator.clipboard.writeText(t);
+      const orig = wCopyBtn.textContent;
+      wCopyBtn.textContent = "COPIED";
+      setTimeout(() => { wCopyBtn.textContent = orig; }, 1200);
+    } catch (_) { /* ignore */ }
   });
 })();
 </script>
