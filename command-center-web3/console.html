@@ -360,6 +360,9 @@
   #pane-wallet[data-state="reveal"]      #w-reveal      { display: flex; }
   #pane-wallet[data-state="locked"]      #w-locked      { display: flex; }
   #pane-wallet[data-state="unlocked"]    #w-unlocked    { display: flex; }
+  #pane-wallet[data-state="send-form"]    #w-send-form    { display: flex; }
+  #pane-wallet[data-state="send-review"]  #w-send-review  { display: flex; }
+  #pane-wallet[data-state="send-success"] #w-send-success { display: flex; }
 
   .w-card {
     flex-direction: column;
@@ -517,6 +520,77 @@
     text-align: center;
     padding: 8px 0;
     border-top: 1px dashed var(--cc-line);
+  }
+
+  /* Send-tx flow */
+  .w-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--cc-line);
+  }
+  .w-back {
+    background: transparent;
+    border: 0;
+    color: var(--cc-text-dim);
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    cursor: pointer;
+    padding: 6px 8px;
+    min-height: var(--cc-tap);
+  }
+  .w-back:hover { color: var(--cc-cyan); }
+  .w-title {
+    flex: 1;
+    color: var(--cc-cyan);
+    font-size: 13px;
+    letter-spacing: 0.16em;
+    font-weight: 700;
+  }
+  .w-chain-tag {
+    color: var(--cc-text-dim);
+    font-size: 10px;
+    letter-spacing: 0.16em;
+    padding: 4px 8px;
+    border: 1px solid var(--cc-line-hi);
+  }
+  .w-gas-custom {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 8px 10px;
+    border: 1px dashed var(--cc-line-hi);
+    background: rgba(183,148,244,0.04);
+  }
+  .w-review-grid {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    column-gap: 12px;
+    row-gap: 8px;
+    align-items: baseline;
+    padding: 8px 0;
+  }
+  .w-rk {
+    color: var(--cc-text-dim);
+    font-size: 10px;
+    letter-spacing: 0.16em;
+    font-weight: 600;
+  }
+  .w-rv {
+    color: var(--cc-text);
+    font-size: 12px;
+    font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
+    word-break: break-all;
+  }
+  .w-rv-cyan   { color: var(--cc-cyan); }
+  .w-rv-total  { color: var(--cc-purple); font-weight: 700; font-size: 13px; }
+  .w-success-headline {
+    color: var(--cc-cyan);
+    font-size: 18px;
+    letter-spacing: 0.08em;
+    font-weight: 700;
+    text-shadow: 0 0 10px rgba(90, 211, 255, 0.3);
   }
 
   /* ============ Smaller / narrow ============ */
@@ -754,12 +828,95 @@
         <div id="w-balance-native" class="w-balance-native">&mdash;</div>
         <div id="w-balance-usd" class="w-balance-usd">&mdash;</div>
 
-        <div class="w-actions-stub">SEND ETH &middot; SEND TOKEN &middot; PASTE TX &mdash; COMING IN 2.1&ndash;2.3</div>
+        <button type="button" class="cc-btn primary full" id="w-send-eth-btn" style="margin-top:4px;">SEND ETH</button>
+        <div class="w-actions-stub">SEND TOKEN &middot; PASTE TX &mdash; COMING IN 2.2&ndash;2.3</div>
 
         <div class="w-session-bar">
           <span class="w-session-timer" id="w-session-timer">--:--</span>
           <button type="button" class="cc-btn" id="w-lock-btn" style="flex:0 0 auto;min-width:120px;">LOCK</button>
         </div>
+      </div>
+
+      <!-- Send ETH: form -->
+      <div class="w-card" id="w-send-form">
+        <div class="w-header">
+          <button type="button" class="w-back" id="w-send-back">&larr; BACK</button>
+          <span class="w-title">SEND ETH</span>
+          <span class="w-chain-tag" id="w-send-chain-tag">&mdash;</span>
+        </div>
+
+        <span class="cc-label">TO ADDRESS</span>
+        <input type="text" id="w-send-to" class="cc-input"
+               placeholder="0x..." autocomplete="off" spellcheck="false"
+               autocapitalize="none" autocorrect="off" />
+
+        <span class="cc-label">AMOUNT</span>
+        <input type="text" id="w-send-amount" class="cc-input"
+               placeholder="0.0" inputmode="decimal"
+               autocomplete="off" spellcheck="false" />
+
+        <span class="cc-label">GAS</span>
+        <select id="w-send-gas-speed" class="cc-input">
+          <option value="standard">Standard (Recommended)</option>
+          <option value="slow">Slow (cheaper, slower)</option>
+          <option value="fast">Fast (more expensive)</option>
+          <option value="custom">Custom (manual override)</option>
+        </select>
+
+        <div class="w-gas-custom" id="w-gas-custom" hidden>
+          <span class="cc-label">MAX FEE PER GAS (gwei)</span>
+          <input type="text" id="w-cust-maxfee" class="cc-input"
+                 placeholder="--" inputmode="decimal"
+                 autocomplete="off" spellcheck="false" />
+          <span class="cc-label">MAX PRIORITY FEE (gwei)</span>
+          <input type="text" id="w-cust-maxprio" class="cc-input"
+                 placeholder="--" inputmode="decimal"
+                 autocomplete="off" spellcheck="false" />
+          <span class="cc-label">GAS LIMIT</span>
+          <input type="text" id="w-cust-gaslimit" class="cc-input"
+                 placeholder="21000" inputmode="numeric"
+                 autocomplete="off" spellcheck="false" />
+        </div>
+
+        <div id="w-send-err" class="w-err"></div>
+        <button type="button" id="w-send-review-btn" class="cc-btn primary full">REVIEW</button>
+      </div>
+
+      <!-- Send ETH: review -->
+      <div class="w-card" id="w-send-review">
+        <div class="w-header">
+          <button type="button" class="w-back" id="w-review-back">&larr; EDIT</button>
+          <span class="w-title">REVIEW</span>
+          <span class="w-chain-tag" id="w-review-chain-tag">&mdash;</span>
+        </div>
+
+        <div class="w-review-grid">
+          <span class="w-rk">FROM</span>   <span class="w-rv" id="w-review-from"></span>
+          <span class="w-rk">TO</span>     <span class="w-rv w-rv-cyan" id="w-review-to"></span>
+          <span class="w-rk">VALUE</span>  <span class="w-rv" id="w-review-value"></span>
+          <span class="w-rk">GAS FEE</span><span class="w-rv" id="w-review-fee"></span>
+          <span class="w-rk">TOTAL</span>  <span class="w-rv w-rv-total" id="w-review-total"></span>
+          <span class="w-rk">NONCE</span>  <span class="w-rv" id="w-review-nonce"></span>
+        </div>
+
+        <div id="w-review-err" class="w-err"></div>
+        <div class="w-row">
+          <button type="button" class="cc-btn" id="w-review-cancel">REJECT</button>
+          <button type="button" class="cc-btn primary" id="w-review-confirm">CONFIRM &amp; SEND</button>
+        </div>
+      </div>
+
+      <!-- Send ETH: success -->
+      <div class="w-card" id="w-send-success">
+        <span class="cc-label">BROADCAST</span>
+        <div class="w-success-headline">TRANSACTION SENT</div>
+        <span class="cc-label" style="margin-top:4px;">TX HASH</span>
+        <div id="w-success-hash" class="w-mono" style="font-size:11px;"></div>
+        <div class="w-row">
+          <a class="cc-btn" id="w-success-explorer" target="_blank" rel="noopener noreferrer">VIEW ON EXPLORER</a>
+          <button type="button" class="cc-btn" id="w-success-copy">COPY HASH</button>
+        </div>
+        <button type="button" class="cc-btn primary full" id="w-success-done">DONE</button>
       </div>
 
     </section>
@@ -1322,6 +1479,278 @@
   // server has expired it. Browser closing the tab also clears sessionStorage
   // automatically.
   window.addEventListener("beforeunload", () => { /* sessionStorage handles this */ });
+
+  // ===== Send-tx flow (Phase 2.1) =====
+  const ETH_DEC = 18, GWEI_DEC = 9;
+  const BI = (v) => BigInt(v);
+
+  function decStrToWei(decStr, decimals) {
+    const s = String(decStr || "").trim();
+    if (!s) throw new Error("amount required");
+    if (!/^\d+(\.\d+)?$/.test(s)) throw new Error("invalid number");
+    const [w, f = ""] = s.split(".");
+    const fp = (f + "0".repeat(decimals)).slice(0, decimals);
+    return BI(w || "0") * (BI(10) ** BI(decimals)) + BI(fp || "0");
+  }
+  const ethToWei  = (s) => decStrToWei(s, ETH_DEC);
+  const gweiToWei = (s) => decStrToWei(s, GWEI_DEC);
+
+  function weiToDecStr(wei, decimals, sigDecimals) {
+    const w = BI(wei);
+    const div = BI(10) ** BI(decimals);
+    const whole = (w / div).toString();
+    let frac = (w % div).toString().padStart(decimals, "0");
+    if (sigDecimals != null) frac = frac.slice(0, sigDecimals);
+    frac = frac.replace(/0+$/, "");
+    return frac ? (whole + "." + frac) : whole;
+  }
+  const weiToEth  = (w, s = 6) => weiToDecStr(w, ETH_DEC,  s);
+  const weiToGwei = (w, s = 3) => weiToDecStr(w, GWEI_DEC, s);
+
+  const wSendEthBtn   = $("w-send-eth-btn");
+  const wSendBack     = $("w-send-back");
+  const wSendChainTag = $("w-send-chain-tag");
+  const wSendTo       = $("w-send-to");
+  const wSendAmount   = $("w-send-amount");
+  const wSendGasSpeed = $("w-send-gas-speed");
+  const wGasCustom    = $("w-gas-custom");
+  const wCustMaxFee   = $("w-cust-maxfee");
+  const wCustMaxPrio  = $("w-cust-maxprio");
+  const wCustGasLimit = $("w-cust-gaslimit");
+  const wSendErr      = $("w-send-err");
+  const wSendReviewBtn= $("w-send-review-btn");
+
+  const wReviewBack    = $("w-review-back");
+  const wReviewChainTag= $("w-review-chain-tag");
+  const wReviewFrom    = $("w-review-from");
+  const wReviewTo      = $("w-review-to");
+  const wReviewValue   = $("w-review-value");
+  const wReviewFee     = $("w-review-fee");
+  const wReviewTotal   = $("w-review-total");
+  const wReviewNonce   = $("w-review-nonce");
+  const wReviewErr     = $("w-review-err");
+  const wReviewCancel  = $("w-review-cancel");
+  const wReviewConfirm = $("w-review-confirm");
+
+  const wSuccessHash     = $("w-success-hash");
+  const wSuccessExplorer = $("w-success-explorer");
+  const wSuccessCopy     = $("w-success-copy");
+  const wSuccessDone     = $("w-success-done");
+
+  // Holds the prepared tx between REVIEW -> CONFIRM. Cleared on success.
+  let pendingTx = null;
+  // Cached estimate fetched when user selected Custom (prepopulates fields).
+  let lastEstimate = null;
+
+  wSendEthBtn.addEventListener("click", () => {
+    wSendTo.value = ""; wSendAmount.value = "";
+    wSendGasSpeed.value = "standard";
+    wGasCustom.hidden = true;
+    wCustMaxFee.value = ""; wCustMaxPrio.value = ""; wCustGasLimit.value = "";
+    wSendErr.textContent = "";
+    const c = currentChain();
+    wSendChainTag.textContent = c ? c.name.toUpperCase() : "";
+    setWalletState("send-form");
+  });
+
+  wSendBack.addEventListener("click", () => { refreshWalletPane(); });
+
+  wSendGasSpeed.addEventListener("change", async () => {
+    if (wSendGasSpeed.value !== "custom") {
+      wGasCustom.hidden = true;
+      return;
+    }
+    // Prepopulate Custom fields with a fresh estimate, if we can.
+    wGasCustom.hidden = false;
+    wSendErr.textContent = "";
+    if (!walletAddress) return;
+    try {
+      const est = await fetchEstimate({ amountStr: wSendAmount.value || "0" });
+      if (!est) return;
+      const std = est.fee_suggestions.standard;
+      wCustMaxFee.value   = weiToGwei(std.max_fee_per_gas, 3);
+      wCustMaxPrio.value  = weiToGwei(std.max_priority_fee_per_gas, 3);
+      wCustGasLimit.value = String(est.gas_limit);
+    } catch (e) {
+      wSendErr.textContent = "Estimate failed: " + (e.message || e);
+    }
+  });
+
+  async function fetchEstimate({ amountStr }) {
+    const to = (wSendTo.value || "").trim() || walletAddress;  // placeholder
+    let valueWei;
+    try { valueWei = ethToWei(amountStr || "0"); }
+    catch (_) { valueWei = 0n; }
+    const r = await fetch(WALLET_API + "/api/tx/estimate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chain_id: currentChainId,
+        from: walletAddress,
+        to: to,
+        value_wei: valueWei.toString(),
+        data: "0x",
+      }),
+    });
+    if (!r.ok) {
+      const j = await r.json().catch(() => ({}));
+      throw new Error(j.detail || ("estimate failed: " + r.status));
+    }
+    lastEstimate = await r.json();
+    return lastEstimate;
+  }
+
+  wSendReviewBtn.addEventListener("click", async () => {
+    wSendErr.textContent = "";
+    const to = (wSendTo.value || "").trim();
+    const amount = (wSendAmount.value || "").trim();
+    if (!/^0x[a-fA-F0-9]{40}$/.test(to)) { wSendErr.textContent = "Invalid recipient address."; return; }
+    if (to.toLowerCase() === (walletAddress || "").toLowerCase()) {
+      wSendErr.textContent = "Refusing to send to your own address."; return;
+    }
+
+    let valueWei;
+    try { valueWei = ethToWei(amount); }
+    catch (e) { wSendErr.textContent = "Invalid amount: " + e.message; return; }
+    if (valueWei <= 0n) { wSendErr.textContent = "Amount must be positive."; return; }
+
+    wSendReviewBtn.disabled = true;
+    wSendReviewBtn.textContent = "ESTIMATING...";
+    try {
+      const est = await fetchEstimate({ amountStr: amount });
+
+      // Pick max_fee / max_priority / gas_limit based on speed.
+      let maxFee, maxPrio, gasLimit;
+      if (wSendGasSpeed.value === "custom") {
+        try {
+          maxFee   = gweiToWei(wCustMaxFee.value);
+          maxPrio  = gweiToWei(wCustMaxPrio.value);
+          gasLimit = BigInt(parseInt(wCustGasLimit.value || est.gas_limit, 10));
+        } catch (e) {
+          throw new Error("Custom gas: " + e.message);
+        }
+        if (maxPrio > maxFee) throw new Error("Max priority fee cannot exceed max fee.");
+        if (gasLimit < 21000n) throw new Error("Gas limit must be >= 21000.");
+      } else {
+        const tier = est.fee_suggestions[wSendGasSpeed.value] || est.fee_suggestions.standard;
+        maxFee   = BI(tier.max_fee_per_gas);
+        maxPrio  = BI(tier.max_priority_fee_per_gas);
+        gasLimit = BI(est.gas_limit);
+      }
+
+      const feeWei = gasLimit * maxFee;
+      const totalWei = valueWei + feeWei;
+      const price = est.usd_per_native;
+      const valEth = Number(weiToEth(valueWei, 6));
+      const feeEth = Number(weiToEth(feeWei, 6));
+      const totEth = Number(weiToEth(totalWei, 6));
+
+      // Stash for confirm step.
+      pendingTx = {
+        chain_id: currentChainId,
+        to,
+        value_wei: valueWei.toString(),
+        gas_limit: Number(gasLimit),
+        max_fee_per_gas: maxFee.toString(),
+        max_priority_fee_per_gas: maxPrio.toString(),
+        nonce: est.nonce,
+        data: "0x",
+        // For review display only:
+        _display: {
+          chainName: currentChain() ? currentChain().name : "",
+          symbol: currentChain() ? currentChain().symbol : "ETH",
+          valEth, feeEth, totEth, price,
+        },
+      };
+
+      // Populate review screen
+      const d = pendingTx._display;
+      wReviewChainTag.textContent = d.chainName.toUpperCase();
+      wReviewFrom.textContent  = walletAddress;
+      wReviewTo.textContent    = to;
+      wReviewValue.textContent =
+        valEth.toFixed(6) + " " + d.symbol +
+        (price ? "  ($" + (valEth * price).toFixed(2) + ")" : "");
+      wReviewFee.textContent =
+        feeEth.toFixed(6) + " " + d.symbol +
+        (price ? "  ($" + (feeEth * price).toFixed(2) + ")" : "") +
+        "   (" + weiToGwei(maxFee, 2) + " gwei max)";
+      wReviewTotal.textContent =
+        totEth.toFixed(6) + " " + d.symbol +
+        (price ? "  ($" + (totEth * price).toFixed(2) + ")" : "");
+      wReviewNonce.textContent = String(est.nonce);
+      wReviewErr.textContent = "";
+      setWalletState("send-review");
+    } catch (e) {
+      wSendErr.textContent = String(e.message || e);
+    } finally {
+      wSendReviewBtn.disabled = false;
+      wSendReviewBtn.textContent = "REVIEW";
+    }
+  });
+
+  wReviewBack.addEventListener("click", () => { setWalletState("send-form"); });
+  wReviewCancel.addEventListener("click", () => {
+    pendingTx = null;
+    refreshWalletPane();  // back to unlocked
+  });
+
+  wReviewConfirm.addEventListener("click", async () => {
+    if (!pendingTx) return;
+    wReviewErr.textContent = "";
+    wReviewConfirm.disabled = true;
+    wReviewConfirm.textContent = "BROADCASTING...";
+    try {
+      const r = await fetch(WALLET_API + "/api/tx/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          session_token: sessionToken,
+          chain_id: pendingTx.chain_id,
+          to: pendingTx.to,
+          value_wei: pendingTx.value_wei,
+          gas_limit: pendingTx.gas_limit,
+          max_fee_per_gas: pendingTx.max_fee_per_gas,
+          max_priority_fee_per_gas: pendingTx.max_priority_fee_per_gas,
+          nonce: pendingTx.nonce,
+          data: pendingTx.data,
+        }),
+      });
+      if (r.status === 401) {
+        // Session expired between review and confirm.
+        sessionToken = null;
+        sessionStorage.removeItem("wallet_session");
+        wReviewErr.textContent = "Session expired. Please unlock and retry.";
+        return;
+      }
+      if (!r.ok) {
+        const j = await r.json().catch(() => ({}));
+        throw new Error(j.detail || ("send failed: " + r.status));
+      }
+      const j = await r.json();
+      wSuccessHash.textContent = j.tx_hash;
+      wSuccessExplorer.href = j.explorer_url;
+      pendingTx = null;
+      setWalletState("send-success");
+    } catch (e) {
+      wReviewErr.textContent = String(e.message || e);
+    } finally {
+      wReviewConfirm.disabled = false;
+      wReviewConfirm.textContent = "CONFIRM & SEND";
+    }
+  });
+
+  wSuccessCopy.addEventListener("click", async () => {
+    const t = wSuccessHash.textContent || "";
+    if (!t) return;
+    try {
+      await navigator.clipboard.writeText(t);
+      const orig = wSuccessCopy.textContent;
+      wSuccessCopy.textContent = "COPIED";
+      setTimeout(() => { wSuccessCopy.textContent = orig; }, 1200);
+    } catch (_) { /* ignore */ }
+  });
+  wSuccessDone.addEventListener("click", () => { refreshWalletPane(); });
 })();
 </script>
 </body>

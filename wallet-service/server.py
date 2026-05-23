@@ -614,6 +614,231 @@ async def get_balance(chain_id: int, address: str) -> Dict[str, Any]:
     }
 
 
+# ----- Phase 2.1: transaction estimate + sign + broadcast -----
+class TxEstimateRequest(BaseModel):
+    chain_id: int
+    from_address: str = Field(..., alias="from")
+    to: str
+    # value_wei as a string to avoid JavaScript's Number precision loss at
+    # >2^53. Same for max_fee_per_gas, max_priority_fee_per_gas on send.
+    value_wei: str
+    data: Optional[str] = "0x"
+
+    model_config = {"populate_by_name": True}
+
+
+class TxSendRequest(BaseModel):
+    session_token: str
+    chain_id: int
+    to: str
+    value_wei: str
+    gas_limit: int
+    max_fee_per_gas: str
+    max_priority_fee_per_gas: str
+    nonce: int
+    data: Optional[str] = "0x"
+
+
+def _validate_address(addr: str, label: str) -> None:
+    if not (isinstance(addr, str) and addr.startswith("0x") and len(addr) == 42):
+        raise HTTPException(status_code=400, detail=f"invalid {label} address")
+
+
+def _hex_to_int(h: str) -> int:
+    return int(h, 16) if isinstance(h, str) and h.startswith("0x") else int(h)
+
+
+@app.post("/api/tx/estimate")
+async def estimate_tx(body: TxEstimateRequest) -> Dict[str, Any]:
+    """Estimate nonce, gas limit, and EIP-1559 fee suggestions for a tx.
+    No private key access here - any caller can hit this; it's read-only RPC.
+    """
+    if body.chain_id not in CHAINS:
+        raise HTTPException(status_code=400, detail=f"unsupported chain {body.chain_id}")
+    _validate_address(body.from_address, "from")
+    _validate_address(body.to, "to")
+    try:
+        value_wei = int(body.value_wei)
+        if value_wei < 0:
+            raise ValueError("negative")
+    except ValueError:
+        raise HTTPException(status_code=400, detail="invalid value_wei")
+
+    data_field = body.data or "0x"
+
+    # --- Nonce (pending) ---
+    nonce_hex = await rpc_call(body.chain_id, "eth_getTransactionCount",
+                               [body.from_address, "pending"])
+    nonce = _hex_to_int(nonce_hex)
+
+    # --- Gas limit estimate ---
+    # Plain ETH transfer is 21000. For others, ask the RPC. Fall back to a
+    # generous default if estimateGas reverts (e.g. recipient is a contract
+    # that will revert until certain state holds).
+    try:
+        gas_hex = await rpc_call(body.chain_id, "eth_estimateGas", [{
+            "from": body.from_address,
+            "to": body.to,
+            "value": hex(value_wei),
+            "data": data_field,
+        }])
+        gas_limit = _hex_to_int(gas_hex)
+    except HTTPException:
+        gas_limit = 21000 if data_field == "0x" else 100000
+
+    # --- Fee suggestions via eth_feeHistory ---
+    # Percentiles 25 / 50 / 75 give us slow / standard / fast priority fees.
+    base_fee_per_gas = 0
+    try:
+        fh = await rpc_call(body.chain_id, "eth_feeHistory",
+                            [hex(5), "latest", [25, 50, 75]])
+        base_fees = [_hex_to_int(f) for f in fh["baseFeePerGas"]]
+        # The last element is the predicted base fee for the next block.
+        base_fee_per_gas = base_fees[-1]
+        rewards = [[_hex_to_int(r) for r in blk] for blk in fh["reward"]]
+        # Average across blocks per percentile
+        n = max(len(rewards), 1)
+        avg = [sum(blk[i] for blk in rewards) // n for i in range(3)]
+        prio_slow, prio_std, prio_fast = avg[0], avg[1], avg[2]
+    except Exception:
+        logger.warning("eth_feeHistory failed; falling back to eth_gasPrice", exc_info=True)
+        gp_hex = await rpc_call(body.chain_id, "eth_gasPrice", [])
+        gp = _hex_to_int(gp_hex)
+        base_fee_per_gas = gp
+        prio_slow = max(gp // 10, 10**8)         # at least 0.1 gwei
+        prio_std  = max(gp // 5,  10**9)         # at least 1 gwei
+        prio_fast = max(gp // 3,  2 * 10**9)     # at least 2 gwei
+
+    # Floor priority fees at 1 wei so RPCs that reject zero-priority are happy.
+    prio_slow = max(prio_slow, 1)
+    prio_std  = max(prio_std, 1)
+    prio_fast = max(prio_fast, 1)
+
+    def build(prio: int) -> Dict[str, str]:
+        # max_fee = 2 * base + priority gives ~1 block of base-fee headroom.
+        max_fee = base_fee_per_gas * 2 + prio
+        return {
+            "max_priority_fee_per_gas": str(prio),
+            "max_fee_per_gas": str(max_fee),
+        }
+
+    fee_suggestions = {
+        "slow":     build(prio_slow),
+        "standard": build(prio_std),
+        "fast":     build(prio_fast),
+    }
+
+    price = await get_eth_usd_price()
+    estimated_cost = {}
+    for name, fees in fee_suggestions.items():
+        fee_wei = gas_limit * int(fees["max_fee_per_gas"])
+        fee_native = fee_wei / 10**18
+        estimated_cost[name] = {
+            "fee_wei": str(fee_wei),
+            "fee_native": fee_native,
+            "fee_usd": (fee_native * price) if price else None,
+        }
+
+    return {
+        "chain_id": body.chain_id,
+        "nonce": nonce,
+        "gas_limit": gas_limit,
+        "base_fee_per_gas": str(base_fee_per_gas),
+        "fee_suggestions": fee_suggestions,
+        "estimated_cost": estimated_cost,
+        "usd_per_native": price,
+    }
+
+
+@app.post("/api/tx/send")
+async def send_tx(body: TxSendRequest) -> Dict[str, Any]:
+    """Sign + broadcast a transaction. Requires a valid session."""
+    s = touch_session(body.session_token)
+    if s is None:
+        raise HTTPException(status_code=401, detail="session expired or invalid")
+    if body.chain_id not in CHAINS:
+        raise HTTPException(status_code=400, detail=f"unsupported chain {body.chain_id}")
+    _validate_address(body.to, "to")
+
+    try:
+        value_wei = int(body.value_wei)
+        max_fee = int(body.max_fee_per_gas)
+        max_priority = int(body.max_priority_fee_per_gas)
+        if value_wei < 0 or max_fee < 0 or max_priority < 0:
+            raise ValueError("negative")
+    except ValueError:
+        raise HTTPException(status_code=400, detail="invalid numeric field")
+
+    if max_priority > max_fee:
+        raise HTTPException(
+            status_code=400,
+            detail="max_priority_fee_per_gas cannot exceed max_fee_per_gas",
+        )
+    if body.gas_limit < 21000:
+        raise HTTPException(status_code=400, detail="gas_limit too low (min 21000)")
+
+    # Derive the signing account from the (in-memory, decrypted) mnemonic.
+    try:
+        mnemonic_str = bytes(s["mnemonic"]).decode("utf-8")
+    except Exception:
+        raise HTTPException(status_code=500, detail="session mnemonic corrupt")
+    acct = Account.from_mnemonic(mnemonic_str, account_path="m/44'/60'/0'/0/0")
+    if acct.address.lower() != s["address"].lower():
+        # Defense in depth: should never happen, but reject if mnemonic doesn't
+        # derive the address we have on file.
+        raise HTTPException(status_code=500, detail="derived address mismatch")
+
+    tx = {
+        "chainId": body.chain_id,
+        "nonce": body.nonce,
+        "to": body.to,
+        "value": value_wei,
+        "gas": body.gas_limit,
+        "maxFeePerGas": max_fee,
+        "maxPriorityFeePerGas": max_priority,
+        "data": body.data or "0x",
+        "type": 2,
+    }
+
+    audit("tx.send.attempt",
+          chain_id=body.chain_id,
+          from_addr=s["address"], to=body.to,
+          value_wei=str(value_wei), nonce=body.nonce,
+          gas_limit=body.gas_limit,
+          max_fee=str(max_fee), max_priority=str(max_priority))
+
+    try:
+        signed = acct.sign_transaction(tx)
+    except Exception as e:
+        audit("tx.send.sign_fail", from_addr=s["address"], error=str(e))
+        raise HTTPException(status_code=400, detail=f"signing failed: {e}")
+
+    raw_bytes = getattr(signed, "raw_transaction", None) or getattr(signed, "rawTransaction", None)
+    if raw_bytes is None:
+        raise HTTPException(status_code=500, detail="signer returned no raw transaction")
+    raw_hex = "0x" + raw_bytes.hex()
+
+    try:
+        tx_hash = await rpc_call(body.chain_id, "eth_sendRawTransaction", [raw_hex])
+    except HTTPException as e:
+        audit("tx.send.broadcast_fail",
+              from_addr=s["address"], to=body.to,
+              chain_id=body.chain_id, error=str(e.detail))
+        raise
+
+    audit("tx.send.ok",
+          chain_id=body.chain_id,
+          from_addr=s["address"], to=body.to,
+          value_wei=str(value_wei), tx_hash=tx_hash)
+
+    chain = CHAINS[body.chain_id]
+    return {
+        "tx_hash": tx_hash,
+        "explorer_url": f"{chain['explorer']}/tx/{tx_hash}",
+        "chain_id": body.chain_id,
+    }
+
+
 # ----- Console hosting (so the UI is same-origin with the API) -----
 @app.get("/", include_in_schema=False)
 async def root() -> RedirectResponse:
