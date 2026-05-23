@@ -206,40 +206,73 @@ def audit(event: str, **details: Any) -> None:
 # ============================================================================
 # Chain registry
 # ============================================================================
-# Public RPCs by default. Override with WALLET_RPC_MAINNET / WALLET_RPC_BASE.
-CHAINS: Dict[int, Dict[str, str]] = {
+# Multiple public RPCs per chain. rpc_call() tries them in order until one
+# answers; this protects us from any single provider going down.
+# Override with WALLET_RPC_MAINNET / WALLET_RPC_BASE (comma-separated list).
+def _rpc_list(env_name: str, defaults: list) -> list:
+    raw = (os.getenv(env_name) or "").strip()
+    if raw:
+        return [u.strip() for u in raw.split(",") if u.strip()]
+    return defaults
+
+
+CHAINS: Dict[int, Dict[str, Any]] = {
     1: {
         "name": "Ethereum",
         "symbol": "ETH",
-        "rpc_url": os.getenv("WALLET_RPC_MAINNET", "https://cloudflare-eth.com"),
+        "rpc_urls": _rpc_list("WALLET_RPC_MAINNET", [
+            "https://eth.llamarpc.com",
+            "https://ethereum-rpc.publicnode.com",
+            "https://rpc.ankr.com/eth",
+        ]),
         "explorer": "https://etherscan.io",
     },
     8453: {
         "name": "Base",
         "symbol": "ETH",
-        "rpc_url": os.getenv("WALLET_RPC_BASE", "https://mainnet.base.org"),
+        "rpc_urls": _rpc_list("WALLET_RPC_BASE", [
+            "https://mainnet.base.org",
+            "https://base-rpc.publicnode.com",
+            "https://base.llamarpc.com",
+        ]),
         "explorer": "https://basescan.org",
     },
 }
 
 
 async def rpc_call(chain_id: int, method: str, params: list) -> Any:
-    """Minimal JSON-RPC client over httpx. Raises HTTPException on failure."""
+    """Minimal JSON-RPC client over httpx. Tries each configured RPC for the
+    chain in order; returns the first success. Raises 502 if all fail."""
     chain = CHAINS.get(chain_id)
     if not chain:
         raise HTTPException(status_code=400, detail=f"unsupported chain {chain_id}")
     if http_client is None:
         raise HTTPException(status_code=503, detail="http client not initialized")
     payload = {"jsonrpc": "2.0", "id": 1, "method": method, "params": params}
-    try:
-        r = await http_client.post(chain["rpc_url"], json=payload, timeout=10.0)
-        r.raise_for_status()
-    except httpx.HTTPError as e:
-        raise HTTPException(status_code=502, detail=f"RPC transport error: {e}")
-    j = r.json()
-    if "error" in j and j["error"] is not None:
-        raise HTTPException(status_code=502, detail=f"RPC error: {j['error']}")
-    return j.get("result")
+
+    last_err: Any = None
+    for url in chain["rpc_urls"]:
+        try:
+            r = await http_client.post(url, json=payload, timeout=8.0)
+            r.raise_for_status()
+            j = r.json()
+            if "error" in j and j["error"] is not None:
+                last_err = j["error"]
+                logger.warning("rpc %s returned error: %s", url, j["error"])
+                continue
+            return j.get("result")
+        except httpx.HTTPError as e:
+            last_err = str(e)
+            logger.warning("rpc %s transport error: %s", url, e)
+            continue
+        except Exception as e:
+            last_err = str(e)
+            logger.warning("rpc %s unexpected error: %s", url, e)
+            continue
+    raise HTTPException(
+        status_code=502,
+        detail=f"all RPCs failed for chain {chain_id}: {last_err}",
+    )
 
 
 # ============================================================================
