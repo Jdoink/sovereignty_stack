@@ -18,17 +18,17 @@
     --cc-panel:     #0f1820;
     --cc-line:      #1a2832;
     --cc-line-hi:   #2a3f4f;
-    --cc-amber:     #ffb000;
-    --cc-amber-dim: #6b4500;
+    --cc-amber:     #b794f4;
+    --cc-amber-dim: #5a3f8c;
     --cc-cyan:      #5ad3ff;
     --cc-cyan-dim:  #2a6680;
     --cc-purple:    #b794f4;
     --cc-purple-dim:#5a3f8c;
-    --cc-green:     #34ff7a;
-    --cc-yellow:    #ffd166;
-    --cc-red:       #ff4747;
-    --cc-text:      #d4dde4;
-    --cc-text-dim:  #5e6e7a;
+    --cc-green:     #b794f4;
+    --cc-yellow:    #d4b3ff;
+    --cc-red:       #ff4dff;
+    --cc-text:      #e8f0f8;
+    --cc-text-dim:  #6a7d8c;
 
     /* Touch sizing - 48px is Apple HIG; we hit it across buttons & rows */
     --cc-tap: 48px;
@@ -54,7 +54,7 @@
     overflow: hidden;
     background:
       radial-gradient(ellipse at 50% -30%, rgba(90,211,255,0.07), transparent 55%),
-      radial-gradient(ellipse at 50% 130%, rgba(255,176,0,0.04), transparent 55%),
+      radial-gradient(ellipse at 50% 130%, rgba(183,148,244,0.05), transparent 55%),
       linear-gradient(180deg, #060a0e 0%, #04070a 100%);
   }
   .cc::before {
@@ -93,7 +93,7 @@
     border-radius: 999px;
     color: var(--cc-green);
     font-size: 9px; letter-spacing: 0.22em;
-    background: rgba(52,255,122,0.06);
+    background: rgba(183,148,244,0.08);
     flex: 0 0 auto;
   }
   .cc-status .led { width: 6px; height: 6px; background: var(--cc-green); border-radius: 50%; box-shadow: 0 0 8px var(--cc-green); animation: cc-pulse 1.6s ease-in-out infinite; }
@@ -104,7 +104,7 @@
     position: relative; z-index: 3;
     display: flex; align-items: center; gap: 8px;
     padding: 8px 10px;
-    background: linear-gradient(90deg, rgba(255,176,0,0.10), rgba(255,176,0,0.02));
+    background: linear-gradient(90deg, rgba(183,148,244,0.10), rgba(183,148,244,0.02));
     border: 1px solid var(--cc-amber-dim);
     border-left: 3px solid var(--cc-amber);
     color: var(--cc-yellow);
@@ -203,7 +203,7 @@
   .cc-input::placeholder { color: var(--cc-text-dim); text-shadow: none; }
   .cc-input.invalid {
     border-color: var(--cc-red);
-    box-shadow: 0 0 0 1px rgba(255,71,71,0.4);
+    box-shadow: 0 0 0 1px rgba(255,77,255,0.45);
     animation: cc-shake 0.3s ease;
   }
   @keyframes cc-shake {
@@ -216,7 +216,7 @@
     appearance: none; -webkit-appearance: none;
     background-color: #0a131a;
     background-image:
-      linear-gradient(180deg, rgba(255,176,0,0.06), transparent),
+      linear-gradient(180deg, rgba(183,148,244,0.08), transparent),
       linear-gradient(45deg, transparent 50%, var(--cc-amber) 50%),
       linear-gradient(135deg, var(--cc-amber) 50%, transparent 50%);
     background-position: 0 0, calc(100% - 16px) 50%, calc(100% - 10px) 50%;
@@ -235,7 +235,7 @@
     width: 100%;
   }
   .cc-select:hover { border-color: var(--cc-amber-dim); }
-  .cc-select:focus { border-color: var(--cc-amber); box-shadow: 0 0 0 1px rgba(255,176,0,0.35); }
+  .cc-select:focus { border-color: var(--cc-amber); box-shadow: 0 0 0 1px rgba(183,148,244,0.35); }
   .cc-select option { background: #0a131a; color: var(--cc-text); }
 
   /* ============ Buttons ============ */
@@ -366,8 +366,11 @@
   #pane-wallet[data-state="unlocked"]    #w-unlocked    { display: flex; }
   #pane-wallet[data-state="send-form"]       #w-send-form       { display: flex; }
   #pane-wallet[data-state="send-token-form"] #w-send-token-form { display: flex; }
+  #pane-wallet[data-state="paste-tx-form"]   #w-paste-tx-form   { display: flex; }
   #pane-wallet[data-state="send-review"]     #w-send-review     { display: flex; }
   #pane-wallet[data-state="send-success"]    #w-send-success    { display: flex; }
+  #pane-wallet[data-state="contacts-list"]   #w-contacts-list   { display: flex; }
+  #pane-wallet[data-state="contact-edit"]    #w-contact-edit    { display: flex; }
 
   .w-card {
     flex-direction: column;
@@ -596,6 +599,93 @@
     letter-spacing: 0.08em;
     font-weight: 700;
     text-shadow: 0 0 10px rgba(90, 211, 255, 0.3);
+  }
+
+  /* Contacts + Safe Contracts list */
+  .w-contact-row, .w-safe-row {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    column-gap: 8px;
+    row-gap: 2px;
+    align-items: center;
+    padding: 10px;
+    border: 1px solid var(--cc-line);
+    background: rgba(183, 148, 244, 0.03);
+    transition: border-color 120ms ease, background 120ms ease;
+  }
+  .w-contact-row:hover, .w-safe-row:hover {
+    border-color: var(--cc-purple-dim);
+    background: rgba(183, 148, 244, 0.07);
+  }
+  .w-contact-label, .w-safe-label {
+    color: var(--cc-purple);
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: 0.04em;
+    text-shadow: 0 0 6px rgba(183, 148, 244, 0.25);
+    grid-column: 1 / 2;
+  }
+  .w-contact-addr, .w-safe-addr {
+    color: var(--cc-cyan);
+    font-size: 10px;
+    font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
+    word-break: break-all;
+    grid-column: 1 / 4;
+  }
+  .w-contact-action, .w-safe-action {
+    grid-column: 2 / 3;
+    min-height: 32px;
+    padding: 4px 10px;
+    font-size: 10px;
+  }
+  .w-contact-row .w-contact-action:nth-of-type(2) {
+    grid-column: 3 / 4;
+  }
+  .w-list-empty {
+    color: var(--cc-text-dim);
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    text-align: center;
+    padding: 16px 0;
+    font-style: italic;
+  }
+  .w-section-title {
+    color: var(--cc-cyan);
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    font-weight: 600;
+    padding-top: 6px;
+  }
+
+  /* Paste-Raw-Tx textarea (DATA field is hex, can be long) */
+  textarea.cc-input {
+    min-height: 96px;
+    resize: vertical;
+    font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
+    font-size: 11px;
+    line-height: 1.4;
+    padding: 10px 12px;
+  }
+
+  /* Named-recipient hint in review screen */
+  .w-named-hint {
+    display: inline-block;
+    margin-left: 8px;
+    padding: 2px 8px;
+    border: 1px solid var(--cc-purple-dim);
+    background: rgba(183, 148, 244, 0.10);
+    color: var(--cc-purple);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-shadow: 0 0 6px rgba(183, 148, 244, 0.4);
+    font-family: "Inter", system-ui, sans-serif;
+  }
+  .w-named-hint.cyan {
+    border-color: var(--cc-cyan-dim);
+    background: rgba(90, 211, 255, 0.10);
+    color: var(--cc-cyan);
+    text-shadow: 0 0 6px rgba(90, 211, 255, 0.4);
   }
 
   /* ============ Smaller / narrow ============ */
@@ -837,7 +927,10 @@
           <button type="button" class="cc-btn primary" id="w-send-eth-btn">SEND ETH</button>
           <button type="button" class="cc-btn primary" id="w-send-token-btn">SEND TOKEN</button>
         </div>
-        <div class="w-actions-stub">PASTE RAW TX &mdash; COMING IN 2.3</div>
+        <div class="w-row">
+          <button type="button" class="cc-btn" id="w-paste-tx-btn">PASTE RAW TX</button>
+          <button type="button" class="cc-btn" id="w-contacts-btn">CONTACTS</button>
+        </div>
 
         <div class="w-session-bar">
           <span class="w-session-timer" id="w-session-timer">--:--</span>
@@ -993,6 +1086,112 @@
           <button type="button" class="cc-btn" id="w-success-copy">COPY HASH</button>
         </div>
         <button type="button" class="cc-btn primary full" id="w-success-done">DONE</button>
+      </div>
+
+      <!-- Paste Raw Tx: form -->
+      <div class="w-card" id="w-paste-tx-form">
+        <div class="w-header">
+          <button type="button" class="w-back" id="w-ptx-back">&larr; BACK</button>
+          <span class="w-title">PASTE RAW TX</span>
+          <span class="w-chain-tag" id="w-ptx-chain-tag">&mdash;</span>
+        </div>
+
+        <div class="w-sub">
+          Build a transaction by hand. Anything you can construct with cast,
+          ethers, or Foundry: ABI-encoded calls, multicall payloads, raw
+          contract interactions. Pi signs and broadcasts.
+        </div>
+
+        <span class="cc-label">TO ADDRESS / CONTRACT</span>
+        <input type="text" id="w-ptx-to" class="cc-input"
+               placeholder="0x..." autocomplete="off" spellcheck="false"
+               autocapitalize="none" autocorrect="off" />
+
+        <span class="cc-label">VALUE (ETH)</span>
+        <input type="text" id="w-ptx-value" class="cc-input"
+               placeholder="0" inputmode="decimal"
+               autocomplete="off" spellcheck="false" />
+
+        <span class="cc-label">DATA (hex)</span>
+        <textarea id="w-ptx-data" class="cc-input"
+                  placeholder="0x"
+                  autocomplete="off" spellcheck="false"
+                  autocapitalize="none" autocorrect="off"></textarea>
+
+        <span class="cc-label">GAS</span>
+        <select id="w-ptx-gas-speed" class="cc-input">
+          <option value="standard">Standard (Recommended)</option>
+          <option value="slow">Slow (cheaper, slower)</option>
+          <option value="fast">Fast (more expensive)</option>
+          <option value="custom">Custom (manual override)</option>
+        </select>
+
+        <div class="w-gas-custom" id="w-ptx-gas-custom" hidden>
+          <span class="cc-label">MAX FEE PER GAS (gwei)</span>
+          <input type="text" id="w-ptx-cust-maxfee" class="cc-input"
+                 inputmode="decimal" autocomplete="off" spellcheck="false" />
+          <span class="cc-label">MAX PRIORITY FEE (gwei)</span>
+          <input type="text" id="w-ptx-cust-maxprio" class="cc-input"
+                 inputmode="decimal" autocomplete="off" spellcheck="false" />
+          <span class="cc-label">GAS LIMIT</span>
+          <input type="text" id="w-ptx-cust-gaslimit" class="cc-input"
+                 inputmode="numeric" autocomplete="off" spellcheck="false" />
+        </div>
+
+        <span class="cc-label">NONCE OVERRIDE (optional)</span>
+        <input type="text" id="w-ptx-nonce" class="cc-input"
+               placeholder="auto" inputmode="numeric"
+               autocomplete="off" spellcheck="false" />
+
+        <div id="w-ptx-err" class="w-err"></div>
+        <button type="button" id="w-ptx-review-btn" class="cc-btn primary full">REVIEW</button>
+      </div>
+
+      <!-- Contacts: list -->
+      <div class="w-card" id="w-contacts-list">
+        <div class="w-header">
+          <button type="button" class="w-back" id="w-contacts-back">&larr; BACK</button>
+          <span class="w-title">CONTACTS</span>
+          <button type="button" class="cc-btn" id="w-contact-add-btn"
+                  style="flex:0 0 auto;min-height:34px;padding:4px 12px;font-size:11px;">+ ADD</button>
+        </div>
+
+        <div class="w-section-title">YOUR CONTACTS</div>
+        <div id="w-contacts-mine"></div>
+
+        <div class="w-section-title" style="margin-top:8px;">SAFE CONTRACTS (curated)</div>
+        <div id="w-safe-contracts"></div>
+      </div>
+
+      <!-- Contact: add/edit -->
+      <div class="w-card" id="w-contact-edit">
+        <div class="w-header">
+          <button type="button" class="w-back" id="w-contact-edit-back">&larr; BACK</button>
+          <span class="w-title" id="w-contact-edit-title">NEW CONTACT</span>
+          <span></span>
+        </div>
+
+        <span class="cc-label">LABEL</span>
+        <input type="text" id="w-contact-label" class="cc-input"
+               placeholder="e.g. Rabby Main, CEX Deposit, Mom"
+               autocomplete="off" spellcheck="false" maxlength="80" />
+
+        <span class="cc-label">ADDRESS</span>
+        <input type="text" id="w-contact-address" class="cc-input"
+               placeholder="0x..." autocomplete="off" spellcheck="false"
+               autocapitalize="none" autocorrect="off" />
+
+        <span class="cc-label">NOTES (optional)</span>
+        <textarea id="w-contact-notes" class="cc-input" maxlength="400"
+                  placeholder="What is this address for?"
+                  style="min-height:60px;font-family:inherit;font-size:12px;"
+                  autocomplete="off"></textarea>
+
+        <div id="w-contact-err" class="w-err"></div>
+        <div class="w-row">
+          <button type="button" class="cc-btn" id="w-contact-delete-btn" hidden>DELETE</button>
+          <button type="button" class="cc-btn primary" id="w-contact-save-btn">SAVE</button>
+        </div>
       </div>
 
     </section>
@@ -2128,13 +2327,389 @@
   // (The send-eth REVIEW handler runs *before* this restoration, but since
   // populateReviewForToken sets state contrary to ETH expectations, we patch
   // the send-eth flow by re-asserting visibility there too.)
-  const _origEthReviewBtn = wSendReviewBtn.onclick;  // we use addEventListener, this is null
   wSendReviewBtn.addEventListener("click", () => {
     wReviewTokenLabel.hidden = true;
     wReviewTokenVal.hidden   = true;
     wReviewTotalLabel.hidden = false;
     wReviewTotalVal.hidden   = false;
-  }, true);  // capture phase: runs before the existing send-eth handler's body completes
+  }, true);
+
+  // ===== Phase 2.3: Contacts + Safe Contracts =====
+  const wContactsBtn  = $("w-contacts-btn");
+  const wContactsBack = $("w-contacts-back");
+  const wContactAddBtn= $("w-contact-add-btn");
+  const wContactsMine = $("w-contacts-mine");
+  const wSafeContractsEl = $("w-safe-contracts");
+
+  const wContactEditBack  = $("w-contact-edit-back");
+  const wContactEditTitle = $("w-contact-edit-title");
+  const wContactLabel     = $("w-contact-label");
+  const wContactAddress   = $("w-contact-address");
+  const wContactNotes     = $("w-contact-notes");
+  const wContactErr       = $("w-contact-err");
+  const wContactDelBtn    = $("w-contact-delete-btn");
+  const wContactSaveBtn   = $("w-contact-save-btn");
+
+  // In-memory caches; refreshed on open.
+  let myContacts = [];
+  let safeContracts = [];
+
+  // Editing state: address being edited (null = creating new).
+  let contactEditingAddress = null;
+
+  wContactsBtn.addEventListener("click", openContacts);
+  wContactsBack.addEventListener("click", () => { refreshWalletPane(); });
+
+  async function openContacts() {
+    setWalletState("contacts-list");
+    wContactsMine.innerHTML = '<div class="w-list-empty">loading...</div>';
+    wSafeContractsEl.innerHTML = '<div class="w-list-empty">loading...</div>';
+    try {
+      const [cRes, sRes] = await Promise.all([
+        fetch(WALLET_API + "/api/contacts", { cache: "no-store" }),
+        fetch(WALLET_API + "/api/safe-contracts?chain_id=" + currentChainId, { cache: "no-store" }),
+      ]);
+      myContacts    = cRes.ok ? await cRes.json() : [];
+      safeContracts = sRes.ok ? await sRes.json() : [];
+      renderContactsList();
+    } catch (e) {
+      wContactsMine.innerHTML = '<div class="w-list-empty">error loading: ' + (e.message || e) + '</div>';
+    }
+  }
+
+  function renderContactsList() {
+    // Mine
+    if (myContacts.length === 0) {
+      wContactsMine.innerHTML = '<div class="w-list-empty">no saved contacts yet</div>';
+    } else {
+      wContactsMine.innerHTML = "";
+      myContacts.forEach(c => {
+        const row = document.createElement("div");
+        row.className = "w-contact-row";
+        row.style.marginTop = "6px";
+        const label = document.createElement("div");
+        label.className = "w-contact-label";
+        label.textContent = c.label;
+        const addr = document.createElement("div");
+        addr.className = "w-contact-addr";
+        addr.textContent = c.address;
+        const sendBtn = document.createElement("button");
+        sendBtn.type = "button";
+        sendBtn.className = "cc-btn w-contact-action";
+        sendBtn.textContent = "SEND";
+        sendBtn.addEventListener("click", () => useContactForSend(c));
+        const editBtn = document.createElement("button");
+        editBtn.type = "button";
+        editBtn.className = "cc-btn w-contact-action";
+        editBtn.textContent = "EDIT";
+        editBtn.addEventListener("click", () => openContactEdit(c));
+        row.appendChild(label);
+        row.appendChild(sendBtn);
+        row.appendChild(editBtn);
+        row.appendChild(addr);
+        wContactsMine.appendChild(row);
+      });
+    }
+    // Safe (read-only)
+    if (safeContracts.length === 0) {
+      wSafeContractsEl.innerHTML = '<div class="w-list-empty">none for this chain yet</div>';
+    } else {
+      wSafeContractsEl.innerHTML = "";
+      safeContracts.forEach(s => {
+        const row = document.createElement("div");
+        row.className = "w-safe-row";
+        row.style.marginTop = "6px";
+        const label = document.createElement("div");
+        label.className = "w-safe-label";
+        label.textContent = s.label;
+        const addr = document.createElement("div");
+        addr.className = "w-safe-addr";
+        addr.textContent = s.address;
+        const useBtn = document.createElement("button");
+        useBtn.type = "button";
+        useBtn.className = "cc-btn w-safe-action";
+        useBtn.textContent = "USE";
+        useBtn.addEventListener("click", () => useContactForPasteTx(s));
+        row.appendChild(label);
+        row.appendChild(useBtn);
+        row.appendChild(addr);
+        wSafeContractsEl.appendChild(row);
+      });
+    }
+  }
+
+  function useContactForSend(c) {
+    // Open send-ETH with the recipient pre-filled.
+    wSendEthBtn.click();
+    // wSendEthBtn handler resets fields synchronously, then sets state.
+    // Schedule the address fill after that handler completes.
+    setTimeout(() => { wSendTo.value = c.address; wSendAmount.focus(); }, 0);
+  }
+
+  function useContactForPasteTx(s) {
+    // Open paste-tx with the contract address pre-filled.
+    wPtxBtn.click();
+    setTimeout(() => { wPtxTo.value = s.address; wPtxData.focus(); }, 0);
+  }
+
+  function openContactEdit(existing) {
+    contactEditingAddress = existing ? existing.address : null;
+    wContactEditTitle.textContent = existing ? "EDIT CONTACT" : "NEW CONTACT";
+    wContactLabel.value   = existing ? existing.label   : "";
+    wContactAddress.value = existing ? existing.address : "";
+    wContactNotes.value   = existing ? (existing.notes || "") : "";
+    wContactErr.textContent = "";
+    wContactDelBtn.hidden = !existing;
+    setWalletState("contact-edit");
+  }
+
+  wContactAddBtn.addEventListener("click", () => openContactEdit(null));
+  wContactEditBack.addEventListener("click", () => { openContacts(); });
+
+  wContactSaveBtn.addEventListener("click", async () => {
+    wContactErr.textContent = "";
+    const label   = (wContactLabel.value   || "").trim();
+    const address = (wContactAddress.value || "").trim();
+    const notes   = (wContactNotes.value   || "").trim();
+    if (!label) { wContactErr.textContent = "Label is required."; return; }
+    if (!/^0x[a-fA-F0-9]{40}$/.test(address)) { wContactErr.textContent = "Invalid address."; return; }
+    wContactSaveBtn.disabled = true; wContactSaveBtn.textContent = "SAVING...";
+    try {
+      const r = await fetch(WALLET_API + "/api/contacts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ address, label, notes }),
+      });
+      if (!r.ok) {
+        const j = await r.json().catch(() => ({}));
+        throw new Error(j.detail || ("save failed: " + r.status));
+      }
+      await openContacts();
+    } catch (e) {
+      wContactErr.textContent = String(e.message || e);
+    } finally {
+      wContactSaveBtn.disabled = false; wContactSaveBtn.textContent = "SAVE";
+    }
+  });
+
+  wContactDelBtn.addEventListener("click", async () => {
+    if (!contactEditingAddress) return;
+    if (!confirm("Delete this contact?")) return;
+    wContactDelBtn.disabled = true;
+    try {
+      const r = await fetch(WALLET_API + "/api/contacts/" + encodeURIComponent(contactEditingAddress), {
+        method: "DELETE",
+      });
+      if (!r.ok) {
+        const j = await r.json().catch(() => ({}));
+        throw new Error(j.detail || ("delete failed: " + r.status));
+      }
+      await openContacts();
+    } catch (e) {
+      wContactErr.textContent = String(e.message || e);
+    } finally {
+      wContactDelBtn.disabled = false;
+    }
+  });
+
+  // ===== Phase 2.3: Paste Raw Tx =====
+  const wPtxBtn        = $("w-paste-tx-btn");
+  const wPtxBack       = $("w-ptx-back");
+  const wPtxChainTag   = $("w-ptx-chain-tag");
+  const wPtxTo         = $("w-ptx-to");
+  const wPtxValue      = $("w-ptx-value");
+  const wPtxData       = $("w-ptx-data");
+  const wPtxGasSpeed   = $("w-ptx-gas-speed");
+  const wPtxGasCustom  = $("w-ptx-gas-custom");
+  const wPtxCustMaxFee = $("w-ptx-cust-maxfee");
+  const wPtxCustMaxPrio= $("w-ptx-cust-maxprio");
+  const wPtxCustGasLim = $("w-ptx-cust-gaslimit");
+  const wPtxNonce      = $("w-ptx-nonce");
+  const wPtxErr        = $("w-ptx-err");
+  const wPtxReviewBtn  = $("w-ptx-review-btn");
+
+  wPtxBtn.addEventListener("click", openPasteTx);
+  wPtxBack.addEventListener("click", () => { refreshWalletPane(); });
+
+  function openPasteTx() {
+    wPtxTo.value = ""; wPtxValue.value = ""; wPtxData.value = "0x";
+    wPtxGasSpeed.value = "standard"; wPtxGasCustom.hidden = true;
+    wPtxCustMaxFee.value = ""; wPtxCustMaxPrio.value = ""; wPtxCustGasLim.value = "";
+    wPtxNonce.value = ""; wPtxErr.textContent = "";
+    const c = currentChain();
+    wPtxChainTag.textContent = c ? c.name.toUpperCase() : "";
+    setWalletState("paste-tx-form");
+  }
+
+  wPtxGasSpeed.addEventListener("change", async () => {
+    if (wPtxGasSpeed.value !== "custom") { wPtxGasCustom.hidden = true; return; }
+    wPtxGasCustom.hidden = false;
+    if (!walletAddress) return;
+    try {
+      const to = (wPtxTo.value || "").trim() || walletAddress;
+      const dataStr = (wPtxData.value || "0x").trim();
+      const est = await fetchEstimateRaw({ to, value_wei: "0", data: dataStr });
+      const std = est.fee_suggestions.standard;
+      wPtxCustMaxFee.value  = weiToGwei(std.max_fee_per_gas, 3);
+      wPtxCustMaxPrio.value = weiToGwei(std.max_priority_fee_per_gas, 3);
+      wPtxCustGasLim.value  = String(est.gas_limit);
+    } catch (e) {
+      wPtxErr.textContent = "Estimate prefill failed: " + (e.message || e);
+    }
+  });
+
+  wPtxReviewBtn.addEventListener("click", async () => {
+    wPtxErr.textContent = "";
+    const to       = (wPtxTo.value    || "").trim();
+    const valStr   = (wPtxValue.value || "0").trim() || "0";
+    let dataStr    = (wPtxData.value  || "0x").trim();
+    if (!/^0x[a-fA-F0-9]{40}$/.test(to)) { wPtxErr.textContent = "Invalid recipient address."; return; }
+    if (!dataStr.startsWith("0x")) dataStr = "0x" + dataStr;
+    if (!/^0x[a-fA-F0-9]*$/.test(dataStr)) { wPtxErr.textContent = "DATA must be hex."; return; }
+    if (dataStr.length % 2 !== 0) { wPtxErr.textContent = "DATA must have an even number of hex chars."; return; }
+
+    let valueWei;
+    try { valueWei = ethToWei(valStr); }
+    catch (e) { wPtxErr.textContent = "Invalid value: " + e.message; return; }
+    if (valueWei < 0n) { wPtxErr.textContent = "Value must be >= 0."; return; }
+
+    wPtxReviewBtn.disabled = true; wPtxReviewBtn.textContent = "ESTIMATING...";
+    try {
+      const est = await fetchEstimateRaw({
+        to, value_wei: valueWei.toString(), data: dataStr,
+      });
+
+      let maxFee, maxPrio, gasLimit;
+      if (wPtxGasSpeed.value === "custom") {
+        try {
+          maxFee   = gweiToWei(wPtxCustMaxFee.value);
+          maxPrio  = gweiToWei(wPtxCustMaxPrio.value);
+          gasLimit = BI(parseInt(wPtxCustGasLim.value || est.gas_limit, 10));
+        } catch (e) { throw new Error("Custom gas: " + e.message); }
+        if (maxPrio > maxFee) throw new Error("Max priority fee cannot exceed max fee.");
+        if (gasLimit < 21000n) throw new Error("Gas limit must be >= 21000.");
+      } else {
+        const tier = est.fee_suggestions[wPtxGasSpeed.value] || est.fee_suggestions.standard;
+        maxFee   = BI(tier.max_fee_per_gas);
+        maxPrio  = BI(tier.max_priority_fee_per_gas);
+        gasLimit = BI(est.gas_limit);
+      }
+
+      const nonceOverride = (wPtxNonce.value || "").trim();
+      const nonce = nonceOverride ? parseInt(nonceOverride, 10) : est.nonce;
+      if (isNaN(nonce) || nonce < 0) throw new Error("Invalid nonce override.");
+
+      const feeWei = gasLimit * maxFee;
+      const totalWei = valueWei + feeWei;
+      const ethPrice = est.usd_per_native;
+      const valEth = Number(weiToEth(valueWei, 6));
+      const feeEth = Number(weiToEth(feeWei, 6));
+      const totEth = Number(weiToEth(totalWei, 6));
+
+      pendingTx = {
+        chain_id: currentChainId,
+        to, value_wei: valueWei.toString(),
+        gas_limit: Number(gasLimit),
+        max_fee_per_gas: maxFee.toString(),
+        max_priority_fee_per_gas: maxPrio.toString(),
+        nonce,
+        data: dataStr,
+        _display: {
+          chainName: currentChain() ? currentChain().name : "",
+          symbol: currentChain() ? currentChain().symbol : "ETH",
+          isToken: false, valEth, feeEth, totEth, price: ethPrice,
+        },
+      };
+
+      // Populate review (same path as send-eth)
+      wReviewTokenLabel.hidden = true;
+      wReviewTokenVal.hidden   = true;
+      wReviewTotalLabel.hidden = false;
+      wReviewTotalVal.hidden   = false;
+      const d = pendingTx._display;
+      wReviewChainTag.textContent = d.chainName.toUpperCase();
+      wReviewFrom.textContent  = walletAddress;
+      wReviewTo.innerHTML      = "";
+      wReviewTo.appendChild(document.createTextNode(to));
+      attachNamedHint(wReviewTo, to);
+      wReviewValue.textContent =
+        valEth.toFixed(6) + " " + d.symbol +
+        (ethPrice ? "  ($" + (valEth * ethPrice).toFixed(2) + ")" : "");
+      wReviewFee.textContent =
+        feeEth.toFixed(6) + " " + d.symbol +
+        (ethPrice ? "  ($" + (feeEth * ethPrice).toFixed(2) + ")" : "") +
+        "   (" + weiToGwei(maxFee, 2) + " gwei max)";
+      wReviewTotal.textContent =
+        totEth.toFixed(6) + " " + d.symbol +
+        (ethPrice ? "  ($" + (totEth * ethPrice).toFixed(2) + ")" : "");
+      wReviewNonce.textContent = String(nonce) + (nonceOverride ? " (override)" : "");
+      wReviewErr.textContent = "";
+      setWalletState("send-review");
+    } catch (e) {
+      wPtxErr.textContent = String(e.message || e);
+    } finally {
+      wPtxReviewBtn.disabled = false; wPtxReviewBtn.textContent = "REVIEW";
+    }
+  });
+
+  // Named-recipient hint: if `to` matches a contact or safe contract, append
+  // a small purple/cyan badge to the TO row in review.
+  function findKnownRecipient(addr) {
+    const k = (addr || "").toLowerCase();
+    if (!k) return null;
+    for (const c of myContacts) {
+      if ((c.address || "").toLowerCase() === k) return { label: c.label, kind: "contact" };
+    }
+    for (const s of safeContracts) {
+      if ((s.address || "").toLowerCase() === k) return { label: s.label, kind: "safe" };
+    }
+    return null;
+  }
+  function attachNamedHint(targetEl, addr) {
+    const known = findKnownRecipient(addr);
+    if (!known) return;
+    const hint = document.createElement("span");
+    hint.className = "w-named-hint" + (known.kind === "safe" ? " cyan" : "");
+    hint.textContent = (known.kind === "safe" ? "* " : "@ ") + known.label;
+    targetEl.appendChild(hint);
+  }
+
+  // Also attach hints in the send-ETH and send-token review paths.
+  wSendReviewBtn.addEventListener("click", () => {
+    // Wait a tick for the existing handler to populate wReviewTo.textContent,
+    // then attach the hint.
+    setTimeout(() => attachNamedHint(wReviewTo, (wReviewTo.textContent || "").trim()), 0);
+  });
+  wTkReviewBtn.addEventListener("click", () => {
+    setTimeout(() => attachNamedHint(wReviewTo, (wReviewTo.textContent || "").trim()), 0);
+  });
+
+  // Pre-load contacts + safe contracts whenever we transition to unlocked
+  // so the named-recipient hints work without opening the contacts page first.
+  (function hookContactPreload() {
+    const origRefresh = refreshWalletPane;
+    // Already defined; we cannot easily wrap it without circular references.
+    // Simpler: kick off a fetch any time the chain changes or after unlock.
+    async function preload() {
+      if (!WALLET_API || !walletAddress) return;
+      try {
+        const [cRes, sRes] = await Promise.all([
+          fetch(WALLET_API + "/api/contacts", { cache: "no-store" }),
+          fetch(WALLET_API + "/api/safe-contracts?chain_id=" + currentChainId, { cache: "no-store" }),
+        ]);
+        if (cRes.ok) myContacts    = await cRes.json();
+        if (sRes.ok) safeContracts = await sRes.json();
+      } catch (_) { /* ignore */ }
+    }
+    // Run on initial pane load
+    setTimeout(preload, 500);
+    // And on every chain change
+    document.addEventListener("click", (e) => {
+      if (e.target.classList && e.target.classList.contains("w-chain-pill")) {
+        setTimeout(preload, 100);
+      }
+    });
+  })();
 })();
 </script>
 </body>

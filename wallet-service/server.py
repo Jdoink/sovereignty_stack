@@ -969,6 +969,141 @@ async def token_balance(chain_id: int, token: str, address: str) -> Dict[str, st
     return {"balance_wei": str(_decode_abi_uint(result))}
 
 
+# ----- Phase 2.3: safe contracts (curated, read-only) + contacts (CRUD) -----
+# Curated list of well-known contracts per chain. Used by the review screen
+# to label recipients ("Uniswap V3 SwapRouter" instead of just an address).
+# Addresses are checksummed.
+SAFE_CONTRACTS: Dict[int, list] = {
+    1: [
+        {"address": "0xE592427A0AEce92De3Edee1F18E0157C05861564", "label": "Uniswap V3 SwapRouter", "category": "dex"},
+        {"address": "0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45", "label": "Uniswap V3 SwapRouter02", "category": "dex"},
+        {"address": "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D", "label": "Uniswap V2 Router 02", "category": "dex"},
+        {"address": "0x1111111254EEB25477B68fb85Ed929f73A960582", "label": "1inch v5 Aggregation Router", "category": "dex"},
+        {"address": "0x111111125421cA6dc452d289314280a0f8842A65", "label": "1inch v6 Aggregation Router", "category": "dex"},
+        {"address": "0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2", "label": "Aave V3 Pool", "category": "lending"},
+        {"address": "0xc3d688B66703497DAA19211EEdff47f25384cdc3", "label": "Compound V3 USDC", "category": "lending"},
+        {"address": "0x00000000219ab540356cBB839Cbe05303d7705Fa", "label": "Beacon Deposit Contract (ETH staking)", "category": "staking"},
+        {"address": "0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84", "label": "Lido stETH", "category": "staking"},
+    ],
+    8453: [
+        {"address": "0x2626664c2603336E57B271c5C0b26F421741e481", "label": "Uniswap V3 SwapRouter02 (Base)", "category": "dex"},
+        {"address": "0x6fF5693b99212Da76ad316178A184AB56D299b43", "label": "Uniswap Universal Router (Base)", "category": "dex"},
+        {"address": "0xcF77a3Ba9A5CA399B7c97c74d54e5b1Beb874E43", "label": "Aerodrome Router", "category": "dex"},
+        {"address": "0xA238Dd80C259a72e81d7e4664a9801593F98d1c5", "label": "Aave V3 Pool (Base)", "category": "lending"},
+        {"address": "0xb125E6687d4313864e53df431d5425969c15Eb2F", "label": "Compound V3 USDC (Base)", "category": "lending"},
+    ],
+}
+
+
+@app.get("/api/safe-contracts")
+async def list_safe_contracts(chain_id: int) -> list:
+    if chain_id not in CHAINS:
+        raise HTTPException(status_code=400, detail=f"unsupported chain {chain_id}")
+    return SAFE_CONTRACTS.get(chain_id, [])
+
+
+# --- Contacts (user-defined address book) ---
+# Stored as JSON on the Seagate, mirrored to SD backup like the keystore.
+CONTACTS_FILENAME = "contacts.json"
+
+
+def contacts_paths() -> Dict[str, Path]:
+    return {
+        "primary": DATA_PATH / CONTACTS_FILENAME,
+        "backup":  BACKUP_PATH / CONTACTS_FILENAME,
+    }
+
+
+def load_contacts() -> list:
+    p = contacts_paths()["primary"]
+    if not p.exists():
+        b = contacts_paths()["backup"]
+        if b.exists():
+            try:
+                return json.loads(b.read_text())
+            except Exception:
+                logger.exception("contacts backup unreadable")
+        return []
+    try:
+        return json.loads(p.read_text())
+    except Exception:
+        logger.exception("contacts primary unreadable")
+        return []
+
+
+def save_contacts(contacts: list) -> None:
+    """Atomic write to primary; mirror to backup. Same pattern as keystore."""
+    payload = json.dumps(contacts, indent=2)
+    for label, path in contacts_paths().items():
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            tmp = path.with_suffix(path.suffix + ".tmp")
+            tmp.write_text(payload)
+            tmp.replace(path)
+        except Exception:
+            logger.exception("failed to write %s contacts at %s", label, path)
+            if label == "primary":
+                raise
+
+
+class ContactUpsertRequest(BaseModel):
+    address: str
+    label: str = Field(min_length=1, max_length=80)
+    notes: Optional[str] = Field(default="", max_length=400)
+    chain_ids: Optional[list] = None  # None = all chains
+
+
+@app.get("/api/contacts")
+async def get_contacts() -> list:
+    """All contacts, all chains. Frontend filters by chain when relevant."""
+    return load_contacts()
+
+
+@app.post("/api/contacts")
+async def upsert_contact(body: ContactUpsertRequest) -> Dict[str, Any]:
+    """Add a new contact, or update an existing one keyed by lowercased address."""
+    _validate_address(body.address, "contact")
+    key = body.address.lower()
+    contacts = load_contacts()
+    now = dt.datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
+    updated = False
+    for c in contacts:
+        if c.get("address", "").lower() == key:
+            c["address"]  = body.address  # preserve user's casing
+            c["label"]    = body.label.strip()
+            c["notes"]    = (body.notes or "").strip()
+            c["chain_ids"] = body.chain_ids
+            c["updated_at"] = now
+            updated = True
+            break
+    if not updated:
+        contacts.append({
+            "address":   body.address,
+            "label":     body.label.strip(),
+            "notes":     (body.notes or "").strip(),
+            "chain_ids": body.chain_ids,
+            "created_at": now,
+            "updated_at": now,
+        })
+    save_contacts(contacts)
+    audit("contact.upsert", address=body.address, label=body.label, action="update" if updated else "create")
+    return {"ok": True, "updated": updated}
+
+
+@app.delete("/api/contacts/{address}")
+async def delete_contact(address: str) -> Dict[str, Any]:
+    _validate_address(address, "contact")
+    key = address.lower()
+    contacts = load_contacts()
+    before = len(contacts)
+    contacts = [c for c in contacts if c.get("address", "").lower() != key]
+    if len(contacts) == before:
+        raise HTTPException(status_code=404, detail="contact not found")
+    save_contacts(contacts)
+    audit("contact.delete", address=address)
+    return {"ok": True}
+
+
 # ----- Console hosting (so the UI is same-origin with the API) -----
 @app.get("/", include_in_schema=False)
 async def root() -> RedirectResponse:
