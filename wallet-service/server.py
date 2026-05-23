@@ -1104,6 +1104,182 @@ async def delete_contact(address: str) -> Dict[str, Any]:
     return {"ok": True}
 
 
+# ----- Phase 3.0: transaction simulation gate -----
+# Decoder for the function selectors most relevant to safety. The point is to
+# show the user, in plain language, what a transaction will do BEFORE they
+# sign - especially approvals, which are how most drains happen.
+MAX_UINT256 = 2**256 - 1
+
+KNOWN_SELECTORS: Dict[str, Dict[str, Any]] = {
+    "0xa9059cbb": {"sig": "transfer(address,uint256)",
+                   "args": [("to", "address"), ("amount", "uint256")]},
+    "0x095ea7b3": {"sig": "approve(address,uint256)",
+                   "args": [("spender", "address"), ("amount", "uint256")]},
+    "0x23b872dd": {"sig": "transferFrom(address,address,uint256)",
+                   "args": [("from", "address"), ("to", "address"), ("amount", "uint256")]},
+    "0xa22cb465": {"sig": "setApprovalForAll(address,bool)",
+                   "args": [("operator", "address"), ("approved", "bool")]},
+    "0x39509351": {"sig": "increaseAllowance(address,uint256)",
+                   "args": [("spender", "address"), ("addedValue", "uint256")]},
+    "0x42842e0e": {"sig": "safeTransferFrom(address,address,uint256)",
+                   "args": [("from", "address"), ("to", "address"), ("tokenId", "uint256")]},
+}
+
+
+def decode_calldata(data: str) -> Dict[str, Any]:
+    """Decode known function calls. Returns selector, function sig, args, and
+    safety warnings. For unknown selectors, returns the selector with an
+    'UNKNOWN_FUNCTION' marker so the UI can lean on simulation instead."""
+    d = (data or "").replace("0x", "")
+    if len(d) < 8:
+        return {"selector": None, "function": "(plain transfer, no calldata)",
+                "args": {}, "warnings": []}
+    selector = "0x" + d[:8].lower()
+    known = KNOWN_SELECTORS.get(selector)
+    if not known:
+        return {"selector": selector, "function": "unknown",
+                "args": {}, "warnings": ["UNKNOWN_FUNCTION"]}
+
+    args_blob = d[8:]
+    decoded: Dict[str, Any] = {}
+    warnings: list = []
+    for i, (name, atype) in enumerate(known["args"]):
+        chunk = args_blob[i * 64:(i + 1) * 64]
+        if len(chunk) < 64:
+            break
+        if atype == "address":
+            decoded[name] = "0x" + chunk[-40:]
+        elif atype == "uint256":
+            val = int(chunk, 16)
+            if val >= MAX_UINT256 - 10**60:
+                decoded[name] = "UNLIMITED"
+                if known["sig"].startswith(("approve", "increaseAllowance")):
+                    warnings.append("UNLIMITED_APPROVAL")
+            else:
+                decoded[name] = str(val)
+        elif atype == "bool":
+            val = int(chunk, 16) != 0
+            decoded[name] = val
+            if known["sig"].startswith("setApprovalForAll") and val:
+                warnings.append("APPROVE_ALL_NFTS")
+
+    return {"selector": selector, "function": known["sig"],
+            "args": decoded, "warnings": warnings}
+
+
+async def eth_call_preflight(chain_id: int, from_addr: str, to: str,
+                             value_wei: int, data: str) -> Dict[str, Any]:
+    """Run the tx as eth_call to detect reverts before signing. Distinguishes
+    a contract revert (will_revert=True + reason) from RPC transport failure
+    (raises 502)."""
+    chain = CHAINS[chain_id]
+    if http_client is None:
+        raise HTTPException(status_code=503, detail="http client not initialized")
+    payload = {
+        "jsonrpc": "2.0", "id": 1, "method": "eth_call",
+        "params": [{"from": from_addr, "to": to,
+                    "value": hex(value_wei), "data": data or "0x"}, "latest"],
+    }
+    last_err = None
+    for url in chain["rpc_urls"]:
+        try:
+            r = await http_client.post(url, json=payload, timeout=8.0)
+            r.raise_for_status()
+            j = r.json()
+            if "error" in j and j["error"] is not None:
+                err = j["error"]
+                reason = err.get("message", "execution reverted") if isinstance(err, dict) else str(err)
+                return {"will_revert": True, "revert_reason": reason}
+            return {"will_revert": False, "revert_reason": None}
+        except httpx.HTTPError as e:
+            last_err = str(e)
+            continue
+    raise HTTPException(status_code=502, detail=f"preflight transport failure: {last_err}")
+
+
+ALCHEMY_NETWORKS = {1: "eth-mainnet", 8453: "base-mainnet"}
+
+
+async def alchemy_simulate_asset_changes(chain_id: int, key: str, from_addr: str,
+                                         to: str, value_wei: int, data: str) -> Optional[Dict[str, Any]]:
+    """Use Alchemy's simulateAssetChanges to get a clean list of which assets
+    move in/out. Only runs if WALLET_ALCHEMY_KEY is configured."""
+    network = ALCHEMY_NETWORKS.get(chain_id)
+    if not network or http_client is None:
+        return None
+    url = f"https://{network}.g.alchemy.com/v2/{key}"
+    payload = {
+        "jsonrpc": "2.0", "id": 1, "method": "alchemy_simulateAssetChanges",
+        "params": [{"from": from_addr, "to": to,
+                    "value": hex(value_wei), "data": data or "0x"}],
+    }
+    r = await http_client.post(url, json=payload, timeout=12.0)
+    r.raise_for_status()
+    j = r.json()
+    if "error" in j and j["error"] is not None:
+        raise RuntimeError(f"alchemy error: {j['error']}")
+    result = j.get("result", {})
+    changes = []
+    for c in result.get("changes", []):
+        changes.append({
+            "asset_type": c.get("assetType"),
+            "change_type": c.get("changeType"),
+            "from": c.get("from"),
+            "to": c.get("to"),
+            "amount": c.get("amount"),
+            "symbol": c.get("symbol"),
+            "name": c.get("name"),
+            "decimals": c.get("decimals"),
+            "contract": c.get("contractAddress"),
+        })
+    return {"changes": changes, "sim_error": result.get("error")}
+
+
+@app.post("/api/tx/simulate")
+async def simulate_tx(body: TxEstimateRequest) -> Dict[str, Any]:
+    """Simulate a tx before signing: decode the call, detect reverts, and (if
+    an Alchemy key is configured) show exactly which assets move."""
+    if body.chain_id not in CHAINS:
+        raise HTTPException(status_code=400, detail=f"unsupported chain {body.chain_id}")
+    _validate_address(body.from_address, "from")
+    _validate_address(body.to, "to")
+    try:
+        value_wei = int(body.value_wei)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="invalid value_wei")
+
+    decoded = decode_calldata(body.data or "0x")
+
+    asset_changes = None
+    sim_source = "eth_call"
+    alchemy_key = (os.getenv("WALLET_ALCHEMY_KEY") or "").strip()
+    if alchemy_key:
+        try:
+            asset_changes = await alchemy_simulate_asset_changes(
+                body.chain_id, alchemy_key, body.from_address, body.to, value_wei, body.data or "0x")
+            sim_source = "alchemy"
+        except Exception:
+            logger.warning("alchemy simulation failed; falling back to eth_call", exc_info=True)
+
+    # Always run the eth_call preflight for revert detection.
+    try:
+        preflight = await eth_call_preflight(
+            body.chain_id, body.from_address, body.to, value_wei, body.data or "0x")
+    except HTTPException:
+        # Transport failure: we can't confirm safety. Surface as unknown.
+        preflight = {"will_revert": None, "revert_reason": "could not reach RPC for preflight"}
+
+    return {
+        "chain_id": body.chain_id,
+        "decoded": decoded,
+        "will_revert": preflight["will_revert"],
+        "revert_reason": preflight["revert_reason"],
+        "asset_changes": asset_changes,
+        "simulation_source": sim_source,
+        "alchemy_enabled": bool(alchemy_key),
+    }
+
+
 # ----- Console hosting (so the UI is same-origin with the API) -----
 @app.get("/", include_in_schema=False)
 async def root() -> RedirectResponse:

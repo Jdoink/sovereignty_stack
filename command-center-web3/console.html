@@ -688,6 +688,79 @@
     text-shadow: 0 0 6px rgba(90, 211, 255, 0.4);
   }
 
+  /* Simulation gate (review screen) */
+  .w-sim {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px;
+    border: 1px solid var(--cc-line-hi);
+    background: rgba(90, 211, 255, 0.03);
+  }
+  .w-sim-status {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .w-sim-status::before {
+    content: "";
+    width: 8px; height: 8px; border-radius: 50%;
+    flex: 0 0 auto;
+  }
+  .w-sim-status.pending { color: var(--cc-text-dim); }
+  .w-sim-status.pending::before { background: var(--cc-text-dim); animation: cc-pulse 1.2s ease-in-out infinite; }
+  .w-sim-status.pass    { color: var(--cc-cyan); text-shadow: 0 0 8px rgba(90,211,255,0.4); }
+  .w-sim-status.pass::before { background: var(--cc-cyan); box-shadow: 0 0 8px var(--cc-cyan); }
+  .w-sim-status.revert  { color: var(--cc-red); text-shadow: 0 0 8px rgba(255,77,255,0.5); }
+  .w-sim-status.revert::before { background: var(--cc-red); box-shadow: 0 0 8px var(--cc-red); }
+  .w-sim-status.warn    { color: var(--cc-purple); }
+  .w-sim-status.warn::before { background: var(--cc-purple); }
+
+  .w-sim-label {
+    color: var(--cc-text-dim);
+    font-size: 9px;
+    letter-spacing: 0.18em;
+    display: block;
+    margin-bottom: 4px;
+  }
+  .w-sim-decoded, .w-sim-changes {
+    font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
+    font-size: 11px;
+    color: var(--cc-text);
+    word-break: break-all;
+  }
+  .w-sim-args { padding: 4px 0 0 10px; color: var(--cc-text-dim); }
+  .w-sim-args span { color: var(--cc-cyan); }
+  .w-sim-warn {
+    margin-top: 6px;
+    padding: 6px 8px;
+    border-left: 3px solid var(--cc-red);
+    background: rgba(255, 77, 255, 0.08);
+    color: var(--cc-red);
+    font-family: "Inter", system-ui, sans-serif;
+    font-size: 11px;
+    line-height: 1.4;
+  }
+  .w-sim-change { font-weight: 700; }
+  .w-sim-change.out { color: var(--cc-red); }
+  .w-sim-change.in  { color: var(--cc-cyan); }
+  .w-sim-note {
+    color: var(--cc-text-dim);
+    font-size: 10px;
+    line-height: 1.4;
+    font-style: italic;
+  }
+  .w-sim-override {
+    display: flex; align-items: center; gap: 8px;
+    color: var(--cc-red);
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .w-sim-override input { width: 16px; height: 16px; accent-color: var(--cc-red); }
+
   /* ============ Smaller / narrow ============ */
   @media (max-width: 460px) {
     .cc-actions { grid-template-columns: 1fr; }
@@ -1066,6 +1139,17 @@
           <span class="w-rk" id="w-review-total-label">TOTAL</span>
           <span class="w-rv w-rv-total" id="w-review-total"></span>
           <span class="w-rk">NONCE</span>  <span class="w-rv" id="w-review-nonce"></span>
+        </div>
+
+        <div class="w-sim" id="w-sim">
+          <div class="w-sim-status pending" id="w-sim-status">SIMULATING...</div>
+          <div class="w-sim-decoded" id="w-sim-decoded" hidden></div>
+          <div class="w-sim-changes" id="w-sim-changes" hidden></div>
+          <div class="w-sim-note" id="w-sim-note" hidden></div>
+          <label class="w-sim-override" id="w-sim-override" hidden>
+            <input type="checkbox" id="w-sim-override-cb" />
+            <span>This will likely fail. Sign anyway (advanced).</span>
+          </label>
         </div>
 
         <div id="w-review-err" class="w-err"></div>
@@ -1958,7 +2042,7 @@
         (price ? "  ($" + (totEth * price).toFixed(2) + ")" : "");
       wReviewNonce.textContent = String(est.nonce);
       wReviewErr.textContent = "";
-      setWalletState("send-review");
+      setWalletState("send-review"); runSimulation(pendingTx);
     } catch (e) {
       wSendErr.textContent = String(e.message || e);
     } finally {
@@ -2288,7 +2372,7 @@
         },
       };
       populateReviewForToken(pendingTx);
-      setWalletState("send-review");
+      setWalletState("send-review"); runSimulation(pendingTx);
     } catch (e) {
       wTkErr.textContent = String(e.message || e);
     } finally {
@@ -2644,7 +2728,7 @@
         (ethPrice ? "  ($" + (totEth * ethPrice).toFixed(2) + ")" : "");
       wReviewNonce.textContent = String(nonce) + (nonceOverride ? " (override)" : "");
       wReviewErr.textContent = "";
-      setWalletState("send-review");
+      setWalletState("send-review"); runSimulation(pendingTx);
     } catch (e) {
       wPtxErr.textContent = String(e.message || e);
     } finally {
@@ -2710,6 +2794,120 @@
       }
     });
   })();
+
+  // ===== Phase 3.0: simulation gate =====
+  const wSimStatus     = $("w-sim-status");
+  const wSimDecoded    = $("w-sim-decoded");
+  const wSimChanges    = $("w-sim-changes");
+  const wSimNote       = $("w-sim-note");
+  const wSimOverride   = $("w-sim-override");
+  const wSimOverrideCb = $("w-sim-override-cb");
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  }
+  function warningText(w) {
+    const map = {
+      UNLIMITED_APPROVAL: "UNLIMITED APPROVAL - this contract could move ALL of this token out of your wallet, indefinitely, until you revoke it.",
+      APPROVE_ALL_NFTS:   "APPROVE ALL NFTS - granting an operator control of every NFT you hold in this collection.",
+      UNKNOWN_FUNCTION:   "Unrecognized function selector. Rely on the asset-change list below (enable Alchemy for full tracing).",
+    };
+    return map[w] || w;
+  }
+
+  wSimOverrideCb.addEventListener("change", () => {
+    wReviewConfirm.disabled = !wSimOverrideCb.checked;
+  });
+
+  async function runSimulation(tx) {
+    if (!tx) return;
+    wSimStatus.className = "w-sim-status pending";
+    wSimStatus.textContent = "SIMULATING...";
+    wSimDecoded.hidden = true;
+    wSimChanges.hidden = true;
+    wSimNote.hidden = true;
+    wSimOverride.hidden = true;
+    wSimOverrideCb.checked = false;
+    wReviewConfirm.disabled = true;
+
+    try {
+      const r = await fetch(WALLET_API + "/api/tx/simulate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chain_id: tx.chain_id, from: walletAddress, to: tx.to,
+          value_wei: tx.value_wei, data: tx.data || "0x",
+        }),
+      });
+      if (!r.ok) throw new Error("status " + r.status);
+      const sim = await r.json();
+
+      // --- Status line ---
+      if (sim.will_revert === true) {
+        wSimStatus.className = "w-sim-status revert";
+        wSimStatus.textContent = "WILL REVERT: " + (sim.revert_reason || "unknown reason");
+        wSimOverride.hidden = false;      // advanced override available
+        wReviewConfirm.disabled = true;
+      } else if (sim.will_revert === false) {
+        wSimStatus.className = "w-sim-status pass";
+        wSimStatus.textContent = "SIMULATION PASSED - transaction will not revert";
+        wReviewConfirm.disabled = false;
+      } else {
+        wSimStatus.className = "w-sim-status warn";
+        wSimStatus.textContent = "INCONCLUSIVE - could not reach RPC to preflight";
+        wReviewConfirm.disabled = false;  // don't hard-block on infra failure
+      }
+
+      // --- Decoded call ---
+      if (sim.decoded) {
+        wSimDecoded.hidden = false;
+        let html = '<span class="w-sim-label">DECODED CALL</span>' + escapeHtml(sim.decoded.function);
+        const args = sim.decoded.args || {};
+        if (Object.keys(args).length) {
+          html += '<div class="w-sim-args">';
+          for (const [k, v] of Object.entries(args)) {
+            html += '<div><span>' + escapeHtml(k) + ':</span> ' + escapeHtml(String(v)) + '</div>';
+          }
+          html += '</div>';
+        }
+        if (sim.decoded.warnings && sim.decoded.warnings.length) {
+          html += '<div class="w-sim-warn">';
+          sim.decoded.warnings.forEach(w => { html += '<div>! ' + escapeHtml(warningText(w)) + '</div>'; });
+          html += '</div>';
+        }
+        wSimDecoded.innerHTML = html;
+      }
+
+      // --- Asset changes (Alchemy) ---
+      if (sim.asset_changes && sim.asset_changes.changes && sim.asset_changes.changes.length) {
+        const me = (walletAddress || "").toLowerCase();
+        let rows = "";
+        sim.asset_changes.changes.forEach(c => {
+          const isOut = c.from && c.from.toLowerCase() === me;
+          const isIn  = c.to && c.to.toLowerCase() === me;
+          if (!isOut && !isIn) return;  // only show changes touching our wallet
+          const sign = isOut ? "- " : "+ ";
+          const cls  = isOut ? "out" : "in";
+          const sym  = c.symbol || c.asset_type || "";
+          rows += '<div class="w-sim-change ' + cls + '">' + sign + escapeHtml(String(c.amount || "?")) + " " + escapeHtml(sym) + '</div>';
+        });
+        if (rows) {
+          wSimChanges.hidden = false;
+          wSimChanges.innerHTML = '<span class="w-sim-label">ASSET CHANGES (simulated)</span>' + rows;
+        }
+      } else if (sim.simulation_source === "eth_call") {
+        wSimNote.hidden = false;
+        wSimNote.textContent = sim.alchemy_enabled
+          ? "Asset-change tracing returned nothing (this tx may not move standard assets)."
+          : "Tip: add a free Alchemy API key (WALLET_ALCHEMY_KEY) to see exactly which tokens move in/out before you sign.";
+      }
+    } catch (e) {
+      wSimStatus.className = "w-sim-status warn";
+      wSimStatus.textContent = "Simulation error: " + (e.message || e);
+      wReviewConfirm.disabled = false;  // never hard-block solely on sim infra failure
+    }
+  }
 })();
 </script>
 </body>
