@@ -839,6 +839,136 @@ async def send_tx(body: TxSendRequest) -> Dict[str, Any]:
     }
 
 
+# ----- Phase 2.2: ERC20 token support -----
+# Curated token list per chain. price_source: "stable" -> assume $1, "eth" ->
+# use ETH/USD price, None -> don't show USD value.
+CURATED_TOKENS: Dict[int, list] = {
+    1: [
+        {"address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", "symbol": "USDC",
+         "name": "USD Coin",        "decimals": 6,  "price_source": "stable"},
+        {"address": "0xdAC17F958D2ee523a2206206994597C13D831ec7", "symbol": "USDT",
+         "name": "Tether USD",      "decimals": 6,  "price_source": "stable"},
+        {"address": "0x6B175474E89094C44Da98b954EedeAC495271d0F", "symbol": "DAI",
+         "name": "Dai Stablecoin",  "decimals": 18, "price_source": "stable"},
+        {"address": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2", "symbol": "WETH",
+         "name": "Wrapped Ether",   "decimals": 18, "price_source": "eth"},
+        {"address": "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599", "symbol": "WBTC",
+         "name": "Wrapped BTC",     "decimals": 8,  "price_source": None},
+    ],
+    8453: [
+        {"address": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", "symbol": "USDC",
+         "name": "USD Coin",        "decimals": 6,  "price_source": "stable"},
+        {"address": "0x4200000000000000000000000000000000000006", "symbol": "WETH",
+         "name": "Wrapped Ether",   "decimals": 18, "price_source": "eth"},
+        {"address": "0x2Ae3F1Ec7F1F5012CFEab0185bfc7aa3cf0DEc22", "symbol": "cbETH",
+         "name": "Coinbase Wrapped Staked ETH", "decimals": 18, "price_source": "eth"},
+    ],
+}
+
+ERC20_SELECTORS = {
+    "symbol":    "0x95d89b41",
+    "name":      "0x06fdde03",
+    "decimals":  "0x313ce567",
+    "balanceOf": "0x70a08231",
+    "transfer":  "0xa9059cbb",
+}
+
+
+def _encode_address_arg(addr: str) -> str:
+    """Pad an address to 32 bytes (right-aligned, hex, no 0x)."""
+    if not (isinstance(addr, str) and addr.startswith("0x") and len(addr) == 42):
+        raise ValueError(f"invalid address: {addr}")
+    return addr[2:].lower().zfill(64)
+
+
+def _decode_abi_string(hex_data: str) -> str:
+    """Decode an ABI-encoded string return value. Falls back to bytes32 for
+    old tokens (MKR-style) that return fixed bytes instead of dynamic string."""
+    h = (hex_data or "").replace("0x", "")
+    if len(h) < 128:
+        try:
+            return bytes.fromhex(h).rstrip(b"\x00").decode("utf-8", errors="replace")
+        except Exception:
+            return ""
+    try:
+        offset = int(h[:64], 16) * 2
+        length = int(h[offset:offset + 64], 16) * 2
+        data = h[offset + 64:offset + 64 + length]
+        return bytes.fromhex(data).decode("utf-8", errors="replace")
+    except Exception:
+        # Last resort: bytes32 interpretation
+        try:
+            return bytes.fromhex(h[:64]).rstrip(b"\x00").decode("utf-8", errors="replace")
+        except Exception:
+            return ""
+
+
+def _decode_abi_uint(hex_data: str) -> int:
+    h = (hex_data or "").replace("0x", "")
+    return int(h, 16) if h else 0
+
+
+@app.get("/api/tokens")
+async def list_tokens(chain_id: int) -> list:
+    if chain_id not in CHAINS:
+        raise HTTPException(status_code=400, detail=f"unsupported chain {chain_id}")
+    return CURATED_TOKENS.get(chain_id, [])
+
+
+@app.get("/api/token/info")
+async def token_info(chain_id: int, address: str) -> Dict[str, Any]:
+    """Read symbol/name/decimals from a token contract. Used for custom tokens
+    not in the curated list."""
+    if chain_id not in CHAINS:
+        raise HTTPException(status_code=400, detail=f"unsupported chain {chain_id}")
+    _validate_address(address, "token")
+
+    try:
+        sym_hex = await rpc_call(chain_id, "eth_call",
+                                 [{"to": address, "data": ERC20_SELECTORS["symbol"]}, "latest"])
+        symbol = _decode_abi_string(sym_hex).strip()
+    except Exception:
+        symbol = ""
+    try:
+        name_hex = await rpc_call(chain_id, "eth_call",
+                                  [{"to": address, "data": ERC20_SELECTORS["name"]}, "latest"])
+        name = _decode_abi_string(name_hex).strip()
+    except Exception:
+        name = ""
+    try:
+        dec_hex = await rpc_call(chain_id, "eth_call",
+                                 [{"to": address, "data": ERC20_SELECTORS["decimals"]}, "latest"])
+        decimals = _decode_abi_uint(dec_hex)
+    except Exception:
+        decimals = -1
+
+    if not symbol or not (0 <= decimals <= 36):
+        raise HTTPException(
+            status_code=400,
+            detail="contract did not respond to ERC20 symbol()/decimals()",
+        )
+
+    return {
+        "address": address,
+        "symbol": symbol,
+        "name": name or symbol,
+        "decimals": decimals,
+        "price_source": None,
+    }
+
+
+@app.get("/api/token/balance")
+async def token_balance(chain_id: int, token: str, address: str) -> Dict[str, str]:
+    if chain_id not in CHAINS:
+        raise HTTPException(status_code=400, detail=f"unsupported chain {chain_id}")
+    _validate_address(token, "token")
+    _validate_address(address, "address")
+    data = ERC20_SELECTORS["balanceOf"] + _encode_address_arg(address)
+    result = await rpc_call(chain_id, "eth_call",
+                            [{"to": token, "data": data}, "latest"])
+    return {"balance_wei": str(_decode_abi_uint(result))}
+
+
 # ----- Console hosting (so the UI is same-origin with the API) -----
 @app.get("/", include_in_schema=False)
 async def root() -> RedirectResponse:

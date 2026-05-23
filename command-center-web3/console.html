@@ -364,9 +364,10 @@
   #pane-wallet[data-state="reveal"]      #w-reveal      { display: flex; }
   #pane-wallet[data-state="locked"]      #w-locked      { display: flex; }
   #pane-wallet[data-state="unlocked"]    #w-unlocked    { display: flex; }
-  #pane-wallet[data-state="send-form"]    #w-send-form    { display: flex; }
-  #pane-wallet[data-state="send-review"]  #w-send-review  { display: flex; }
-  #pane-wallet[data-state="send-success"] #w-send-success { display: flex; }
+  #pane-wallet[data-state="send-form"]       #w-send-form       { display: flex; }
+  #pane-wallet[data-state="send-token-form"] #w-send-token-form { display: flex; }
+  #pane-wallet[data-state="send-review"]     #w-send-review     { display: flex; }
+  #pane-wallet[data-state="send-success"]    #w-send-success    { display: flex; }
 
   .w-card {
     flex-direction: column;
@@ -832,8 +833,11 @@
         <div id="w-balance-native" class="w-balance-native">&mdash;</div>
         <div id="w-balance-usd" class="w-balance-usd">&mdash;</div>
 
-        <button type="button" class="cc-btn primary full" id="w-send-eth-btn" style="margin-top:4px;">SEND ETH</button>
-        <div class="w-actions-stub">SEND TOKEN &middot; PASTE TX &mdash; COMING IN 2.2&ndash;2.3</div>
+        <div class="w-row" style="margin-top:4px;">
+          <button type="button" class="cc-btn primary" id="w-send-eth-btn">SEND ETH</button>
+          <button type="button" class="cc-btn primary" id="w-send-token-btn">SEND TOKEN</button>
+        </div>
+        <div class="w-actions-stub">PASTE RAW TX &mdash; COMING IN 2.3</div>
 
         <div class="w-session-bar">
           <span class="w-session-timer" id="w-session-timer">--:--</span>
@@ -886,6 +890,71 @@
         <button type="button" id="w-send-review-btn" class="cc-btn primary full">REVIEW</button>
       </div>
 
+      <!-- Send Token: form -->
+      <div class="w-card" id="w-send-token-form">
+        <div class="w-header">
+          <button type="button" class="w-back" id="w-tk-back">&larr; BACK</button>
+          <span class="w-title">SEND TOKEN</span>
+          <span class="w-chain-tag" id="w-tk-chain-tag">&mdash;</span>
+        </div>
+
+        <span class="cc-label">TOKEN</span>
+        <select id="w-tk-select" class="cc-input">
+          <option value="">Loading...</option>
+        </select>
+
+        <div id="w-tk-custom" hidden style="display:flex;flex-direction:column;gap:8px;">
+          <span class="cc-label">CUSTOM CONTRACT ADDRESS</span>
+          <input type="text" id="w-tk-custom-addr" class="cc-input"
+                 placeholder="0x..." autocomplete="off" spellcheck="false"
+                 autocapitalize="none" autocorrect="off" />
+          <button type="button" id="w-tk-custom-fetch" class="cc-btn">FETCH TOKEN INFO</button>
+        </div>
+
+        <div id="w-tk-info" class="w-sub" hidden style="color:var(--cc-cyan); font-family:ui-monospace, monospace; font-size:11px;"></div>
+        <div id="w-tk-balance" class="w-sub" hidden style="color:var(--cc-text); font-size:12px;"></div>
+
+        <span class="cc-label">TO ADDRESS</span>
+        <input type="text" id="w-tk-to" class="cc-input"
+               placeholder="0x..." autocomplete="off" spellcheck="false"
+               autocapitalize="none" autocorrect="off" />
+
+        <span class="cc-label">AMOUNT</span>
+        <div class="w-row">
+          <input type="text" id="w-tk-amount" class="cc-input"
+                 placeholder="0.0" inputmode="decimal"
+                 autocomplete="off" spellcheck="false" />
+          <span id="w-tk-amount-symbol"
+                style="flex:0 0 80px;display:flex;align-items:center;justify-content:center;color:var(--cc-text-dim);font-size:12px;letter-spacing:0.08em;border:1px solid var(--cc-line);">--</span>
+        </div>
+
+        <span class="cc-label">GAS</span>
+        <select id="w-tk-gas-speed" class="cc-input">
+          <option value="standard">Standard (Recommended)</option>
+          <option value="slow">Slow (cheaper, slower)</option>
+          <option value="fast">Fast (more expensive)</option>
+          <option value="custom">Custom (manual override)</option>
+        </select>
+
+        <div class="w-gas-custom" id="w-tk-gas-custom" hidden>
+          <span class="cc-label">MAX FEE PER GAS (gwei)</span>
+          <input type="text" id="w-tk-cust-maxfee" class="cc-input"
+                 placeholder="--" inputmode="decimal"
+                 autocomplete="off" spellcheck="false" />
+          <span class="cc-label">MAX PRIORITY FEE (gwei)</span>
+          <input type="text" id="w-tk-cust-maxprio" class="cc-input"
+                 placeholder="--" inputmode="decimal"
+                 autocomplete="off" spellcheck="false" />
+          <span class="cc-label">GAS LIMIT</span>
+          <input type="text" id="w-tk-cust-gaslimit" class="cc-input"
+                 placeholder="--" inputmode="numeric"
+                 autocomplete="off" spellcheck="false" />
+        </div>
+
+        <div id="w-tk-err" class="w-err"></div>
+        <button type="button" id="w-tk-review-btn" class="cc-btn primary full">REVIEW</button>
+      </div>
+
       <!-- Send ETH: review -->
       <div class="w-card" id="w-send-review">
         <div class="w-header">
@@ -895,11 +964,14 @@
         </div>
 
         <div class="w-review-grid">
+          <span class="w-rk" id="w-review-token-label" hidden>TOKEN</span>
+          <span class="w-rv" id="w-review-token" hidden></span>
           <span class="w-rk">FROM</span>   <span class="w-rv" id="w-review-from"></span>
           <span class="w-rk">TO</span>     <span class="w-rv w-rv-cyan" id="w-review-to"></span>
           <span class="w-rk">VALUE</span>  <span class="w-rv" id="w-review-value"></span>
           <span class="w-rk">GAS FEE</span><span class="w-rv" id="w-review-fee"></span>
-          <span class="w-rk">TOTAL</span>  <span class="w-rv w-rv-total" id="w-review-total"></span>
+          <span class="w-rk" id="w-review-total-label">TOTAL</span>
+          <span class="w-rv w-rv-total" id="w-review-total"></span>
           <span class="w-rk">NONCE</span>  <span class="w-rv" id="w-review-nonce"></span>
         </div>
 
@@ -1758,6 +1830,311 @@
     } catch (_) { /* ignore */ }
   });
   wSuccessDone.addEventListener("click", () => { refreshWalletPane(); });
+
+  // ===== Send Token (Phase 2.2) =====
+  const wSendTokenBtn = $("w-send-token-btn");
+  const wTkBack       = $("w-tk-back");
+  const wTkChainTag   = $("w-tk-chain-tag");
+  const wTkSelect     = $("w-tk-select");
+  const wTkCustom     = $("w-tk-custom");
+  const wTkCustomAddr = $("w-tk-custom-addr");
+  const wTkCustomFetch= $("w-tk-custom-fetch");
+  const wTkInfo       = $("w-tk-info");
+  const wTkBalance    = $("w-tk-balance");
+  const wTkTo         = $("w-tk-to");
+  const wTkAmount     = $("w-tk-amount");
+  const wTkAmountSym  = $("w-tk-amount-symbol");
+  const wTkGasSpeed   = $("w-tk-gas-speed");
+  const wTkGasCustom  = $("w-tk-gas-custom");
+  const wTkCustMaxFee = $("w-tk-cust-maxfee");
+  const wTkCustMaxPrio= $("w-tk-cust-maxprio");
+  const wTkCustGasLim = $("w-tk-cust-gaslimit");
+  const wTkErr        = $("w-tk-err");
+  const wTkReviewBtn  = $("w-tk-review-btn");
+
+  // Review-card sub-row handles (for showing TOKEN row / hiding TOTAL)
+  const wReviewTokenLabel = $("w-review-token-label");
+  const wReviewTokenVal   = $("w-review-token");
+  const wReviewTotalLabel = $("w-review-total-label");
+  const wReviewTotalVal   = $("w-review-total");
+
+  let curatedTokens = [];
+  let selectedToken = null;  // {address, symbol, name, decimals, price_source}
+
+  wSendTokenBtn.addEventListener("click", openSendToken);
+  wTkBack.addEventListener("click", () => { refreshWalletPane(); });
+
+  async function openSendToken() {
+    wTkSelect.innerHTML = '<option value="">Loading...</option>';
+    wTkCustom.hidden = true;
+    wTkInfo.hidden = true;
+    wTkBalance.hidden = true;
+    wTkCustomAddr.value = "";
+    wTkTo.value = ""; wTkAmount.value = "";
+    wTkAmountSym.textContent = "--";
+    wTkGasSpeed.value = "standard";
+    wTkGasCustom.hidden = true;
+    wTkCustMaxFee.value = ""; wTkCustMaxPrio.value = ""; wTkCustGasLim.value = "";
+    wTkErr.textContent = "";
+    selectedToken = null;
+    const c = currentChain();
+    wTkChainTag.textContent = c ? c.name.toUpperCase() : "";
+    setWalletState("send-token-form");
+    try {
+      const r = await fetch(WALLET_API + "/api/tokens?chain_id=" + currentChainId, { cache: "no-store" });
+      if (!r.ok) throw new Error("status " + r.status);
+      curatedTokens = await r.json();
+      renderTokenSelect();
+    } catch (e) {
+      wTkErr.textContent = "Failed to load token list: " + e.message;
+    }
+  }
+
+  function renderTokenSelect() {
+    wTkSelect.innerHTML = '';
+    const ph = document.createElement("option");
+    ph.value = ""; ph.textContent = "-- select token --";
+    ph.disabled = true; ph.selected = true;
+    wTkSelect.appendChild(ph);
+    curatedTokens.forEach(t => {
+      const o = document.createElement("option");
+      o.value = t.address;
+      o.textContent = t.symbol + " - " + t.name;
+      wTkSelect.appendChild(o);
+    });
+    const cu = document.createElement("option");
+    cu.value = "__custom__";
+    cu.textContent = "Custom contract address...";
+    wTkSelect.appendChild(cu);
+  }
+
+  wTkSelect.addEventListener("change", async () => {
+    const v = wTkSelect.value;
+    wTkErr.textContent = "";
+    if (v === "__custom__") {
+      selectedToken = null;
+      wTkCustom.hidden = false;
+      wTkInfo.hidden = true;
+      wTkBalance.hidden = true;
+      wTkAmountSym.textContent = "--";
+      return;
+    }
+    wTkCustom.hidden = true;
+    selectedToken = curatedTokens.find(t => t.address === v) || null;
+    if (selectedToken) {
+      wTkInfo.hidden = false;
+      wTkInfo.textContent = selectedToken.symbol + " * " + selectedToken.decimals + " decimals * " + shortAddr(selectedToken.address);
+      wTkAmountSym.textContent = selectedToken.symbol;
+      await fetchTokenBalance();
+    }
+  });
+
+  function shortAddr(a) {
+    if (!a) return "";
+    return a.slice(0, 8) + "..." + a.slice(-6);
+  }
+
+  wTkCustomFetch.addEventListener("click", async () => {
+    const addr = (wTkCustomAddr.value || "").trim();
+    if (!/^0x[a-fA-F0-9]{40}$/.test(addr)) {
+      wTkErr.textContent = "Invalid contract address.";
+      return;
+    }
+    wTkErr.textContent = "";
+    wTkCustomFetch.disabled = true;
+    wTkCustomFetch.textContent = "FETCHING...";
+    try {
+      const r = await fetch(WALLET_API + "/api/token/info?chain_id=" + currentChainId +
+                            "&address=" + encodeURIComponent(addr), { cache: "no-store" });
+      if (!r.ok) {
+        const j = await r.json().catch(() => ({}));
+        throw new Error(j.detail || ("fetch failed: " + r.status));
+      }
+      selectedToken = await r.json();
+      wTkInfo.hidden = false;
+      wTkInfo.textContent = selectedToken.symbol + " - " + selectedToken.name + " * " + selectedToken.decimals + " decimals";
+      wTkAmountSym.textContent = selectedToken.symbol;
+      await fetchTokenBalance();
+    } catch (e) {
+      wTkErr.textContent = "Token info: " + e.message;
+    } finally {
+      wTkCustomFetch.disabled = false;
+      wTkCustomFetch.textContent = "FETCH TOKEN INFO";
+    }
+  });
+
+  async function fetchTokenBalance() {
+    if (!selectedToken || !walletAddress) return;
+    wTkBalance.hidden = false;
+    wTkBalance.textContent = "Balance: loading...";
+    try {
+      const url = WALLET_API + "/api/token/balance?chain_id=" + currentChainId +
+                  "&token=" + encodeURIComponent(selectedToken.address) +
+                  "&address=" + encodeURIComponent(walletAddress);
+      const r = await fetch(url, { cache: "no-store" });
+      if (!r.ok) throw new Error("status " + r.status);
+      const j = await r.json();
+      const balStr = weiToDecStr(BI(j.balance_wei), selectedToken.decimals, 6);
+      wTkBalance.textContent = "Balance: " + balStr + " " + selectedToken.symbol;
+    } catch (e) {
+      wTkBalance.textContent = "Balance: error (" + e.message + ")";
+    }
+  }
+
+  wTkGasSpeed.addEventListener("change", async () => {
+    if (wTkGasSpeed.value !== "custom") {
+      wTkGasCustom.hidden = true;
+      return;
+    }
+    wTkGasCustom.hidden = false;
+    if (!walletAddress || !selectedToken) return;
+    // Prepopulate from a fresh estimate using a no-op token call to get fees.
+    try {
+      const data = buildErc20TransferData(walletAddress, 0n);  // self-transfer of 0 = always valid encoding
+      const est = await fetchEstimateRaw({ to: selectedToken.address, value_wei: "0", data });
+      const std = est.fee_suggestions.standard;
+      wTkCustMaxFee.value  = weiToGwei(std.max_fee_per_gas, 3);
+      wTkCustMaxPrio.value = weiToGwei(std.max_priority_fee_per_gas, 3);
+      wTkCustGasLim.value  = String(est.gas_limit);
+    } catch (e) {
+      wTkErr.textContent = "Estimate prefill failed: " + (e.message || e);
+    }
+  });
+
+  // Generic estimate fetcher (used by token flow; ETH flow uses its own helper).
+  async function fetchEstimateRaw({ to, value_wei, data }) {
+    const r = await fetch(WALLET_API + "/api/tx/estimate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chain_id: currentChainId,
+        from: walletAddress,
+        to,
+        value_wei,
+        data,
+      }),
+    });
+    if (!r.ok) {
+      const j = await r.json().catch(() => ({}));
+      throw new Error(j.detail || ("estimate failed: " + r.status));
+    }
+    return r.json();
+  }
+
+  function buildErc20TransferData(toAddr, amountWei) {
+    const selector = "a9059cbb";
+    const toPadded = toAddr.toLowerCase().replace("0x", "").padStart(64, "0");
+    const amtHex   = BI(amountWei).toString(16).padStart(64, "0");
+    return "0x" + selector + toPadded + amtHex;
+  }
+
+  wTkReviewBtn.addEventListener("click", async () => {
+    wTkErr.textContent = "";
+    if (!selectedToken) { wTkErr.textContent = "Select a token first."; return; }
+    const to = (wTkTo.value || "").trim();
+    const amount = (wTkAmount.value || "").trim();
+    if (!/^0x[a-fA-F0-9]{40}$/.test(to)) { wTkErr.textContent = "Invalid recipient address."; return; }
+    if (to.toLowerCase() === (walletAddress || "").toLowerCase()) {
+      wTkErr.textContent = "Refusing to send to your own address."; return;
+    }
+    let amountWei;
+    try { amountWei = decStrToWei(amount, selectedToken.decimals); }
+    catch (e) { wTkErr.textContent = "Invalid amount: " + e.message; return; }
+    if (amountWei <= 0n) { wTkErr.textContent = "Amount must be positive."; return; }
+
+    const data = buildErc20TransferData(to, amountWei);
+
+    wTkReviewBtn.disabled = true; wTkReviewBtn.textContent = "ESTIMATING...";
+    try {
+      const est = await fetchEstimateRaw({ to: selectedToken.address, value_wei: "0", data });
+
+      let maxFee, maxPrio, gasLimit;
+      if (wTkGasSpeed.value === "custom") {
+        try {
+          maxFee   = gweiToWei(wTkCustMaxFee.value);
+          maxPrio  = gweiToWei(wTkCustMaxPrio.value);
+          gasLimit = BI(parseInt(wTkCustGasLim.value || est.gas_limit, 10));
+        } catch (e) {
+          throw new Error("Custom gas: " + e.message);
+        }
+        if (maxPrio > maxFee) throw new Error("Max priority fee cannot exceed max fee.");
+        if (gasLimit < 21000n) throw new Error("Gas limit must be >= 21000.");
+      } else {
+        const tier = est.fee_suggestions[wTkGasSpeed.value] || est.fee_suggestions.standard;
+        maxFee   = BI(tier.max_fee_per_gas);
+        maxPrio  = BI(tier.max_priority_fee_per_gas);
+        gasLimit = BI(est.gas_limit);
+      }
+
+      const feeWei = gasLimit * maxFee;
+      const feeEth = Number(weiToEth(feeWei, 6));
+      const amountTokens = Number(weiToDecStr(amountWei, selectedToken.decimals, 6));
+      const ethPrice = est.usd_per_native;
+
+      pendingTx = {
+        chain_id: currentChainId,
+        to: selectedToken.address,
+        value_wei: "0",
+        gas_limit: Number(gasLimit),
+        max_fee_per_gas: maxFee.toString(),
+        max_priority_fee_per_gas: maxPrio.toString(),
+        nonce: est.nonce,
+        data: data,
+        _display: {
+          chainName: currentChain() ? currentChain().name : "",
+          isToken: true,
+          token: selectedToken,
+          recipient: to,
+          amountTokens, feeEth, ethPrice,
+        },
+      };
+      populateReviewForToken(pendingTx);
+      setWalletState("send-review");
+    } catch (e) {
+      wTkErr.textContent = String(e.message || e);
+    } finally {
+      wTkReviewBtn.disabled = false; wTkReviewBtn.textContent = "REVIEW";
+    }
+  });
+
+  function populateReviewForToken(tx) {
+    const d = tx._display;
+    // Show TOKEN row, hide TOTAL row (a sum of tokens + ETH gas isn't meaningful)
+    wReviewTokenLabel.hidden = false;
+    wReviewTokenVal.hidden   = false;
+    wReviewTotalLabel.hidden = true;
+    wReviewTotalVal.hidden   = true;
+
+    wReviewChainTag.textContent = d.chainName.toUpperCase();
+    wReviewTokenVal.textContent = d.token.symbol + "  (" + d.token.address + ")";
+    wReviewFrom.textContent     = walletAddress;
+    wReviewTo.textContent       = d.recipient;
+
+    let valStr = d.amountTokens.toFixed(6) + " " + d.token.symbol;
+    if (d.token.price_source === "stable") {
+      valStr += "  ($" + d.amountTokens.toFixed(2) + ")";
+    } else if (d.token.price_source === "eth" && d.ethPrice) {
+      valStr += "  ($" + (d.amountTokens * d.ethPrice).toFixed(2) + ")";
+    }
+    wReviewValue.textContent = valStr;
+
+    wReviewFee.textContent = d.feeEth.toFixed(6) + " ETH" +
+      (d.ethPrice ? "  ($" + (d.feeEth * d.ethPrice).toFixed(2) + ")" : "");
+    wReviewNonce.textContent = String(tx.nonce);
+    wReviewErr.textContent = "";
+  }
+
+  // When entering the ETH review path, restore the TOTAL row + hide TOKEN row.
+  // (The send-eth REVIEW handler runs *before* this restoration, but since
+  // populateReviewForToken sets state contrary to ETH expectations, we patch
+  // the send-eth flow by re-asserting visibility there too.)
+  const _origEthReviewBtn = wSendReviewBtn.onclick;  // we use addEventListener, this is null
+  wSendReviewBtn.addEventListener("click", () => {
+    wReviewTokenLabel.hidden = true;
+    wReviewTokenVal.hidden   = true;
+    wReviewTotalLabel.hidden = false;
+    wReviewTotalVal.hidden   = false;
+  }, true);  // capture phase: runs before the existing send-eth handler's body completes
 })();
 </script>
 </body>
