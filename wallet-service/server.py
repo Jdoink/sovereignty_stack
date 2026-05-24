@@ -1643,14 +1643,34 @@ async def aerodrome_build(body: AeroBuildRequest) -> Dict[str, Any]:
 
         if body.action == "swap":
             route = [(h["from"], h["to"], bool(h["stable"]), h["factory"]) for h in need("route")]
-            # Defense in depth: every hop must use the canonical pool factory.
+            if not route:
+                raise HTTPException(status_code=400, detail="empty route")
+            amount_in = as_int("amount_in_wei")
+            amount_out_min = as_int("amount_out_min_wei")
+            if amount_in <= 0:
+                raise HTTPException(status_code=400, detail="amount_in must be positive")
+            if amount_out_min < 0:
+                raise HTTPException(status_code=400, detail="amount_out_min cannot be negative")
+            is_eth_in = bool(p.get("is_eth_in"))
+            is_eth_out = bool(p.get("is_eth_out"))
+
+            # Defense in depth: every hop must use the canonical pool factory,
+            # the hops must be contiguous, and the route's endpoints must match
+            # the tokens the user actually chose (native ETH maps to WETH).
+            weth = a["weth"]
             for h in route:
                 if h[3].lower() != a["pool_factory"].lower():
                     raise HTTPException(status_code=400, detail="route uses an unknown factory")
-            amount_in = as_int("amount_in_wei")
-            amount_out_min = as_int("amount_out_min_wei")
-            is_eth_in = bool(p.get("is_eth_in"))
-            is_eth_out = bool(p.get("is_eth_out"))
+            for i in range(len(route) - 1):
+                if route[i][1].lower() != route[i + 1][0].lower():
+                    raise HTTPException(status_code=400, detail="route hops are not contiguous")
+            exp_first = weth if is_eth_in else str(need("token_in"))
+            exp_last = weth if is_eth_out else str(need("token_out"))
+            if route[0][0].lower() != exp_first.lower():
+                raise HTTPException(status_code=400, detail="route start does not match token_in")
+            if route[-1][1].lower() != exp_last.lower():
+                raise HTTPException(status_code=400, detail="route end does not match token_out")
+
             if is_eth_in:
                 data = defi.build_swap_exact_eth_for_tokens(
                     amount_out_min, route, body.from_address, deadline)
