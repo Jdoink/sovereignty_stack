@@ -1403,8 +1403,17 @@
         </div>
         <span class="cc-label">VOTE WITH LOCK</span>
         <select id="w-vote-lock" class="cc-input"></select>
+
+        <div class="w-section-title" style="margin-top:8px;">SUGGESTED POOLS</div>
+        <div class="w-row">
+          <button type="button" id="w-vote-suggest-btn" class="cc-btn" style="flex:1 1 auto;">FIND BEST POOLS</button>
+          <button type="button" id="w-vote-view-toggle" class="cc-btn" style="flex:0 0 90px;">APR</button>
+        </div>
+        <div id="w-vote-suggested"></div>
+
+        <div class="w-section-title" style="margin-top:8px;">YOUR ALLOCATION</div>
         <div class="w-sub" style="font-size:11px;">
-          Add the pools you want to vote for and a weight for each. Weights are
+          Tap a suggested pool to add it, or enter pools manually. Weights are
           relative (e.g. 60 + 40, or 1 + 1 for an even split).
         </div>
         <div id="w-vote-rows"></div>
@@ -3609,30 +3618,128 @@
     });
   }
 
-  function addVoteRow() {
+  function addVoteRow(poolAddr, weight) {
     const row = document.createElement("div");
     row.className = "w-row"; row.style.marginTop = "6px";
     const pool = document.createElement("input");
     pool.type = "text"; pool.className = "cc-input w-vote-pool";
     pool.placeholder = "0x pool address"; pool.autocomplete = "off"; pool.spellcheck = false;
     pool.style.flex = "1 1 auto";
+    if (poolAddr) pool.value = poolAddr;
     const wt = document.createElement("input");
     wt.type = "text"; wt.className = "cc-input w-vote-weight";
     wt.placeholder = "weight"; wt.inputMode = "numeric";
-    wt.style.flex = "0 0 80px"; wt.value = "1";
+    wt.style.flex = "0 0 80px"; wt.value = String(weight || 1);
     const rm = document.createElement("button");
     rm.type = "button"; rm.className = "cc-btn"; rm.textContent = "✕";
     rm.style.flex = "0 0 44px";
     rm.addEventListener("click", () => row.remove());
     row.appendChild(pool); row.appendChild(wt); row.appendChild(rm);
     wVoteRows.appendChild(row);
+    return pool;
   }
-  $("w-vote-add-row").addEventListener("click", addVoteRow);
+  $("w-vote-add-row").addEventListener("click", () => addVoteRow());
+
+  // Add a suggested pool to the allocation (or bump focus if already present).
+  function addPoolToAllocation(poolAddr) {
+    const existing = Array.from(wVoteRows.querySelectorAll(".w-vote-pool"))
+      .find(i => (i.value || "").toLowerCase() === poolAddr.toLowerCase());
+    if (existing) { existing.focus(); return; }
+    // If there's a single empty row, fill it; otherwise append a new one.
+    const empties = Array.from(wVoteRows.querySelectorAll(".w-vote-pool")).filter(i => !i.value.trim());
+    if (empties.length) { empties[0].value = poolAddr; empties[0].focus(); }
+    else { addVoteRow(poolAddr, 1).focus(); }
+  }
+
+  // ---- suggested pools (ranked by voting APR via Sugar) ----
+  const wVoteSuggested = $("w-vote-suggested");
+  const wVoteSuggestBtn = $("w-vote-suggest-btn");
+  const wVoteViewToggle = $("w-vote-view-toggle");
+  let topPools = null;          // cached response
+  let voteView = "apr";         // "apr" | "raw"
+
+  function fmtNum(n) {
+    if (n == null || isNaN(n)) return "—";
+    if (n >= 1e6) return (n / 1e6).toFixed(2) + "M";
+    if (n >= 1e3) return (n / 1e3).toFixed(1) + "k";
+    if (n >= 1) return n.toFixed(0);
+    return n.toPrecision(2);
+  }
+
+  function renderSuggested() {
+    if (!topPools) { wVoteSuggested.innerHTML = ""; return; }
+    const pools = topPools.pools || [];
+    if (!pools.length) {
+      wVoteSuggested.innerHTML = '<div class="w-list-empty">no pools found</div>';
+      return;
+    }
+    const priced = topPools.priced && voteView === "apr";
+    wVoteSuggested.innerHTML = "";
+    pools.forEach(p => {
+      const row = document.createElement("div");
+      row.className = "w-contact-row"; row.style.marginTop = "6px";
+      const head = document.createElement("div");
+      head.className = "w-contact-label";
+      const name = p.pair || shortAddr(p.pool);
+      if (priced) {
+        const apr = p.apr != null ? Math.round(p.apr) + "% APR" : "no votes yet";
+        head.textContent = name + "  ·  " + apr + (p.priced_complete ? "" : " (partial)");
+      } else {
+        head.textContent = name + "  ·  " + fmtNum(p.votes_aero) + " votes";
+      }
+      const sub = document.createElement("div");
+      sub.className = "w-contact-addr";
+      if (priced && p.incentives_usd) {
+        sub.textContent = "$" + fmtNum(p.incentives_usd) + " incentives this epoch";
+      } else {
+        // raw breakdown: "5.0k USDC + 3 WETH"
+        const parts = (p.incentives || [])
+          .filter(i => i.amount != null && i.amount > 0)
+          .slice(0, 3)
+          .map(i => fmtNum(i.amount) + " " + (i.symbol || ""));
+        sub.textContent = parts.length ? parts.join(" + ") : shortAddr(p.pool);
+      }
+      const addBtn = document.createElement("button");
+      addBtn.type = "button"; addBtn.className = "cc-btn w-contact-action";
+      addBtn.textContent = "+ ADD";
+      addBtn.addEventListener("click", () => addPoolToAllocation(p.pool));
+      row.appendChild(head); row.appendChild(sub); row.appendChild(addBtn);
+      wVoteSuggested.appendChild(row);
+    });
+    wVoteViewToggle.textContent = priced ? "APR" : "RAW";
+  }
+
+  wVoteSuggestBtn.addEventListener("click", async () => {
+    wVoteErr.textContent = "";
+    wVoteSuggestBtn.disabled = true; wVoteSuggestBtn.textContent = "SCANNING...";
+    wVoteSuggested.innerHTML = '<div class="w-list-empty">reading pools + incentives...</div>';
+    try {
+      const r = await fetch(WALLET_API + "/api/defi/aerodrome/top-pools?chain_id=" + AERO_CHAIN_ID,
+                            { cache: "no-store" });
+      if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j.detail || "scan failed"); }
+      topPools = await r.json();
+      if (!topPools.priced) voteView = "raw";
+      renderSuggested();
+    } catch (e) {
+      wVoteSuggested.innerHTML = "";
+      wVoteErr.textContent = "Could not load suggestions: " + (e.message || e);
+    } finally {
+      wVoteSuggestBtn.disabled = false; wVoteSuggestBtn.textContent = "FIND BEST POOLS";
+    }
+  });
+
+  wVoteViewToggle.addEventListener("click", () => {
+    if (!topPools) return;
+    if (voteView === "apr") { voteView = "raw"; }
+    else if (topPools.priced) { voteView = "apr"; }  // only switch back if pricing exists
+    renderSuggested();
+  });
 
   async function openVote() {
     try { await loadAeroInfo(); await fetchLocks(); } catch (_) {}
     fillLockSelect(wVoteLock);
     wVoteRows.innerHTML = ""; addVoteRow();
+    wVoteSuggested.innerHTML = ""; topPools = null; voteView = "apr";
     wVoteErr.textContent = "";
     setWalletState("defi-vote");
   }

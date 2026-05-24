@@ -68,7 +68,20 @@ SELECTORS = {
     "token1": _sel("token1()"),
     "rewardsListLength": _sel("rewardsListLength()"),
     "rewards": _sel("rewards(uint256)"),
+    "decimals": _sel("decimals()"),
+    "symbol": _sel("symbol()"),
+    # Sugar
+    "epochsLatest": _sel("epochsLatest(uint256,uint256)"),
 }
+
+# ABI return type for RewardsSugar.epochsLatest:
+#   LpEpoch[] where LpEpoch =
+#     (uint256 ts, address lp, uint256 votes, uint256 emissions,
+#      LpEpochReward[] bribes, LpEpochReward[] fees)
+#   and LpEpochReward = (address token, uint256 amount)
+_EPOCHS_RETURN_TYPE = (
+    "(uint256,address,uint256,uint256,(address,uint256)[],(address,uint256)[])[]"
+)
 
 
 # ============================================================================
@@ -83,6 +96,8 @@ AERODROME: Dict[int, Dict[str, str]] = {
         "pool_factory": "0x420DD381b31aEf6683db6B902084cB0FFECe40Da",
         "aero": "0x940181a94A35A4569E4529A3CDfB74e38FD98631",
         "weth": "0x4200000000000000000000000000000000000006",
+        # Sugar: Aerodrome's on-chain read API (velodrome-finance/sugar).
+        "rewards_sugar": "0x1b121EfDaF4ABb8785a315C51D29BCE0552A7678",
     },
 }
 
@@ -249,6 +264,95 @@ def read_get_amounts_out(amount_in: int, routes: List[Route]) -> str:
 
 def read_call(selector_name: str, types: List[str], values: List[Any]) -> str:
     return _data(SELECTORS[selector_name], types, values)
+
+
+def read_epochs_latest(limit: int, offset: int) -> str:
+    return _data(SELECTORS["epochsLatest"], ["uint256", "uint256"], [int(limit), int(offset)])
+
+
+def decode_epochs_latest(result_hex: str) -> List[Dict[str, Any]]:
+    """Decode RewardsSugar.epochsLatest -> list of per-pool epoch dicts."""
+    rows = abi_decode([_EPOCHS_RETURN_TYPE], _strip(result_hex))[0]
+    out: List[Dict[str, Any]] = []
+    for (ts, lp, votes, emissions, bribes, fees) in rows:
+        out.append({
+            "ts": int(ts),
+            "lp": to_checksum_address(lp),
+            "votes": int(votes),
+            "emissions": int(emissions),
+            "bribes": [{"token": to_checksum_address(t), "amount": int(a)} for (t, a) in bribes],
+            "fees": [{"token": to_checksum_address(t), "amount": int(a)} for (t, a) in fees],
+        })
+    return out
+
+
+EPOCHS_PER_YEAR = 52  # weekly voting epochs
+
+
+def rank_voting_pools(epochs: List[Dict[str, Any]],
+                      decimals_of: Dict[str, int],
+                      price_of: Dict[str, float],
+                      aero_price: Optional[float],
+                      top_n: int = 15) -> List[Dict[str, Any]]:
+    """Pure ranking: given epoch data + (lowercased-address-keyed) decimals and
+    USD prices, compute each pool's voting APR and return the best `top_n`.
+
+    A pool's incentive $ for the epoch is the sum of its bribe + fee token
+    amounts priced in USD. Voting APR ~= (incentive$ / votes$) * 52. Tokens we
+    can't price are still listed (raw) but don't contribute to the $ total, so
+    APR is a conservative lower bound. Falls back to ranking by votes when no
+    USD prices are available at all."""
+    results: List[Dict[str, Any]] = []
+    for e in epochs:
+        votes_raw = e["votes"]
+        votes_aero = votes_raw / 1e18
+        # Aggregate incentives by token (bribes + fees combined).
+        agg: Dict[str, int] = {}
+        for r in list(e["bribes"]) + list(e["fees"]):
+            t = r["token"].lower()
+            agg[t] = agg.get(t, 0) + int(r["amount"])
+        if votes_raw == 0 and not agg:
+            continue  # dead pool — skip
+
+        incentives_usd = 0.0
+        priced_complete = True
+        breakdown: List[Dict[str, Any]] = []
+        for t, raw in agg.items():
+            dec = decimals_of.get(t)
+            price = price_of.get(t)
+            human = (raw / (10 ** dec)) if dec is not None else None
+            usd = (human * price) if (human is not None and price is not None) else None
+            if usd is None:
+                priced_complete = False
+            else:
+                incentives_usd += usd
+            breakdown.append({"token": t, "amount_raw": str(raw),
+                              "amount": human, "usd": usd})
+
+        votes_usd = (votes_aero * aero_price) if aero_price else None
+        apr = None
+        if votes_usd and votes_usd > 0 and incentives_usd > 0:
+            apr = (incentives_usd / votes_usd) * EPOCHS_PER_YEAR * 100.0
+
+        results.append({
+            "pool": e["pool"] if "pool" in e else e["lp"],
+            "votes_raw": str(votes_raw),
+            "votes_aero": votes_aero,
+            "incentives_usd": incentives_usd,
+            "apr": apr,
+            "priced_complete": priced_complete,
+            "incentives": breakdown,
+        })
+
+    any_apr = any(r["apr"] is not None for r in results)
+    if any_apr:
+        # APR desc (None last), then incentive $ desc.
+        results.sort(key=lambda r: (
+            r["apr"] is not None, r["apr"] or 0.0, r["incentives_usd"]), reverse=True)
+    else:
+        # No prices: rank by raw votes desc, then incentive token count.
+        results.sort(key=lambda r: (float(r["votes_raw"]), len(r["incentives"])), reverse=True)
+    return results[:top_n]
 
 
 def _strip(result_hex: str) -> bytes:
