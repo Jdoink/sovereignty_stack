@@ -371,6 +371,12 @@
   #pane-wallet[data-state="send-success"]    #w-send-success    { display: flex; }
   #pane-wallet[data-state="contacts-list"]   #w-contacts-list   { display: flex; }
   #pane-wallet[data-state="contact-edit"]    #w-contact-edit    { display: flex; }
+  #pane-wallet[data-state="defi-menu"]       #w-defi-menu       { display: flex; }
+  #pane-wallet[data-state="defi-swap"]       #w-defi-swap       { display: flex; }
+  #pane-wallet[data-state="defi-locks"]      #w-defi-locks      { display: flex; }
+  #pane-wallet[data-state="defi-lock-form"]  #w-defi-lock-form  { display: flex; }
+  #pane-wallet[data-state="defi-vote"]       #w-defi-vote       { display: flex; }
+  #pane-wallet[data-state="defi-claim"]      #w-defi-claim      { display: flex; }
 
   .w-card {
     flex-direction: column;
@@ -1004,6 +1010,9 @@
           <button type="button" class="cc-btn" id="w-paste-tx-btn">PASTE RAW TX</button>
           <button type="button" class="cc-btn" id="w-contacts-btn">CONTACTS</button>
         </div>
+        <div class="w-row">
+          <button type="button" class="cc-btn primary full" id="w-defi-btn">AERODROME (BASE)</button>
+        </div>
 
         <div class="w-session-bar">
           <span class="w-session-timer" id="w-session-timer">--:--</span>
@@ -1276,6 +1285,165 @@
           <button type="button" class="cc-btn" id="w-contact-delete-btn" hidden>DELETE</button>
           <button type="button" class="cc-btn primary" id="w-contact-save-btn">SAVE</button>
         </div>
+      </div>
+
+      <!-- DeFi: Aerodrome menu -->
+      <div class="w-card" id="w-defi-menu">
+        <div class="w-header">
+          <button type="button" class="w-back" id="w-defi-back">&larr; BACK</button>
+          <span class="w-title">AERODROME</span>
+          <span class="w-chain-tag">BASE</span>
+        </div>
+        <div id="w-defi-wrongchain" class="w-err" hidden>
+          Aerodrome runs on Base. Switch to the Base chain (above) to use these actions.
+        </div>
+        <div id="w-defi-actions" style="display:flex;flex-direction:column;gap:8px;">
+          <button type="button" class="cc-btn primary full" id="w-defi-swap-btn">SWAP</button>
+          <button type="button" class="cc-btn primary full" id="w-defi-locks-btn">LOCKS (veAERO)</button>
+          <button type="button" class="cc-btn primary full" id="w-defi-vote-btn">VOTE</button>
+          <button type="button" class="cc-btn primary full" id="w-defi-claim-btn">CLAIM REWARDS</button>
+        </div>
+        <div class="w-sub" style="font-size:11px;">
+          Direct, simulated calls to Aerodrome's audited contracts. Every action
+          is previewed and simulated before you sign &mdash; same gate as a transfer.
+        </div>
+      </div>
+
+      <!-- DeFi: Swap -->
+      <div class="w-card" id="w-defi-swap">
+        <div class="w-header">
+          <button type="button" class="w-back" id="w-swap-back">&larr; BACK</button>
+          <span class="w-title">SWAP</span>
+          <span class="w-chain-tag">BASE</span>
+        </div>
+
+        <span class="cc-label">FROM</span>
+        <select id="w-swap-in-sel" class="cc-input"></select>
+        <input type="text" id="w-swap-in-custom" class="cc-input" hidden
+               placeholder="0x token address" autocomplete="off" spellcheck="false"
+               autocapitalize="none" autocorrect="off" />
+
+        <span class="cc-label">AMOUNT</span>
+        <input type="text" id="w-swap-amount" class="cc-input"
+               placeholder="0.0" inputmode="decimal" autocomplete="off" spellcheck="false" />
+        <div id="w-swap-in-bal" class="w-sub" hidden style="font-size:11px;"></div>
+
+        <span class="cc-label">TO</span>
+        <select id="w-swap-out-sel" class="cc-input"></select>
+        <input type="text" id="w-swap-out-custom" class="cc-input" hidden
+               placeholder="0x token address" autocomplete="off" spellcheck="false"
+               autocapitalize="none" autocorrect="off" />
+
+        <span class="cc-label">MAX SLIPPAGE</span>
+        <select id="w-swap-slippage" class="cc-input">
+          <option value="0.5">0.5%</option>
+          <option value="1" selected>1%</option>
+          <option value="2">2%</option>
+          <option value="5">5%</option>
+        </select>
+
+        <button type="button" id="w-swap-quote-btn" class="cc-btn full">GET QUOTE</button>
+        <div id="w-swap-quote" class="w-sim" hidden style="margin-top:0;"></div>
+
+        <div id="w-swap-err" class="w-err"></div>
+        <button type="button" id="w-swap-review-btn" class="cc-btn primary full" disabled>REVIEW SWAP</button>
+      </div>
+
+      <!-- DeFi: Locks list -->
+      <div class="w-card" id="w-defi-locks">
+        <div class="w-header">
+          <button type="button" class="w-back" id="w-locks-back">&larr; BACK</button>
+          <span class="w-title">veAERO LOCKS</span>
+          <span class="w-chain-tag">BASE</span>
+        </div>
+        <button type="button" class="cc-btn primary full" id="w-lock-create-btn">+ CREATE NEW LOCK</button>
+        <div class="w-section-title" style="margin-top:8px;">YOUR LOCKS</div>
+        <div id="w-locks-list"><div class="w-list-empty">loading...</div></div>
+      </div>
+
+      <!-- DeFi: Lock create/add/extend form -->
+      <div class="w-card" id="w-defi-lock-form">
+        <div class="w-header">
+          <button type="button" class="w-back" id="w-lockform-back">&larr; BACK</button>
+          <span class="w-title" id="w-lockform-title">CREATE LOCK</span>
+          <span class="w-chain-tag">BASE</span>
+        </div>
+        <div id="w-lockform-ctx" class="w-sub" hidden style="font-size:11px;"></div>
+
+        <div id="w-lockform-amount-wrap">
+          <span class="cc-label">AERO AMOUNT</span>
+          <input type="text" id="w-lockform-amount" class="cc-input"
+                 placeholder="0.0" inputmode="decimal" autocomplete="off" spellcheck="false" />
+          <div id="w-lockform-aero-bal" class="w-sub" style="font-size:11px;"></div>
+        </div>
+
+        <div id="w-lockform-duration-wrap">
+          <span class="cc-label">LOCK DURATION</span>
+          <select id="w-lockform-duration" class="cc-input">
+            <option value="604800">1 week</option>
+            <option value="2592000">~1 month</option>
+            <option value="7889400">~3 months</option>
+            <option value="15778800">~6 months</option>
+            <option value="31557600">1 year</option>
+            <option value="63115200">2 years</option>
+            <option value="126230400" selected>4 years (max)</option>
+          </select>
+        </div>
+
+        <div id="w-lockform-err" class="w-err"></div>
+        <button type="button" id="w-lockform-review-btn" class="cc-btn primary full">REVIEW</button>
+      </div>
+
+      <!-- DeFi: Vote -->
+      <div class="w-card" id="w-defi-vote">
+        <div class="w-header">
+          <button type="button" class="w-back" id="w-vote-back">&larr; BACK</button>
+          <span class="w-title">VOTE</span>
+          <span class="w-chain-tag">BASE</span>
+        </div>
+        <span class="cc-label">VOTE WITH LOCK</span>
+        <select id="w-vote-lock" class="cc-input"></select>
+        <div class="w-sub" style="font-size:11px;">
+          Add the pools you want to vote for and a weight for each. Weights are
+          relative (e.g. 60 + 40, or 1 + 1 for an even split).
+        </div>
+        <div id="w-vote-rows"></div>
+        <button type="button" id="w-vote-add-row" class="cc-btn">+ ADD POOL</button>
+        <div id="w-vote-err" class="w-err"></div>
+        <button type="button" id="w-vote-review-btn" class="cc-btn primary full">REVIEW VOTE</button>
+      </div>
+
+      <!-- DeFi: Claim -->
+      <div class="w-card" id="w-defi-claim">
+        <div class="w-header">
+          <button type="button" class="w-back" id="w-claim-back">&larr; BACK</button>
+          <span class="w-title">CLAIM REWARDS</span>
+          <span class="w-chain-tag">BASE</span>
+        </div>
+
+        <span class="cc-label">LOCK</span>
+        <select id="w-claim-lock" class="cc-input"></select>
+
+        <div class="w-section-title" style="margin-top:6px;">REBASE (veAERO)</div>
+        <div id="w-claim-rebase-amt" class="w-sub" style="font-size:11px;">select a lock</div>
+        <button type="button" id="w-claim-rebase-btn" class="cc-btn full" disabled>CLAIM REBASE</button>
+
+        <div class="w-section-title" style="margin-top:10px;">VOTING / LP REWARDS BY POOL</div>
+        <span class="cc-label">POOL ADDRESS</span>
+        <input type="text" id="w-claim-pool" class="cc-input"
+               placeholder="0x pool you voted on / LP'd in" autocomplete="off"
+               spellcheck="false" autocapitalize="none" autocorrect="off" />
+        <button type="button" id="w-claim-lookup-btn" class="cc-btn full">LOOK UP POOL</button>
+        <div id="w-claim-pool-info" class="w-sim" hidden style="margin-top:0;"></div>
+        <div class="w-row" id="w-claim-pool-actions" hidden>
+          <button type="button" id="w-claim-fees-btn" class="cc-btn">CLAIM FEES</button>
+          <button type="button" id="w-claim-bribes-btn" class="cc-btn">CLAIM BRIBES</button>
+        </div>
+        <div class="w-row" id="w-claim-lp-actions" hidden>
+          <button type="button" id="w-claim-lp-btn" class="cc-btn full">CLAIM LP EMISSIONS</button>
+        </div>
+
+        <div id="w-claim-err" class="w-err"></div>
       </div>
 
     </section>
@@ -1901,6 +2069,8 @@
 
   // Holds the prepared tx between REVIEW -> CONFIRM. Cleared on success.
   let pendingTx = null;
+  // Which screen the review's EDIT (back) button returns to.
+  let reviewBackTarget = "send-form";
   // Cached estimate fetched when user selected Custom (prepopulates fields).
   let lastEstimate = null;
 
@@ -2042,6 +2212,7 @@
         (price ? "  ($" + (totEth * price).toFixed(2) + ")" : "");
       wReviewNonce.textContent = String(est.nonce);
       wReviewErr.textContent = "";
+      reviewBackTarget = "send-form";
       setWalletState("send-review"); runSimulation(pendingTx);
     } catch (e) {
       wSendErr.textContent = String(e.message || e);
@@ -2051,7 +2222,7 @@
     }
   });
 
-  wReviewBack.addEventListener("click", () => { setWalletState("send-form"); });
+  wReviewBack.addEventListener("click", () => { setWalletState(reviewBackTarget); });
   wReviewCancel.addEventListener("click", () => {
     pendingTx = null;
     refreshWalletPane();  // back to unlocked
@@ -2090,9 +2261,16 @@
         throw new Error(j.detail || ("send failed: " + r.status));
       }
       const j = await r.json();
+      // Multi-step DeFi flows (e.g. approve -> action) register an _onSuccess
+      // hook that continues to the next step instead of ending here.
+      const cont = pendingTx._onSuccess;
+      pendingTx = null;
+      if (typeof cont === "function") {
+        await cont(j.tx_hash);
+        return;
+      }
       wSuccessHash.textContent = j.tx_hash;
       wSuccessExplorer.href = j.explorer_url;
-      pendingTx = null;
       setWalletState("send-success");
     } catch (e) {
       wReviewErr.textContent = String(e.message || e);
@@ -2372,6 +2550,7 @@
         },
       };
       populateReviewForToken(pendingTx);
+      reviewBackTarget = "send-token-form";
       setWalletState("send-review"); runSimulation(pendingTx);
     } catch (e) {
       wTkErr.textContent = String(e.message || e);
@@ -2383,6 +2562,7 @@
   function populateReviewForToken(tx) {
     const d = tx._display;
     // Show TOKEN row, hide TOTAL row (a sum of tokens + ETH gas isn't meaningful)
+    wReviewTokenLabel.textContent = "TOKEN";
     wReviewTokenLabel.hidden = false;
     wReviewTokenVal.hidden   = false;
     wReviewTotalLabel.hidden = true;
@@ -2728,6 +2908,7 @@
         (ethPrice ? "  ($" + (totEth * ethPrice).toFixed(2) + ")" : "");
       wReviewNonce.textContent = String(nonce) + (nonceOverride ? " (override)" : "");
       wReviewErr.textContent = "";
+      reviewBackTarget = "paste-tx-form";
       setWalletState("send-review"); runSimulation(pendingTx);
     } catch (e) {
       wPtxErr.textContent = String(e.message || e);
@@ -2908,6 +3089,635 @@
       wReviewConfirm.disabled = false;  // never hard-block solely on sim infra failure
     }
   }
+
+  // ===== Phase 4.0: Aerodrome (Base) direct actions =====
+  const AERO_CHAIN_ID = 8453;
+  let aeroInfo = null;          // {contracts, native_sentinel, swap_tokens, ...}
+  let lastSwapQuote = null;     // {route, amount_out_wei, is_eth_in, is_eth_out, tokenIn, tokenOut}
+  let defiLocks = [];           // cached lock list for the current address
+  let lastRewardInfo = null;    // cached reward-info lookup for the claim screen
+
+  async function loadAeroInfo() {
+    if (aeroInfo) return aeroInfo;
+    const r = await fetch(WALLET_API + "/api/defi/aerodrome/info?chain_id=" + AERO_CHAIN_ID,
+                          { cache: "no-store" });
+    if (!r.ok) throw new Error("could not load Aerodrome config");
+    aeroInfo = await r.json();
+    return aeroInfo;
+  }
+
+  function defiGas(est) {
+    // Use the standard tier and pad the gas limit 25% (contract calls vary;
+    // you only pay for gas used, so a higher ceiling is free insurance).
+    const tier = est.fee_suggestions.standard;
+    let gasLimit = (BI(est.gas_limit) * 125n) / 100n;
+    if (gasLimit < 21000n) gasLimit = 21000n;
+    return {
+      maxFee: BI(tier.max_fee_per_gas),
+      maxPrio: BI(tier.max_priority_fee_per_gas),
+      gasLimit,
+    };
+  }
+
+  function populateReviewForDefi(d) {
+    wReviewTokenLabel.textContent = "ACTION";
+    wReviewTokenLabel.hidden = false;
+    wReviewTokenVal.hidden   = false;
+    wReviewTotalLabel.hidden = true;
+    wReviewTotalVal.hidden   = true;
+
+    wReviewChainTag.textContent = "BASE";
+    wReviewTokenVal.textContent = d.summary;
+    wReviewFrom.textContent     = walletAddress;
+    wReviewTo.textContent       = d.to;
+    attachNamedHint(wReviewTo, d.to);
+    wReviewValue.textContent = (d.valueEth || 0).toFixed(6) + " ETH" +
+      (d.ethPrice ? "  ($" + ((d.valueEth || 0) * d.ethPrice).toFixed(2) + ")" : "");
+    wReviewFee.textContent = d.feeEth.toFixed(6) + " ETH" +
+      (d.ethPrice ? "  ($" + (d.feeEth * d.ethPrice).toFixed(2) + ")" : "");
+    wReviewNonce.textContent = String(d.nonce);
+    wReviewErr.textContent = "";
+  }
+
+  // Build calldata for an action -> estimate -> review -> simulate. The review's
+  // CONFIRM button then signs + broadcasts via the existing pipeline.
+  async function defiBuildAndReview(opts) {
+    // opts: {action, params, summary, valueEthForDisplay, backTarget, onSuccess}
+    const br = await fetch(WALLET_API + "/api/defi/aerodrome/build", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chain_id: AERO_CHAIN_ID, from: walletAddress,
+                             action: opts.action, params: opts.params }),
+    });
+    if (!br.ok) {
+      const j = await br.json().catch(() => ({}));
+      throw new Error(j.detail || ("build failed: " + br.status));
+    }
+    const built = await br.json();   // {to, value_wei, data}
+    const est = await fetchEstimateRaw({ to: built.to, value_wei: built.value_wei, data: built.data });
+    const g = defiGas(est);
+    const feeEth = Number(weiToEth(g.gasLimit * g.maxFee, 6));
+    const valueEth = Number(weiToEth(BI(built.value_wei), 6));
+
+    pendingTx = {
+      chain_id: AERO_CHAIN_ID,
+      to: built.to,
+      value_wei: built.value_wei,
+      gas_limit: Number(g.gasLimit),
+      max_fee_per_gas: g.maxFee.toString(),
+      max_priority_fee_per_gas: g.maxPrio.toString(),
+      nonce: est.nonce,
+      data: built.data,
+      _onSuccess: opts.onSuccess || null,
+    };
+    populateReviewForDefi({
+      to: built.to, summary: opts.summary, valueEth,
+      feeEth, ethPrice: est.usd_per_native, nonce: est.nonce,
+    });
+    reviewBackTarget = opts.backTarget || "defi-menu";
+    setWalletState("send-review");
+    runSimulation(pendingTx);
+  }
+
+  // Check ERC20 allowance; if short, run an exact-amount approve first and only
+  // then continue to `proceed()` (after the approve has actually confirmed).
+  async function ensureAllowanceThenReview(o) {
+    // o: {token, spender, amountWei, symbol, spenderLabel, proceed, backTarget}
+    const url = WALLET_API + "/api/defi/aerodrome/allowance?chain_id=" + AERO_CHAIN_ID +
+      "&owner=" + encodeURIComponent(walletAddress) +
+      "&token=" + encodeURIComponent(o.token) +
+      "&spender=" + encodeURIComponent(o.spender);
+    const ar = await fetch(url, { cache: "no-store" });
+    if (!ar.ok) throw new Error("allowance check failed");
+    const have = BI((await ar.json()).allowance_wei);
+    if (have >= o.amountWei) { await o.proceed(); return; }
+
+    // Need approval. Run an exact-amount approve, then wait + proceed.
+    await defiBuildAndReview({
+      action: "approve",
+      params: { token: o.token, spender: o.spender, amount_wei: o.amountWei.toString() },
+      summary: "Approve " + (o.symbol || "token") + " for " + (o.spenderLabel || "contract"),
+      backTarget: o.backTarget,
+      onSuccess: async (txHash) => {
+        wReviewErr.textContent = "Approval sent. Waiting for it to confirm...";
+        wReviewConfirm.disabled = true;
+        for (let i = 0; i < 20; i++) {
+          await new Promise(res => setTimeout(res, 2000));
+          try {
+            const r2 = await fetch(url, { cache: "no-store" });
+            if (r2.ok && BI((await r2.json()).allowance_wei) >= o.amountWei) {
+              // Run the follow-on action AFTER this confirm handler unwinds, so
+              // its `finally` can't re-enable CONFIRM behind runSimulation's back.
+              setTimeout(async () => {
+                try { await o.proceed(); }
+                catch (e) { wReviewErr.textContent = String(e.message || e); }
+              }, 0);
+              return;
+            }
+          } catch (_) { /* keep polling */ }
+        }
+        wReviewErr.textContent = "Approval is taking a while. Re-open the action to continue.";
+      },
+    });
+  }
+
+  // ---- navigation ----
+  const wDefiBtn = $("w-defi-btn");
+  wDefiBtn.addEventListener("click", openDefiMenu);
+  $("w-defi-back").addEventListener("click", () => refreshWalletPane());
+
+  async function openDefiMenu() {
+    setWalletState("defi-menu");
+    const wrong = currentChainId !== AERO_CHAIN_ID;
+    $("w-defi-wrongchain").hidden = !wrong;
+    $("w-defi-actions").hidden = wrong;
+    if (!wrong) { try { await loadAeroInfo(); } catch (_) { /* shown on use */ } }
+  }
+
+  $("w-defi-swap-btn").addEventListener("click", openSwap);
+  $("w-defi-locks-btn").addEventListener("click", openLocks);
+  $("w-defi-vote-btn").addEventListener("click", openVote);
+  $("w-defi-claim-btn").addEventListener("click", openClaim);
+  $("w-swap-back").addEventListener("click", openDefiMenu);
+  $("w-locks-back").addEventListener("click", openDefiMenu);
+  $("w-vote-back").addEventListener("click", openDefiMenu);
+  $("w-claim-back").addEventListener("click", openDefiMenu);
+  $("w-lockform-back").addEventListener("click", openLocks);
+
+  // ---- token helpers ----
+  function swapTokens() { return (aeroInfo && aeroInfo.swap_tokens) || []; }
+  function tokenBySel(value, tokens) {
+    if (value === "__custom__") return null;
+    return tokens.find(t => t.address.toLowerCase() === value.toLowerCase()) || null;
+  }
+  async function resolveCustomToken(addr) {
+    if (!/^0x[a-fA-F0-9]{40}$/.test(addr)) throw new Error("invalid token address");
+    const r = await fetch(WALLET_API + "/api/token/info?chain_id=" + AERO_CHAIN_ID +
+                          "&address=" + encodeURIComponent(addr), { cache: "no-store" });
+    if (!r.ok) throw new Error("could not read token (not an ERC20?)");
+    return await r.json();  // {address, symbol, decimals, ...}
+  }
+
+  // ============================ SWAP ============================
+  const wSwapInSel = $("w-swap-in-sel"), wSwapInCustom = $("w-swap-in-custom");
+  const wSwapOutSel = $("w-swap-out-sel"), wSwapOutCustom = $("w-swap-out-custom");
+  const wSwapAmount = $("w-swap-amount"), wSwapSlippage = $("w-swap-slippage");
+  const wSwapErr = $("w-swap-err"), wSwapQuoteBox = $("w-swap-quote");
+  const wSwapQuoteBtn = $("w-swap-quote-btn"), wSwapReviewBtn = $("w-swap-review-btn");
+
+  function fillTokenSelect(sel, includeCustom) {
+    sel.innerHTML = "";
+    swapTokens().forEach(t => {
+      const o = document.createElement("option");
+      o.value = t.address; o.textContent = t.symbol;
+      sel.appendChild(o);
+    });
+    if (includeCustom) {
+      const o = document.createElement("option");
+      o.value = "__custom__"; o.textContent = "Custom token...";
+      sel.appendChild(o);
+    }
+  }
+
+  async function openSwap() {
+    try { await loadAeroInfo(); } catch (e) { wSwapErr.textContent = String(e.message || e); }
+    fillTokenSelect(wSwapInSel, true);
+    fillTokenSelect(wSwapOutSel, true);
+    // Sensible defaults: ETH -> USDC.
+    wSwapInSel.value = swapTokens()[0] ? swapTokens()[0].address : "";
+    const usdc = swapTokens().find(t => t.symbol === "USDC");
+    if (usdc) wSwapOutSel.value = usdc.address;
+    wSwapInCustom.hidden = true; wSwapOutCustom.hidden = true;
+    wSwapAmount.value = ""; wSwapErr.textContent = "";
+    wSwapQuoteBox.hidden = true; wSwapReviewBtn.disabled = true;
+    lastSwapQuote = null;
+    setWalletState("defi-swap");
+  }
+
+  wSwapInSel.addEventListener("change", () => {
+    wSwapInCustom.hidden = wSwapInSel.value !== "__custom__";
+    invalidateQuote();
+  });
+  wSwapOutSel.addEventListener("change", () => {
+    wSwapOutCustom.hidden = wSwapOutSel.value !== "__custom__";
+    invalidateQuote();
+  });
+  [wSwapAmount, wSwapSlippage, wSwapInCustom, wSwapOutCustom].forEach(el =>
+    el.addEventListener("input", invalidateQuote));
+  function invalidateQuote() {
+    lastSwapQuote = null; wSwapReviewBtn.disabled = true; wSwapQuoteBox.hidden = true;
+  }
+
+  async function resolveSwapSide(sel, customInput) {
+    if (sel.value === "__custom__") {
+      const t = await resolveCustomToken((customInput.value || "").trim());
+      return { address: t.address, symbol: t.symbol, decimals: t.decimals, native: false };
+    }
+    const t = tokenBySel(sel.value, swapTokens());
+    if (!t) throw new Error("select a token");
+    return t;
+  }
+
+  wSwapQuoteBtn.addEventListener("click", async () => {
+    wSwapErr.textContent = ""; wSwapQuoteBox.hidden = true; wSwapReviewBtn.disabled = true;
+    wSwapQuoteBtn.disabled = true; wSwapQuoteBtn.textContent = "QUOTING...";
+    try {
+      const tin = await resolveSwapSide(wSwapInSel, wSwapInCustom);
+      const tout = await resolveSwapSide(wSwapOutSel, wSwapOutCustom);
+      if (tin.address.toLowerCase() === tout.address.toLowerCase())
+        throw new Error("pick two different tokens");
+      let amountInWei;
+      try { amountInWei = decStrToWei(wSwapAmount.value, tin.decimals); }
+      catch (e) { throw new Error("amount: " + e.message); }
+      if (amountInWei <= 0n) throw new Error("amount must be positive");
+
+      const r = await fetch(WALLET_API + "/api/defi/aerodrome/quote", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chain_id: AERO_CHAIN_ID, token_in: tin.address,
+                               token_out: tout.address, amount_in_wei: amountInWei.toString() }),
+      });
+      if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j.detail || "no route"); }
+      const q = await r.json();
+      lastSwapQuote = Object.assign(q, { tokenIn: tin, tokenOut: tout, amountInWei });
+
+      const outStr = weiToDecStr(BI(q.amount_out_wei), tout.decimals, 6);
+      const path = q.route.map((h, i) => (i === 0 ? "" : " → ") +
+        (h.stable ? "[s]" : "[v]")).join("");
+      wSwapQuoteBox.hidden = false;
+      wSwapQuoteBox.innerHTML =
+        '<div class="w-sim-status pass">ROUTE FOUND (' + q.hops + ' hop' + (q.hops > 1 ? 's' : '') + ')</div>' +
+        '<div class="w-sim-decoded">Expected out: <b>' + escapeHtml(outStr) + " " + escapeHtml(tout.symbol) +
+        '</b><div class="w-sim-args"><div><span>pools:</span> ' + escapeHtml(path || "[v]") + '</div></div></div>';
+      wSwapReviewBtn.disabled = false;
+    } catch (e) {
+      wSwapErr.textContent = String(e.message || e);
+    } finally {
+      wSwapQuoteBtn.disabled = false; wSwapQuoteBtn.textContent = "GET QUOTE";
+    }
+  });
+
+  wSwapReviewBtn.addEventListener("click", async () => {
+    wSwapErr.textContent = "";
+    if (!lastSwapQuote) { wSwapErr.textContent = "Get a quote first."; return; }
+    wSwapReviewBtn.disabled = true; wSwapReviewBtn.textContent = "PREPARING...";
+    try {
+      const q = lastSwapQuote;
+      const slipBps = BigInt(Math.round(parseFloat(wSwapSlippage.value) * 100));
+      const amountOutMin = (BI(q.amount_out_wei) * (10000n - slipBps)) / 10000n;
+      const outStr = weiToDecStr(BI(q.amount_out_wei), q.tokenOut.decimals, 6);
+      const minStr = weiToDecStr(amountOutMin, q.tokenOut.decimals, 6);
+      const inStr = weiToDecStr(q.amountInWei, q.tokenIn.decimals, 6);
+      const summary = "Swap " + inStr + " " + q.tokenIn.symbol + " → ~" + outStr + " " +
+                      q.tokenOut.symbol + "  (min " + minStr + ")";
+
+      const params = {
+        token_in: q.tokenIn.address, token_out: q.tokenOut.address,
+        amount_in_wei: q.amountInWei.toString(),
+        amount_out_min_wei: amountOutMin.toString(),
+        route: q.route, is_eth_in: q.is_eth_in, is_eth_out: q.is_eth_out,
+      };
+      const proceed = () => defiBuildAndReview({
+        action: "swap", params, summary, backTarget: "defi-swap",
+      });
+
+      if (q.is_eth_in) {
+        await proceed();   // native ETH in: no approval needed
+      } else {
+        await ensureAllowanceThenReview({
+          token: q.tokenIn.address, spender: aeroInfo.contracts.router,
+          amountWei: q.amountInWei, symbol: q.tokenIn.symbol,
+          spenderLabel: "Aerodrome Router", proceed, backTarget: "defi-swap",
+        });
+      }
+    } catch (e) {
+      wSwapErr.textContent = String(e.message || e);
+    } finally {
+      wSwapReviewBtn.disabled = false; wSwapReviewBtn.textContent = "REVIEW SWAP";
+    }
+  });
+
+  // ============================ LOCKS ============================
+  const wLocksList = $("w-locks-list");
+
+  async function fetchLocks() {
+    const r = await fetch(WALLET_API + "/api/defi/aerodrome/locks?chain_id=" + AERO_CHAIN_ID +
+                          "&address=" + encodeURIComponent(walletAddress), { cache: "no-store" });
+    if (!r.ok) throw new Error("could not load locks");
+    defiLocks = (await r.json()).locks || [];
+    return defiLocks;
+  }
+
+  function fmtDate(unix) {
+    if (!unix) return "—";
+    try { return new Date(unix * 1000).toISOString().slice(0, 10); } catch (_) { return String(unix); }
+  }
+
+  async function openLocks() {
+    try { await loadAeroInfo(); } catch (_) {}
+    setWalletState("defi-locks");
+    wLocksList.innerHTML = '<div class="w-list-empty">loading...</div>';
+    try {
+      await fetchLocks();
+      renderLocks();
+    } catch (e) {
+      wLocksList.innerHTML = '<div class="w-list-empty">error: ' + escapeHtml(String(e.message || e)) + '</div>';
+    }
+  }
+
+  function renderLocks() {
+    if (!defiLocks.length) {
+      wLocksList.innerHTML = '<div class="w-list-empty">no veAERO locks yet</div>';
+      return;
+    }
+    wLocksList.innerHTML = "";
+    defiLocks.forEach(lk => {
+      const amt = weiToDecStr(BI(lk.amount_wei), 18, 4);
+      const row = document.createElement("div");
+      row.className = "w-contact-row"; row.style.marginTop = "6px";
+      const head = document.createElement("div");
+      head.className = "w-contact-label";
+      head.textContent = "#" + lk.token_id + " · " + amt + " AERO";
+      const sub = document.createElement("div");
+      sub.className = "w-contact-addr";
+      sub.textContent = (lk.is_permanent ? "permanent lock" : "unlocks " + fmtDate(lk.end));
+      const addBtn = document.createElement("button");
+      addBtn.type = "button"; addBtn.className = "cc-btn w-contact-action";
+      addBtn.textContent = "ADD"; addBtn.addEventListener("click", () => openLockForm("add", lk));
+      const extBtn = document.createElement("button");
+      extBtn.type = "button"; extBtn.className = "cc-btn w-contact-action";
+      extBtn.textContent = "EXTEND"; extBtn.addEventListener("click", () => openLockForm("extend", lk));
+      row.appendChild(head); row.appendChild(sub); row.appendChild(addBtn); row.appendChild(extBtn);
+      wLocksList.appendChild(row);
+    });
+  }
+
+  $("w-lock-create-btn").addEventListener("click", () => openLockForm("create", null));
+
+  const wLockFormTitle = $("w-lockform-title"), wLockFormCtx = $("w-lockform-ctx");
+  const wLockAmountWrap = $("w-lockform-amount-wrap"), wLockDurationWrap = $("w-lockform-duration-wrap");
+  const wLockAmount = $("w-lockform-amount"), wLockDuration = $("w-lockform-duration");
+  const wLockAeroBal = $("w-lockform-aero-bal"), wLockFormErr = $("w-lockform-err");
+  let lockFormMode = "create", lockFormToken = null;
+
+  async function openLockForm(mode, lock) {
+    lockFormMode = mode; lockFormToken = lock;
+    wLockFormErr.textContent = ""; wLockAmount.value = "";
+    wLockFormTitle.textContent = mode === "create" ? "CREATE LOCK"
+      : mode === "add" ? "ADD TO LOCK" : "EXTEND LOCK";
+    wLockFormCtx.hidden = !lock;
+    if (lock) wLockFormCtx.textContent = "Lock #" + lock.token_id + " · " +
+      weiToDecStr(BI(lock.amount_wei), 18, 4) + " AERO";
+    wLockAmountWrap.hidden = (mode === "extend");
+    wLockDurationWrap.hidden = (mode === "add");
+    setWalletState("defi-lock-form");
+    if (mode !== "extend") loadAeroBalance();
+  }
+
+  async function loadAeroBalance() {
+    wLockAeroBal.textContent = "";
+    try {
+      await loadAeroInfo();
+      const aero = aeroInfo.contracts.aero;
+      const r = await fetch(WALLET_API + "/api/token/balance?chain_id=" + AERO_CHAIN_ID +
+        "&token=" + aero + "&address=" + encodeURIComponent(walletAddress), { cache: "no-store" });
+      if (r.ok) {
+        const bal = weiToDecStr(BI((await r.json()).balance_wei), 18, 4);
+        wLockAeroBal.textContent = "AERO balance: " + bal;
+      }
+    } catch (_) {}
+  }
+
+  $("w-lockform-review-btn").addEventListener("click", async () => {
+    wLockFormErr.textContent = "";
+    try {
+      await loadAeroInfo();
+      const ve = aeroInfo.contracts.voting_escrow;
+      if (lockFormMode === "create" || lockFormMode === "add") {
+        let valueWei;
+        try { valueWei = decStrToWei(wLockAmount.value, 18); }
+        catch (e) { throw new Error("amount: " + e.message); }
+        if (valueWei <= 0n) throw new Error("amount must be positive");
+
+        if (lockFormMode === "create") {
+          const dur = wLockDuration.value;
+          const amtStr = weiToDecStr(valueWei, 18, 4);
+          const days = Math.round(Number(dur) / 86400);
+          const proceed = () => defiBuildAndReview({
+            action: "create_lock",
+            params: { value_wei: valueWei.toString(), lock_duration_seconds: Number(dur) },
+            summary: "Lock " + amtStr + " AERO for ~" + days + " days",
+            backTarget: "defi-lock-form",
+          });
+          await ensureAllowanceThenReview({
+            token: aeroInfo.contracts.aero, spender: ve, amountWei: valueWei,
+            symbol: "AERO", spenderLabel: "veAERO", proceed, backTarget: "defi-lock-form",
+          });
+        } else {
+          const amtStr = weiToDecStr(valueWei, 18, 4);
+          const proceed = () => defiBuildAndReview({
+            action: "increase_amount",
+            params: { token_id: lockFormToken.token_id, value_wei: valueWei.toString() },
+            summary: "Add " + amtStr + " AERO to lock #" + lockFormToken.token_id,
+            backTarget: "defi-lock-form",
+          });
+          await ensureAllowanceThenReview({
+            token: aeroInfo.contracts.aero, spender: ve, amountWei: valueWei,
+            symbol: "AERO", spenderLabel: "veAERO", proceed, backTarget: "defi-lock-form",
+          });
+        }
+      } else { // extend
+        const dur = wLockDuration.value;
+        const days = Math.round(Number(dur) / 86400);
+        await defiBuildAndReview({
+          action: "increase_unlock_time",
+          params: { token_id: lockFormToken.token_id, lock_duration_seconds: Number(dur) },
+          summary: "Extend lock #" + lockFormToken.token_id + " to ~" + days + " days",
+          backTarget: "defi-lock-form",
+        });
+      }
+    } catch (e) {
+      wLockFormErr.textContent = String(e.message || e);
+    }
+  });
+
+  // ============================ VOTE ============================
+  const wVoteLock = $("w-vote-lock"), wVoteRows = $("w-vote-rows"), wVoteErr = $("w-vote-err");
+
+  function fillLockSelect(sel) {
+    sel.innerHTML = "";
+    if (!defiLocks.length) {
+      const o = document.createElement("option");
+      o.value = ""; o.textContent = "(no locks found)";
+      sel.appendChild(o);
+      return;
+    }
+    defiLocks.forEach(lk => {
+      const o = document.createElement("option");
+      o.value = lk.token_id;
+      o.textContent = "#" + lk.token_id + " · " + weiToDecStr(BI(lk.amount_wei), 18, 2) + " AERO";
+      sel.appendChild(o);
+    });
+  }
+
+  function addVoteRow() {
+    const row = document.createElement("div");
+    row.className = "w-row"; row.style.marginTop = "6px";
+    const pool = document.createElement("input");
+    pool.type = "text"; pool.className = "cc-input w-vote-pool";
+    pool.placeholder = "0x pool address"; pool.autocomplete = "off"; pool.spellcheck = false;
+    pool.style.flex = "1 1 auto";
+    const wt = document.createElement("input");
+    wt.type = "text"; wt.className = "cc-input w-vote-weight";
+    wt.placeholder = "weight"; wt.inputMode = "numeric";
+    wt.style.flex = "0 0 80px"; wt.value = "1";
+    const rm = document.createElement("button");
+    rm.type = "button"; rm.className = "cc-btn"; rm.textContent = "✕";
+    rm.style.flex = "0 0 44px";
+    rm.addEventListener("click", () => row.remove());
+    row.appendChild(pool); row.appendChild(wt); row.appendChild(rm);
+    wVoteRows.appendChild(row);
+  }
+  $("w-vote-add-row").addEventListener("click", addVoteRow);
+
+  async function openVote() {
+    try { await loadAeroInfo(); await fetchLocks(); } catch (_) {}
+    fillLockSelect(wVoteLock);
+    wVoteRows.innerHTML = ""; addVoteRow();
+    wVoteErr.textContent = "";
+    setWalletState("defi-vote");
+  }
+
+  $("w-vote-review-btn").addEventListener("click", async () => {
+    wVoteErr.textContent = "";
+    try {
+      const tokenId = wVoteLock.value;
+      if (!tokenId) throw new Error("you need a veAERO lock to vote");
+      const pools = [], weights = [];
+      wVoteRows.querySelectorAll(".w-row").forEach(row => {
+        const p = (row.querySelector(".w-vote-pool").value || "").trim();
+        const w = parseInt(row.querySelector(".w-vote-weight").value || "0", 10);
+        if (p) { pools.push(p); weights.push(w); }
+      });
+      if (!pools.length) throw new Error("add at least one pool");
+      for (const p of pools) if (!/^0x[a-fA-F0-9]{40}$/.test(p)) throw new Error("invalid pool: " + p);
+      if (weights.some(w => !(w > 0))) throw new Error("weights must be positive whole numbers");
+
+      const total = weights.reduce((a, b) => a + b, 0);
+      const summary = "Vote with #" + tokenId + ": " +
+        pools.map((p, i) => shortAddr(p) + "=" + Math.round(100 * weights[i] / total) + "%").join(", ");
+      await defiBuildAndReview({
+        action: "vote",
+        params: { token_id: tokenId, pools, weights },
+        summary, backTarget: "defi-vote",
+      });
+    } catch (e) {
+      wVoteErr.textContent = String(e.message || e);
+    }
+  });
+
+  // ============================ CLAIM ============================
+  const wClaimLock = $("w-claim-lock"), wClaimRebaseAmt = $("w-claim-rebase-amt");
+  const wClaimRebaseBtn = $("w-claim-rebase-btn"), wClaimPool = $("w-claim-pool");
+  const wClaimPoolInfo = $("w-claim-pool-info"), wClaimErr = $("w-claim-err");
+  const wClaimPoolActions = $("w-claim-pool-actions"), wClaimLpActions = $("w-claim-lp-actions");
+
+  async function openClaim() {
+    try { await loadAeroInfo(); await fetchLocks(); } catch (_) {}
+    fillLockSelect(wClaimLock);
+    wClaimErr.textContent = ""; wClaimPool.value = "";
+    wClaimPoolInfo.hidden = true; wClaimPoolActions.hidden = true; wClaimLpActions.hidden = true;
+    lastRewardInfo = null;
+    updateRebaseDisplay();
+    setWalletState("defi-claim");
+  }
+
+  wClaimLock.addEventListener("change", updateRebaseDisplay);
+  function updateRebaseDisplay() {
+    const lk = defiLocks.find(l => l.token_id === wClaimLock.value);
+    if (!lk) { wClaimRebaseAmt.textContent = "select a lock"; wClaimRebaseBtn.disabled = true; return; }
+    const claimable = BI(lk.claimable_rebase_wei);
+    wClaimRebaseAmt.textContent = "claimable: " + weiToDecStr(claimable, 18, 6) + " AERO";
+    wClaimRebaseBtn.disabled = claimable <= 0n;
+  }
+
+  wClaimRebaseBtn.addEventListener("click", async () => {
+    wClaimErr.textContent = "";
+    try {
+      const tokenId = wClaimLock.value;
+      if (!tokenId) throw new Error("select a lock");
+      await defiBuildAndReview({
+        action: "claim_rebase", params: { token_id: tokenId },
+        summary: "Claim rebase for lock #" + tokenId, backTarget: "defi-claim",
+      });
+    } catch (e) { wClaimErr.textContent = String(e.message || e); }
+  });
+
+  $("w-claim-lookup-btn").addEventListener("click", async () => {
+    wClaimErr.textContent = ""; wClaimPoolInfo.hidden = true;
+    wClaimPoolActions.hidden = true; wClaimLpActions.hidden = true;
+    const pool = (wClaimPool.value || "").trim();
+    if (!/^0x[a-fA-F0-9]{40}$/.test(pool)) { wClaimErr.textContent = "invalid pool address"; return; }
+    try {
+      const r = await fetch(WALLET_API + "/api/defi/aerodrome/reward-info", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chain_id: AERO_CHAIN_ID, pool }),
+      });
+      if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j.detail || "lookup failed"); }
+      lastRewardInfo = await r.json();
+      wClaimPoolInfo.hidden = false;
+      wClaimPoolInfo.innerHTML =
+        '<div class="w-sim-decoded"><span class="w-sim-label">POOL REWARDS</span>' +
+        '<div class="w-sim-args">' +
+        '<div><span>gauge:</span> ' + escapeHtml(shortAddr(lastRewardInfo.gauge)) + '</div>' +
+        '<div><span>fees:</span> ' + escapeHtml(lastRewardInfo.fee_tokens.length ? "2 tokens" : "—") + '</div>' +
+        '<div><span>bribes:</span> ' + escapeHtml(lastRewardInfo.bribe_tokens.length + " tokens") + '</div>' +
+        '</div></div>';
+      wClaimPoolActions.hidden = false;
+      wClaimLpActions.hidden = false;
+    } catch (e) { wClaimErr.textContent = String(e.message || e); }
+  });
+
+  $("w-claim-fees-btn").addEventListener("click", async () => {
+    wClaimErr.textContent = "";
+    try {
+      const tokenId = wClaimLock.value;
+      if (!tokenId) throw new Error("select a lock");
+      if (!lastRewardInfo) throw new Error("look up a pool first");
+      await defiBuildAndReview({
+        action: "claim_fees",
+        params: { token_id: tokenId, fees: [lastRewardInfo.fees_reward], tokens: [lastRewardInfo.fee_tokens] },
+        summary: "Claim trading fees from " + shortAddr(lastRewardInfo.pool) + " (lock #" + tokenId + ")",
+        backTarget: "defi-claim",
+      });
+    } catch (e) { wClaimErr.textContent = String(e.message || e); }
+  });
+
+  $("w-claim-bribes-btn").addEventListener("click", async () => {
+    wClaimErr.textContent = "";
+    try {
+      const tokenId = wClaimLock.value;
+      if (!tokenId) throw new Error("select a lock");
+      if (!lastRewardInfo) throw new Error("look up a pool first");
+      if (!lastRewardInfo.bribe_tokens.length) throw new Error("this pool has no bribe tokens");
+      await defiBuildAndReview({
+        action: "claim_bribes",
+        params: { token_id: tokenId, bribes: [lastRewardInfo.bribe_reward], tokens: [lastRewardInfo.bribe_tokens] },
+        summary: "Claim bribes from " + shortAddr(lastRewardInfo.pool) + " (lock #" + tokenId + ")",
+        backTarget: "defi-claim",
+      });
+    } catch (e) { wClaimErr.textContent = String(e.message || e); }
+  });
+
+  $("w-claim-lp-btn").addEventListener("click", async () => {
+    wClaimErr.textContent = "";
+    try {
+      if (!lastRewardInfo) throw new Error("look up a pool first");
+      await defiBuildAndReview({
+        action: "claim_rewards", params: { gauges: [lastRewardInfo.gauge] },
+        summary: "Claim LP emissions from gauge " + shortAddr(lastRewardInfo.gauge),
+        backTarget: "defi-claim",
+      });
+    } catch (e) { wClaimErr.textContent = String(e.message || e); }
+  });
 })();
 </script>
 </body>

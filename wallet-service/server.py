@@ -39,6 +39,8 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from pydantic import BaseModel, Field
 
+import defi
+
 # Enable BIP-39 / BIP-32 / BIP-44 features. eth-account flags these as
 # "unaudited" but they are widely used in production (Brownie, Ape, etc.).
 Account.enable_unaudited_hdwallet_features()
@@ -989,6 +991,10 @@ SAFE_CONTRACTS: Dict[int, list] = {
         {"address": "0x2626664c2603336E57B271c5C0b26F421741e481", "label": "Uniswap V3 SwapRouter02 (Base)", "category": "dex"},
         {"address": "0x6fF5693b99212Da76ad316178A184AB56D299b43", "label": "Uniswap Universal Router (Base)", "category": "dex"},
         {"address": "0xcF77a3Ba9A5CA399B7c97c74d54e5b1Beb874E43", "label": "Aerodrome Router", "category": "dex"},
+        {"address": "0x16613524e02ad97eDfeF371bC883F2F5d6C480A5", "label": "Aerodrome Voter", "category": "dex"},
+        {"address": "0xeBf418Fe2512e7E6bd9b87a8F0f294aCDC67e6B4", "label": "Aerodrome VotingEscrow (veAERO)", "category": "dex"},
+        {"address": "0x227f65131A261548b057215bB1D5Ab2997964C7d", "label": "Aerodrome RewardsDistributor", "category": "dex"},
+        {"address": "0x940181a94A35A4569E4529A3CDfB74e38FD98631", "label": "Aerodrome AERO Token", "category": "token"},
         {"address": "0xA238Dd80C259a72e81d7e4664a9801593F98d1c5", "label": "Aave V3 Pool (Base)", "category": "lending"},
         {"address": "0xb125E6687d4313864e53df431d5425969c15Eb2F", "label": "Compound V3 USDC (Base)", "category": "lending"},
     ],
@@ -1137,6 +1143,11 @@ def decode_calldata(data: str) -> Dict[str, Any]:
     selector = "0x" + d[:8].lower()
     known = KNOWN_SELECTORS.get(selector)
     if not known:
+        # Try the richer DeFi decoder (handles arrays/structs via eth_abi) so
+        # Aerodrome swaps/votes/locks/claims show a clear summary on review.
+        defi_decoded = defi.decode(data)
+        if defi_decoded is not None:
+            return defi_decoded
         return {"selector": selector, "function": "unknown",
                 "args": {}, "warnings": ["UNKNOWN_FUNCTION"]}
 
@@ -1278,6 +1289,328 @@ async def simulate_tx(body: TxEstimateRequest) -> Dict[str, Any]:
         "simulation_source": sim_source,
         "alchemy_enabled": bool(alchemy_key),
     }
+
+
+# ----- Phase 4.0: Aerodrome (Base) direct actions -----
+# Every action below only *builds* calldata; signing + broadcasting still goes
+# through /api/tx/send, which means the same review + simulation gate applies.
+DEFAULT_SWAP_DEADLINE_SECONDS = 1200  # 20 minutes
+MAX_BRIBE_TOKENS = 24  # cap enumeration of a bribe contract's reward tokens
+
+
+async def _eth_call_soft(chain_id: int, to: str, data: str) -> Optional[str]:
+    """eth_call that returns None if the contract reverts (vs raising 502 only
+    when every RPC is unreachable). Lets us probe optional state safely."""
+    chain = CHAINS[chain_id]
+    if http_client is None:
+        raise HTTPException(status_code=503, detail="http client not initialized")
+    payload = {"jsonrpc": "2.0", "id": 1, "method": "eth_call",
+               "params": [{"to": to, "data": data}, "latest"]}
+    last_err = None
+    for url in chain["rpc_urls"]:
+        try:
+            r = await http_client.post(url, json=payload, timeout=8.0)
+            r.raise_for_status()
+            j = r.json()
+            if j.get("error"):
+                return None  # contract reverted / bad call
+            return j.get("result")
+        except httpx.HTTPError as e:
+            last_err = str(e)
+            continue
+    raise HTTPException(status_code=502, detail=f"eth_call transport failure: {last_err}")
+
+
+@app.get("/api/defi/aerodrome/info")
+async def aerodrome_info(chain_id: int) -> Dict[str, Any]:
+    if chain_id not in defi.AERODROME:
+        raise HTTPException(status_code=400, detail=f"Aerodrome not available on chain {chain_id}")
+    a = defi.aerodrome_for(chain_id)
+    return {
+        "chain_id": chain_id,
+        "contracts": a,
+        "native_sentinel": defi.NATIVE,
+        "swap_tokens": defi.SWAP_TOKENS.get(chain_id, []),
+        "max_lock_seconds": defi.MAXTIME,
+        "week_seconds": defi.WEEK,
+    }
+
+
+@app.get("/api/defi/aerodrome/locks")
+async def aerodrome_locks(chain_id: int, address: str) -> Dict[str, Any]:
+    """List the veAERO lock NFTs owned by `address`, with amount/unlock/rebase."""
+    if chain_id not in defi.AERODROME:
+        raise HTTPException(status_code=400, detail=f"Aerodrome not available on chain {chain_id}")
+    _validate_address(address, "owner")
+    a = defi.aerodrome_for(chain_id)
+    ve, rd = a["voting_escrow"], a["rewards_distributor"]
+
+    n = defi.decode_uint(await rpc_call(chain_id, "eth_call",
+                                        [{"to": ve, "data": defi.read_balance_of(address)}, "latest"]))
+    locks = []
+    for i in range(min(n, 50)):
+        tid_hex = await _eth_call_soft(chain_id, ve, defi.read_owner_to_nftoken_id_list(address, i))
+        if tid_hex is None:
+            break
+        token_id = defi.decode_uint(tid_hex)
+        if token_id == 0:
+            continue
+        locked_hex = await _eth_call_soft(chain_id, ve, defi.read_locked(token_id))
+        if locked_hex is None:
+            continue
+        info = defi.decode_locked(locked_hex)
+        claimable_hex = await _eth_call_soft(chain_id, rd, defi.read_rd_claimable(token_id))
+        claimable = defi.decode_uint(claimable_hex) if claimable_hex else 0
+        locks.append({
+            "token_id": str(token_id),
+            "amount_wei": str(info["amount"]),
+            "end": info["end"],
+            "is_permanent": info["is_permanent"],
+            "claimable_rebase_wei": str(claimable),
+        })
+    return {"chain_id": chain_id, "count": len(locks), "locks": locks}
+
+
+@app.get("/api/defi/aerodrome/allowance")
+async def aerodrome_allowance(chain_id: int, owner: str, token: str, spender: str) -> Dict[str, str]:
+    if chain_id not in defi.AERODROME:
+        raise HTTPException(status_code=400, detail=f"Aerodrome not available on chain {chain_id}")
+    _validate_address(owner, "owner")
+    _validate_address(token, "token")
+    _validate_address(spender, "spender")
+    res = await rpc_call(chain_id, "eth_call",
+                         [{"to": token, "data": defi.read_allowance(owner, spender)}, "latest"])
+    return {"allowance_wei": str(defi.decode_uint(res))}
+
+
+class AeroQuoteRequest(BaseModel):
+    chain_id: int
+    token_in: str
+    token_out: str
+    amount_in_wei: str
+
+
+@app.post("/api/defi/aerodrome/quote")
+async def aerodrome_quote(body: AeroQuoteRequest) -> Dict[str, Any]:
+    """Price every candidate route via getAmountsOut and return the best one."""
+    if body.chain_id not in defi.AERODROME:
+        raise HTTPException(status_code=400, detail=f"Aerodrome not available on chain {body.chain_id}")
+    a = defi.aerodrome_for(body.chain_id)
+    try:
+        amount_in = int(body.amount_in_wei)
+        if amount_in <= 0:
+            raise ValueError
+    except ValueError:
+        raise HTTPException(status_code=400, detail="invalid amount_in_wei")
+
+    # Map native ETH to WETH for routing.
+    weth = a["weth"]
+    is_eth_in = body.token_in.lower() == defi.NATIVE.lower()
+    is_eth_out = body.token_out.lower() == defi.NATIVE.lower()
+    token_in = weth if is_eth_in else body.token_in
+    token_out = weth if is_eth_out else body.token_out
+    _validate_address(token_in, "token_in")
+    _validate_address(token_out, "token_out")
+    if token_in.lower() == token_out.lower():
+        raise HTTPException(status_code=400, detail="token_in and token_out are the same asset")
+
+    best = None
+    for route in defi.candidate_routes(body.chain_id, token_in, token_out):
+        res = await _eth_call_soft(body.chain_id, a["router"],
+                                   defi.read_get_amounts_out(amount_in, route))
+        if not res:
+            continue
+        try:
+            amounts = defi.decode_uint_array(res)
+        except Exception:
+            continue
+        if not amounts:
+            continue
+        out = amounts[-1]
+        if out > 0 and (best is None or out > best["amount_out_wei_int"]):
+            best = {
+                "route": [{"from": r[0], "to": r[1], "stable": r[2], "factory": r[3]} for r in route],
+                "amount_out_wei_int": out,
+                "hops": len(route),
+            }
+    if best is None:
+        raise HTTPException(status_code=400, detail="no route found for this pair")
+    return {
+        "chain_id": body.chain_id,
+        "amount_in_wei": str(amount_in),
+        "amount_out_wei": str(best["amount_out_wei_int"]),
+        "route": best["route"],
+        "hops": best["hops"],
+        "is_eth_in": is_eth_in,
+        "is_eth_out": is_eth_out,
+    }
+
+
+class AeroRewardInfoRequest(BaseModel):
+    chain_id: int
+    pool: str
+
+
+@app.post("/api/defi/aerodrome/reward-info")
+async def aerodrome_reward_info(body: AeroRewardInfoRequest) -> Dict[str, Any]:
+    """Given a pool the user voted on / provides liquidity in, derive its gauge,
+    fee + bribe reward contracts, and the reward token lists. The frontend then
+    builds claimFees / claimBribes / claimRewards from this."""
+    if body.chain_id not in defi.AERODROME:
+        raise HTTPException(status_code=400, detail=f"Aerodrome not available on chain {body.chain_id}")
+    _validate_address(body.pool, "pool")
+    a = defi.aerodrome_for(body.chain_id)
+    voter = a["voter"]
+
+    token0_hex = await _eth_call_soft(body.chain_id, body.pool, defi.read_call("token0", [], []))
+    token1_hex = await _eth_call_soft(body.chain_id, body.pool, defi.read_call("token1", [], []))
+    if token0_hex is None or token1_hex is None:
+        raise HTTPException(status_code=400, detail="address is not an Aerodrome pool (no token0/token1)")
+    token0 = defi.decode_address(token0_hex)
+    token1 = defi.decode_address(token1_hex)
+
+    gauge_hex = await _eth_call_soft(body.chain_id, voter,
+                                     defi.read_call("gauges", ["address"], [defi._addr(body.pool)]))
+    gauge = defi.decode_address(gauge_hex) if gauge_hex else "0x" + "0" * 40
+    zero = "0x" + "0" * 40
+    if gauge.lower() == zero:
+        raise HTTPException(status_code=400, detail="this pool has no gauge (cannot claim rewards)")
+
+    fees_hex = await _eth_call_soft(body.chain_id, voter,
+                                    defi.read_call("gaugeToFees", ["address"], [defi._addr(gauge)]))
+    bribe_hex = await _eth_call_soft(body.chain_id, voter,
+                                     defi.read_call("gaugeToBribe", ["address"], [defi._addr(gauge)]))
+    fees_reward = defi.decode_address(fees_hex) if fees_hex else zero
+    bribe_reward = defi.decode_address(bribe_hex) if bribe_hex else zero
+
+    # Enumerate the bribe contract's reward tokens (fees rewards are always the
+    # two pool tokens, so no enumeration needed there).
+    bribe_tokens: list = []
+    if bribe_reward.lower() != zero:
+        len_hex = await _eth_call_soft(body.chain_id, bribe_reward,
+                                       defi.read_call("rewardsListLength", [], []))
+        count = defi.decode_uint(len_hex) if len_hex else 0
+        for i in range(min(count, MAX_BRIBE_TOKENS)):
+            t_hex = await _eth_call_soft(body.chain_id, bribe_reward,
+                                         defi.read_call("rewards", ["uint256"], [i]))
+            if t_hex:
+                bribe_tokens.append(defi.decode_address(t_hex))
+
+    return {
+        "chain_id": body.chain_id,
+        "pool": defi._addr(body.pool),
+        "gauge": gauge,
+        "fees_reward": fees_reward,
+        "bribe_reward": bribe_reward,
+        "token0": token0,
+        "token1": token1,
+        "fee_tokens": [token0, token1],
+        "bribe_tokens": bribe_tokens,
+    }
+
+
+class AeroBuildRequest(BaseModel):
+    chain_id: int
+    action: str
+    from_address: str = Field(..., alias="from")
+    params: Dict[str, Any] = Field(default_factory=dict)
+
+    model_config = {"populate_by_name": True}
+
+
+@app.post("/api/defi/aerodrome/build")
+async def aerodrome_build(body: AeroBuildRequest) -> Dict[str, Any]:
+    """Build {to, value_wei, data} for an Aerodrome action. Pure calldata; the
+    caller feeds the result into /api/tx/estimate -> /api/tx/simulate -> /api/tx/send."""
+    if body.chain_id not in defi.AERODROME:
+        raise HTTPException(status_code=400, detail=f"Aerodrome not available on chain {body.chain_id}")
+    _validate_address(body.from_address, "from")
+    a = defi.aerodrome_for(body.chain_id)
+    p = body.params
+    deadline = int(time.time()) + DEFAULT_SWAP_DEADLINE_SECONDS
+
+    def need(key: str) -> Any:
+        if key not in p:
+            raise HTTPException(status_code=400, detail=f"missing param: {key}")
+        return p[key]
+
+    def as_int(key: str) -> int:
+        try:
+            return int(str(need(key)))
+        except (ValueError, TypeError):
+            raise HTTPException(status_code=400, detail=f"invalid integer param: {key}")
+
+    try:
+        if body.action == "approve":
+            data = defi.build_approve(need("spender"), as_int("amount_wei"))
+            return {"to": defi._addr(need("token")), "value_wei": "0", "data": data}
+
+        if body.action == "swap":
+            route = [(h["from"], h["to"], bool(h["stable"]), h["factory"]) for h in need("route")]
+            # Defense in depth: every hop must use the canonical pool factory.
+            for h in route:
+                if h[3].lower() != a["pool_factory"].lower():
+                    raise HTTPException(status_code=400, detail="route uses an unknown factory")
+            amount_in = as_int("amount_in_wei")
+            amount_out_min = as_int("amount_out_min_wei")
+            is_eth_in = bool(p.get("is_eth_in"))
+            is_eth_out = bool(p.get("is_eth_out"))
+            if is_eth_in:
+                data = defi.build_swap_exact_eth_for_tokens(
+                    amount_out_min, route, body.from_address, deadline)
+                return {"to": a["router"], "value_wei": str(amount_in), "data": data}
+            if is_eth_out:
+                data = defi.build_swap_exact_tokens_for_eth(
+                    amount_in, amount_out_min, route, body.from_address, deadline)
+                return {"to": a["router"], "value_wei": "0", "data": data}
+            data = defi.build_swap_exact_tokens_for_tokens(
+                amount_in, amount_out_min, route, body.from_address, deadline)
+            return {"to": a["router"], "value_wei": "0", "data": data}
+
+        if body.action == "create_lock":
+            data = defi.build_create_lock(as_int("value_wei"), as_int("lock_duration_seconds"))
+            return {"to": a["voting_escrow"], "value_wei": "0", "data": data}
+
+        if body.action == "increase_amount":
+            data = defi.build_increase_amount(as_int("token_id"), as_int("value_wei"))
+            return {"to": a["voting_escrow"], "value_wei": "0", "data": data}
+
+        if body.action == "increase_unlock_time":
+            data = defi.build_increase_unlock_time(as_int("token_id"), as_int("lock_duration_seconds"))
+            return {"to": a["voting_escrow"], "value_wei": "0", "data": data}
+
+        if body.action == "vote":
+            pools = need("pools")
+            weights = need("weights")
+            data = defi.build_vote(as_int("token_id"), pools, [int(w) for w in weights])
+            return {"to": a["voter"], "value_wei": "0", "data": data}
+
+        if body.action == "reset":
+            data = defi.build_reset(as_int("token_id"))
+            return {"to": a["voter"], "value_wei": "0", "data": data}
+
+        if body.action == "claim_rebase":
+            data = defi.build_rewards_distributor_claim(as_int("token_id"))
+            return {"to": a["rewards_distributor"], "value_wei": "0", "data": data}
+
+        if body.action == "claim_fees":
+            data = defi.build_claim_fees(need("fees"), need("tokens"), as_int("token_id"))
+            return {"to": a["voter"], "value_wei": "0", "data": data}
+
+        if body.action == "claim_bribes":
+            data = defi.build_claim_bribes(need("bribes"), need("tokens"), as_int("token_id"))
+            return {"to": a["voter"], "value_wei": "0", "data": data}
+
+        if body.action == "claim_rewards":
+            data = defi.build_claim_rewards(need("gauges"))
+            return {"to": a["voter"], "value_wei": "0", "data": data}
+
+    except HTTPException:
+        raise
+    except (ValueError, KeyError, TypeError) as e:
+        raise HTTPException(status_code=400, detail=f"build failed: {e}")
+
+    raise HTTPException(status_code=400, detail=f"unknown action: {body.action}")
 
 
 # ----- Console hosting (so the UI is same-origin with the API) -----
