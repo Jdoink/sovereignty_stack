@@ -3244,17 +3244,56 @@
   $("w-lockform-back").addEventListener("click", openLocks);
 
   // ---- token helpers ----
-  function swapTokens() { return (aeroInfo && aeroInfo.swap_tokens) || []; }
+  let customTokens = [];  // user-saved custom tokens (persisted directory)
+
+  function curatedSwapTokens() { return (aeroInfo && aeroInfo.swap_tokens) || []; }
+
+  // Curated tokens + saved custom tokens, de-duplicated by address.
+  function allSwapTokens() {
+    const seen = new Set(), out = [];
+    curatedSwapTokens().forEach(t => { seen.add(t.address.toLowerCase()); out.push(t); });
+    customTokens.forEach(t => {
+      if (!seen.has(t.address.toLowerCase())) { seen.add(t.address.toLowerCase()); out.push(t); }
+    });
+    return out;
+  }
+
   function tokenBySel(value, tokens) {
     if (value === "__custom__") return null;
     return tokens.find(t => t.address.toLowerCase() === value.toLowerCase()) || null;
   }
-  async function resolveCustomToken(addr) {
+
+  async function loadCustomTokens() {
+    try {
+      const r = await fetch(WALLET_API + "/api/tokens/custom?chain_id=" + AERO_CHAIN_ID,
+                            { cache: "no-store" });
+      customTokens = r.ok ? await r.json() : [];
+    } catch (_) { customTokens = []; }
+    return customTokens;
+  }
+
+  // Resolve a typed token address on-chain AND persist it to the directory so it
+  // appears as a named option next time.
+  async function resolveAndSaveCustomToken(addr) {
     if (!/^0x[a-fA-F0-9]{40}$/.test(addr)) throw new Error("invalid token address");
-    const r = await fetch(WALLET_API + "/api/token/info?chain_id=" + AERO_CHAIN_ID +
-                          "&address=" + encodeURIComponent(addr), { cache: "no-store" });
-    if (!r.ok) throw new Error("could not read token (not an ERC20?)");
-    return await r.json();  // {address, symbol, decimals, ...}
+    let token = null;
+    try {
+      const sr = await fetch(WALLET_API + "/api/tokens/custom", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chain_id: AERO_CHAIN_ID, address: addr }),
+      });
+      if (sr.ok) { token = (await sr.json()).token; }
+    } catch (_) { /* fall back to a read-only lookup below */ }
+    if (!token) {
+      const r = await fetch(WALLET_API + "/api/token/info?chain_id=" + AERO_CHAIN_ID +
+                            "&address=" + encodeURIComponent(addr), { cache: "no-store" });
+      if (!r.ok) throw new Error("could not read token (not an ERC20?)");
+      token = await r.json();
+    }
+    if (token && !customTokens.some(t => t.address.toLowerCase() === token.address.toLowerCase())) {
+      customTokens.push(token);
+    }
+    return token;
   }
 
   // ============================ SWAP ============================
@@ -3264,42 +3303,54 @@
   const wSwapErr = $("w-swap-err"), wSwapQuoteBox = $("w-swap-quote");
   const wSwapQuoteBtn = $("w-swap-quote-btn"), wSwapReviewBtn = $("w-swap-review-btn");
 
-  function fillTokenSelect(sel, includeCustom) {
+  function fillTokenSelect(sel) {
     sel.innerHTML = "";
-    swapTokens().forEach(t => {
+    allSwapTokens().forEach(t => {
       const o = document.createElement("option");
       o.value = t.address; o.textContent = t.symbol;
       sel.appendChild(o);
     });
-    if (includeCustom) {
-      const o = document.createElement("option");
-      o.value = "__custom__"; o.textContent = "Custom token...";
-      sel.appendChild(o);
-    }
+    const o = document.createElement("option");
+    o.value = "__custom__"; o.textContent = "Custom token...";
+    sel.appendChild(o);
   }
 
+  // Keep each custom-address input visible exactly when its select is on custom.
+  function syncCustomInput(sel, input) { input.hidden = sel.value !== "__custom__"; }
+
   async function openSwap() {
-    try { await loadAeroInfo(); } catch (e) { wSwapErr.textContent = String(e.message || e); }
-    fillTokenSelect(wSwapInSel, true);
-    fillTokenSelect(wSwapOutSel, true);
-    // Sensible defaults: ETH -> USDC.
-    wSwapInSel.value = swapTokens()[0] ? swapTokens()[0].address : "";
-    const usdc = swapTokens().find(t => t.symbol === "USDC");
-    if (usdc) wSwapOutSel.value = usdc.address;
-    wSwapInCustom.hidden = true; wSwapOutCustom.hidden = true;
-    wSwapAmount.value = ""; wSwapErr.textContent = "";
+    wSwapErr.textContent = "";
+    let loadErr = null;
+    try { await loadAeroInfo(); } catch (e) { loadErr = e; }
+    await loadCustomTokens();
+    fillTokenSelect(wSwapInSel);
+    fillTokenSelect(wSwapOutSel);
+
+    const toks = allSwapTokens();
+    // Sensible defaults: first token (ETH) -> USDC; fall back to custom if the
+    // curated list didn't load.
+    wSwapInSel.value = toks[0] ? toks[0].address : "__custom__";
+    const usdc = toks.find(t => t.symbol === "USDC");
+    wSwapOutSel.value = usdc ? usdc.address : "__custom__";
+    wSwapInCustom.value = ""; wSwapOutCustom.value = "";
+    syncCustomInput(wSwapInSel, wSwapInCustom);
+    syncCustomInput(wSwapOutSel, wSwapOutCustom);
+    wSwapAmount.value = "";
     wSwapQuoteBox.hidden = true; wSwapReviewBtn.disabled = true;
     lastSwapQuote = null;
+
+    if (!toks.length) {
+      wSwapErr.textContent = "Token list didn't load — is the wallet-service container rebuilt? " +
+        "You can still paste token addresses manually." + (loadErr ? " (" + loadErr.message + ")" : "");
+    }
     setWalletState("defi-swap");
   }
 
   wSwapInSel.addEventListener("change", () => {
-    wSwapInCustom.hidden = wSwapInSel.value !== "__custom__";
-    invalidateQuote();
+    syncCustomInput(wSwapInSel, wSwapInCustom); invalidateQuote();
   });
   wSwapOutSel.addEventListener("change", () => {
-    wSwapOutCustom.hidden = wSwapOutSel.value !== "__custom__";
-    invalidateQuote();
+    syncCustomInput(wSwapOutSel, wSwapOutCustom); invalidateQuote();
   });
   [wSwapAmount, wSwapSlippage, wSwapInCustom, wSwapOutCustom].forEach(el =>
     el.addEventListener("input", invalidateQuote));
@@ -3309,10 +3360,10 @@
 
   async function resolveSwapSide(sel, customInput) {
     if (sel.value === "__custom__") {
-      const t = await resolveCustomToken((customInput.value || "").trim());
+      const t = await resolveAndSaveCustomToken((customInput.value || "").trim());
       return { address: t.address, symbol: t.symbol, decimals: t.decimals, native: false };
     }
-    const t = tokenBySel(sel.value, swapTokens());
+    const t = tokenBySel(sel.value, allSwapTokens());
     if (!t) throw new Error("select a token");
     return t;
   }
