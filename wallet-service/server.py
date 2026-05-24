@@ -971,6 +971,102 @@ async def token_balance(chain_id: int, token: str, address: str) -> Dict[str, st
     return {"balance_wei": str(_decode_abi_uint(result))}
 
 
+# ----- Custom token directory (user-saved tokens, persisted like contacts) -----
+CUSTOM_TOKENS_FILENAME = "custom_tokens.json"
+
+
+def custom_tokens_paths() -> Dict[str, Path]:
+    return {
+        "primary": DATA_PATH / CUSTOM_TOKENS_FILENAME,
+        "backup":  BACKUP_PATH / CUSTOM_TOKENS_FILENAME,
+    }
+
+
+def load_custom_tokens() -> list:
+    p = custom_tokens_paths()["primary"]
+    if not p.exists():
+        b = custom_tokens_paths()["backup"]
+        if b.exists():
+            try:
+                return json.loads(b.read_text())
+            except Exception:
+                logger.exception("custom tokens backup unreadable")
+        return []
+    try:
+        return json.loads(p.read_text())
+    except Exception:
+        logger.exception("custom tokens primary unreadable")
+        return []
+
+
+def save_custom_tokens(items: list) -> None:
+    payload = json.dumps(items, indent=2)
+    for label, path in custom_tokens_paths().items():
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            tmp = path.with_suffix(path.suffix + ".tmp")
+            tmp.write_text(payload)
+            tmp.replace(path)
+        except Exception:
+            logger.exception("failed to write %s custom tokens at %s", label, path)
+            if label == "primary":
+                raise
+
+
+class CustomTokenRequest(BaseModel):
+    chain_id: int
+    address: str
+
+
+@app.get("/api/tokens/custom")
+async def get_custom_tokens(chain_id: int) -> list:
+    return [t for t in load_custom_tokens() if t.get("chain_id") == chain_id]
+
+
+@app.post("/api/tokens/custom")
+async def add_custom_token(body: CustomTokenRequest) -> Dict[str, Any]:
+    """Resolve a token's symbol/decimals on-chain, then persist it so it shows
+    up in the swap / send dropdowns next time."""
+    if body.chain_id not in CHAINS:
+        raise HTTPException(status_code=400, detail=f"unsupported chain {body.chain_id}")
+    _validate_address(body.address, "token")
+    info = await token_info(body.chain_id, body.address)  # raises 400 if not ERC20
+
+    items = load_custom_tokens()
+    for t in items:
+        if t.get("chain_id") == body.chain_id and \
+           t.get("address", "").lower() == body.address.lower():
+            return {"ok": True, "added": False, "token": t}
+
+    token = {
+        "chain_id": body.chain_id,
+        "address": body.address,
+        "symbol": info["symbol"],
+        "name": info.get("name") or info["symbol"],
+        "decimals": info["decimals"],
+        "price_source": None,
+        "created_at": dt.datetime.utcnow().replace(microsecond=0).isoformat() + "Z",
+    }
+    items.append(token)
+    save_custom_tokens(items)
+    audit("token.custom.add", chain_id=body.chain_id, address=body.address, symbol=info["symbol"])
+    return {"ok": True, "added": True, "token": token}
+
+
+@app.delete("/api/tokens/custom/{address}")
+async def delete_custom_token(address: str, chain_id: int) -> Dict[str, Any]:
+    _validate_address(address, "token")
+    items = load_custom_tokens()
+    before = len(items)
+    items = [t for t in items if not (
+        t.get("chain_id") == chain_id and t.get("address", "").lower() == address.lower())]
+    if len(items) == before:
+        raise HTTPException(status_code=404, detail="custom token not found")
+    save_custom_tokens(items)
+    audit("token.custom.delete", chain_id=chain_id, address=address)
+    return {"ok": True}
+
+
 # ----- Phase 2.3: safe contracts (curated, read-only) + contacts (CRUD) -----
 # Curated list of well-known contracts per chain. Used by the review screen
 # to label recipients ("Uniswap V3 SwapRouter" instead of just an address).

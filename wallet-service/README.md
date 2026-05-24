@@ -75,6 +75,7 @@ The console then auto-detects it's running same-origin with the wallet API and r
 | `GET`  | `/api/wallet/status` | Is a wallet initialized? What's its address? |
 | `POST` | `/api/wallet/create` | Generate a new wallet (passphrase in JSON body). Returns the mnemonic exactly once. |
 | `GET`  | `/console` | Serves the latest console.html from GitHub main |
+| `GET`/`POST`/`DELETE` | `/api/tokens/custom` | User-saved token directory (persisted to Seagate + SD). POST resolves symbol/decimals on-chain and saves; the swap dropdowns read from it. |
 
 ### Aerodrome (Base) direct actions
 
