@@ -1605,6 +1605,167 @@ async def aerodrome_reward_info(body: AeroRewardInfoRequest) -> Dict[str, Any]:
     }
 
 
+# ----- Phase 4.1: suggested voting pools (ranked by voting APR via Sugar) -----
+SUGAR_PAGE = 100            # pools per epochsLatest call
+SUGAR_MAX_PAGES = 6         # cap total Sugar reads on a cold cache
+TOP_POOLS_RETURN = 15
+TOP_POOLS_CACHE_TTL = 600   # 10 min (incentives change per weekly epoch)
+
+# Known Base token metadata (symbol, decimals) so the common reward/pair tokens
+# need no extra on-chain reads. Anything not here is resolved on-chain + cached.
+KNOWN_TOKEN_META: Dict[str, tuple] = {
+    "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913": ("USDC", 6),
+    "0x940181a94a35a4569e4529a3cdfb74e38fd98631": ("AERO", 18),
+    "0x4200000000000000000000000000000000000006": ("WETH", 18),
+    "0x2ae3f1ec7f1f5012cfeab0185bfc7aa3cf0dec22": ("cbETH", 18),
+    "0xd9aaec86b65d86f6a7b5b1b0c42ffa531710b6ca": ("USDbC", 6),
+    "0x50c5725949a6f0c72e6c4a641f24049a917db0cb": ("DAI", 18),
+    "0xc1cba3fcea344f92d9239c08c0568f6f2f0ee452": ("wstETH", 18),
+}
+
+_top_pools_cache: Dict[int, Dict[str, Any]] = {}
+_token_decimals_cache: Dict[str, Optional[int]] = {}
+_token_symbol_cache: Dict[str, Optional[str]] = {}
+
+
+async def _resolve_decimals(chain_id: int, addr: str) -> Optional[int]:
+    a = addr.lower()
+    if a in KNOWN_TOKEN_META:
+        return KNOWN_TOKEN_META[a][1]
+    if a in _token_decimals_cache:
+        return _token_decimals_cache[a]
+    res = await _eth_call_soft(chain_id, addr, defi.read_call("decimals", [], []))
+    d: Optional[int] = None
+    if res:
+        try:
+            v = _decode_abi_uint(res)
+            d = v if 0 <= v <= 36 else None
+        except Exception:
+            d = None
+    _token_decimals_cache[a] = d
+    return d
+
+
+async def _resolve_symbol(chain_id: int, addr: str) -> str:
+    a = addr.lower()
+    if a in KNOWN_TOKEN_META:
+        return KNOWN_TOKEN_META[a][0]
+    if a in _token_symbol_cache and _token_symbol_cache[a]:
+        return _token_symbol_cache[a]
+    res = await _eth_call_soft(chain_id, addr, defi.read_call("symbol", [], []))
+    sym = ""
+    if res:
+        try:
+            sym = _decode_abi_string(res).strip()
+        except Exception:
+            sym = ""
+    sym = sym or (addr[:6] + "…" + addr[-4:])
+    _token_symbol_cache[a] = sym
+    return sym
+
+
+async def _coingecko_token_prices(addresses: list) -> Dict[str, float]:
+    """Batch USD prices for Base tokens. Returns {lowercased_addr: usd}. Best
+    effort: any failure yields an empty/partial map (caller falls back to raw)."""
+    out: Dict[str, float] = {}
+    if http_client is None or not addresses:
+        return out
+    uniq = sorted({a.lower() for a in addresses})
+    for i in range(0, len(uniq), 40):
+        chunk = uniq[i:i + 40]
+        try:
+            r = await http_client.get(
+                "https://api.coingecko.com/api/v3/simple/token_price/base",
+                params={"contract_addresses": ",".join(chunk), "vs_currencies": "usd"},
+                timeout=8.0,
+            )
+            r.raise_for_status()
+            for addr, v in r.json().items():
+                if isinstance(v, dict) and v.get("usd") is not None:
+                    out[addr.lower()] = float(v["usd"])
+        except Exception:
+            logger.warning("coingecko token-price chunk failed", exc_info=True)
+    return out
+
+
+async def _pool_pair_name(chain_id: int, pool: str) -> Optional[str]:
+    t0 = await _eth_call_soft(chain_id, pool, defi.read_call("token0", [], []))
+    t1 = await _eth_call_soft(chain_id, pool, defi.read_call("token1", [], []))
+    if not t0 or not t1:
+        return None
+    s0 = await _resolve_symbol(chain_id, defi.decode_address(t0))
+    s1 = await _resolve_symbol(chain_id, defi.decode_address(t1))
+    return f"{s0}/{s1}"
+
+
+@app.get("/api/defi/aerodrome/top-pools")
+async def aerodrome_top_pools(chain_id: int, force: bool = False) -> Dict[str, Any]:
+    """Suggested voting pools, ranked by voting APR. Reads per-epoch votes +
+    bribes/fees from Sugar (on-chain), prices reward tokens via CoinGecko, and
+    annualizes. Falls back to a votes-ranked, raw-incentive view if pricing is
+    unavailable. Cached for 10 minutes."""
+    if chain_id not in defi.AERODROME:
+        raise HTTPException(status_code=400, detail=f"Aerodrome not available on chain {chain_id}")
+    a = defi.aerodrome_for(chain_id)
+    sugar = a.get("rewards_sugar")
+    if not sugar:
+        raise HTTPException(status_code=400, detail="Sugar not configured for this chain")
+
+    now = time.time()
+    cached = _top_pools_cache.get(chain_id)
+    if cached and not force and (now - cached["ts"]) < TOP_POOLS_CACHE_TTL:
+        return cached["data"]
+
+    # 1) Pull per-pool epoch data from Sugar (paginated; stop early/gracefully).
+    epochs: list = []
+    offset = 0
+    for _ in range(SUGAR_MAX_PAGES):
+        res = await _eth_call_soft(chain_id, sugar, defi.read_epochs_latest(SUGAR_PAGE, offset))
+        if not res:
+            break
+        try:
+            page = defi.decode_epochs_latest(res)
+        except Exception:
+            logger.warning("failed to decode Sugar epochs page (offset=%s)", offset, exc_info=True)
+            break
+        epochs.extend(page)
+        if len(page) < SUGAR_PAGE:
+            break
+        offset += SUGAR_PAGE
+    if not epochs:
+        raise HTTPException(status_code=502, detail="could not load pool data from Sugar")
+
+    # 2) Price reward tokens (+ AERO) via CoinGecko; resolve decimals for the
+    #    priced set only (keeps on-chain reads bounded).
+    reward_tokens = {r["token"].lower() for e in epochs for r in (e["bribes"] + e["fees"])}
+    aero = a["aero"].lower()
+    price_of = await _coingecko_token_prices(list(reward_tokens) + [aero])
+    aero_price = price_of.get(aero)
+    dec_of: Dict[str, int] = {}
+    for t in reward_tokens:
+        if t in price_of or t in KNOWN_TOKEN_META:
+            d = await _resolve_decimals(chain_id, t)
+            if d is not None:
+                dec_of[t] = d
+
+    # 3) Rank (pure), then enrich the top N with pair names + reward symbols.
+    ranked = defi.rank_voting_pools(epochs, dec_of, price_of, aero_price, TOP_POOLS_RETURN)
+    for p in ranked:
+        p["pair"] = await _pool_pair_name(chain_id, p["pool"])
+        for inc in p["incentives"]:
+            inc["symbol"] = await _resolve_symbol(chain_id, inc["token"])
+
+    data = {
+        "chain_id": chain_id,
+        "as_of": int(now),
+        "priced": bool(aero_price),
+        "scanned": len(epochs),
+        "pools": ranked,
+    }
+    _top_pools_cache[chain_id] = {"ts": now, "data": data}
+    return data
+
+
 class AeroBuildRequest(BaseModel):
     chain_id: int
     action: str

@@ -91,6 +91,7 @@ structs, weight arrays) is done in Python with `eth_abi`, not hand-rolled in JS.
 | `GET`  | `/api/defi/aerodrome/locks` | List an address's veAERO locks (amount, unlock, claimable rebase) |
 | `GET`  | `/api/defi/aerodrome/allowance` | ERC20 allowance for a spender (used to decide if an approve is needed) |
 | `POST` | `/api/defi/aerodrome/quote` | Best swap route across candidates via `getAmountsOut` |
+| `GET`  | `/api/defi/aerodrome/top-pools` | Suggested voting pools ranked by voting APR. Reads per-epoch votes+bribes+fees from Aerodrome's on-chain Sugar contract, prices reward tokens via CoinGecko, annualizes. Falls back to a votes-ranked raw view if pricing is down. Cached 10 min. |
 | `POST` | `/api/defi/aerodrome/reward-info` | Derive a pool's gauge + fee/bribe reward contracts and reward tokens |
 | `POST` | `/api/defi/aerodrome/build` | Build `{to, value_wei, data}` for an action (swap / lock / vote / claim) |
 
