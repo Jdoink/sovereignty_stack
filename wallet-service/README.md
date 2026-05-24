@@ -76,6 +76,23 @@ The console then auto-detects it's running same-origin with the wallet API and r
 | `POST` | `/api/wallet/create` | Generate a new wallet (passphrase in JSON body). Returns the mnemonic exactly once. |
 | `GET`  | `/console` | Serves the latest console.html from GitHub main |
 
+### Aerodrome (Base) direct actions
+
+Swap, lock (veAERO), vote, and claim rewards directly against Aerodrome's
+audited contracts on Base — no WalletConnect, no dApp browser. Every action only
+*builds* calldata; signing + broadcasting still flow through `/api/tx/send`, so
+the same review + simulation gate applies. The complex ABI encoding (Route
+structs, weight arrays) is done in Python with `eth_abi`, not hand-rolled in JS.
+
+| Method | Path | Purpose |
+|---|---|---|
+| `GET`  | `/api/defi/aerodrome/info` | Contract registry + curated swap tokens for the chain |
+| `GET`  | `/api/defi/aerodrome/locks` | List an address's veAERO locks (amount, unlock, claimable rebase) |
+| `GET`  | `/api/defi/aerodrome/allowance` | ERC20 allowance for a spender (used to decide if an approve is needed) |
+| `POST` | `/api/defi/aerodrome/quote` | Best swap route across candidates via `getAmountsOut` |
+| `POST` | `/api/defi/aerodrome/reward-info` | Derive a pool's gauge + fee/bribe reward contracts and reward tokens |
+| `POST` | `/api/defi/aerodrome/build` | Build `{to, value_wei, data}` for an action (swap / lock / vote / claim) |
+
 ## Threat model honesty
 
 Phase 1 is **passphrase-only** (Tier 2 in our planning doc). It protects against:
