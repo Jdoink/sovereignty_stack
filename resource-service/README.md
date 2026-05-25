@@ -15,7 +15,8 @@ to GitHub — no container rebuild required.
 
 | Method | Path      | Description |
 |--------|-----------|-------------|
-| `GET`  | `/`        | Redirects to `/portal` |
+| `GET`  | `/`        | Redirects to `/vault` |
+| `GET`  | `/vault`   | **The Vault** — cinematic entry + module grid (the deep-layer shell) |
 | `GET`  | `/portal`  | The Sovereign Resource Portal page (latest `command-center-portal/portal.html` from GitHub `main`, with an offline fallback notice) |
 | `GET`  | `/theater` | The Media Theater page — your saved Library + player + archive search |
 | `GET`  | `/api/vault` | List saved resources (the Library) |
@@ -35,7 +36,29 @@ to GitHub — no container rebuild required.
 - **Safety banner** — FMHY is framed as a reference directory only; legal /
   public-domain / open-source resources are prioritized.
 
-## Resource Vault (the Library)
+## The Vault shell (`/vault`)
+
+The deep-layer entry: a cinematic landing with large module panels. Grafana
+stays the tactical *surface* dashboard; a "Vault" panel deep-links here into a
+separate immersive app. Built dependency-free (one HTML file, served from GitHub
+like the other pages) for generational recoverability.
+
+Live modules open *inside* the Vault in an immersive full-screen stage
+(`embed` mode); apps that refuse framing open in a new tab (`tab` mode). The
+module registry is plain config at the top of `vault.html`, so targets/ports are
+trivial to edit and recover.
+
+| Module | Status | Target |
+|--------|--------|--------|
+| Library | live | embeds `/portal` (Resource Portal lives inside the Library) |
+| Media Theater | live | embeds `/theater` |
+| Art Studio | soon | `/studio` (next build — touch finger-painting) |
+| Financial Cockpit | live | wallet-service `/console` |
+| Family Archive | soon | Immich, later |
+| Research Lab | soon | Jupyter / local tooling, later |
+| Operational Console | live | Grafana (tab) |
+
+## Resource Vault data (the saved Library)
 
 Saved resources persist in a flat JSON array at `RESOURCE_DATA_PATH/vault.json`
 on the Seagate (same pattern as the radio library), so the Library survives
