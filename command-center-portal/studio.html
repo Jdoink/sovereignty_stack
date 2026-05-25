@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>Art Studio</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --wall-1: #2c1618; --wall-2: #1a1011; --wall-3: #0c0808;
+    --gold: #c9a86a; --gold-bright: #ecd49a; --gold-deep: #6f5226;
+    --ivory: #ece3cf; --parch: #cdbf9f; --dim: #a4977b;
+    --display: "Cinzel", Optima, "Palatino Linotype", Palatino, Georgia, serif;
+    --body: "Cormorant", "EB Garamond", "Palatino Linotype", Palatino, Georgia, serif;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; padding: 0; height: 100%; }
+  body {
+    background: radial-gradient(ellipse 70% 50% at 50% -8%, rgba(236,212,154,0.12), transparent 70%),
+      linear-gradient(178deg, var(--wall-1), var(--wall-2) 55%, var(--wall-3));
+    min-height: 100vh; color: var(--ivory); font-family: var(--body); font-size: 16px;
+    -webkit-font-smoothing: antialiased; overflow-x: hidden;
+  }
+  .studio { max-width: 1100px; margin: 0 auto; padding: 16px 18px 26px; }
+
+  .s-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+  .s-title { font-family: var(--display); font-size: 30px; font-weight: 700; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--gold-bright); margin: 0; text-shadow: 0 1px 0 rgba(0,0,0,0.6); }
+  .s-sub { font-style: italic; color: var(--parch); font-size: 14px; }
+  .s-back { font-family: var(--display); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--dim); text-decoration: none; } .s-back:hover { color: var(--gold-bright); }
+
+  /* gilt-framed easel */
+  .easel { padding: 10px; border-radius: 3px;
+    background: linear-gradient(135deg, #f1dba4, #b18f50 30%, #ecd197 50%, #7c5f30 75%, #d9be7f);
+    box-shadow: 0 18px 40px rgba(0,0,0,0.55), 0 0 0 1px rgba(70,50,16,0.9), inset 0 1px 0 rgba(255,246,214,0.5); }
+  .canvas-wrap { position: relative; background: #fff; border-radius: 1px; overflow: hidden;
+    box-shadow: inset 0 0 0 1px rgba(60,42,12,0.5); touch-action: none; }
+  #pad { display: block; width: 100%; height: 62vh; min-height: 320px; touch-action: none; cursor: crosshair; }
+
+  .toolbar { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; margin: 14px 0;
+    padding: 12px 14px; background: rgba(20,12,12,0.6); border: 1px solid rgba(201,168,106,0.22); border-radius: 12px; }
+  .tgroup { display: flex; align-items: center; gap: 8px; }
+  .tlabel { font-family: var(--display); font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--dim); }
+  .swatches { display: flex; gap: 6px; flex-wrap: wrap; }
+  .sw { width: 26px; height: 26px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.25); cursor: pointer; padding: 0; }
+  .sw.active { border-color: var(--gold-bright); box-shadow: 0 0 0 2px rgba(236,212,154,0.4); transform: scale(1.12); }
+  input[type="color"] { width: 30px; height: 30px; border: 0; background: none; padding: 0; border-radius: 6px; cursor: pointer; }
+  input[type="range"] { width: 120px; accent-color: var(--gold); }
+  .size-dot { width: var(--d,10px); height: var(--d,10px); border-radius: 50%; background: var(--ivory); }
+
+  .btn { font-family: var(--display); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer;
+    color: var(--ivory); background: linear-gradient(180deg, rgba(60,40,30,0.9), rgba(30,20,16,0.95));
+    border: 1px solid rgba(201,168,106,0.4); border-radius: 9px; padding: 9px 13px; min-height: 40px; }
+  .btn:hover { border-color: var(--gold-bright); color: var(--gold-bright); }
+  .btn.gold { background: linear-gradient(180deg, #d8bd7e, #a07d40); color: #2a1c08; border-color: rgba(255,246,214,0.5); }
+  .btn.active { border-color: var(--gold-bright); color: var(--gold-bright); }
+  .nameinput { background: rgba(2,6,12,0.6); border: 1px solid rgba(201,168,106,0.3); color: var(--ivory);
+    border-radius: 8px; padding: 9px 11px; font-family: var(--body); font-size: 15px; min-width: 150px; }
+
+  .gallery-head { font-family: var(--display); font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase;
+    color: var(--gold); margin: 18px 0 10px; display: flex; align-items: center; gap: 10px; }
+  .gallery-head::after { content: ""; flex: 1; height: 1px; background: rgba(201,168,106,0.25); }
+  .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 12px; }
+  .art { position: relative; border: 6px solid; border-image: linear-gradient(135deg, #e7cc8f, #8a6c39) 1;
+    background: #fff; border-radius: 2px; overflow: hidden; box-shadow: 0 8px 20px rgba(0,0,0,0.5); }
+  .art img { display: block; width: 100%; aspect-ratio: 4/3; object-fit: cover; background: #fff; }
+  .art .plate { font-family: var(--display); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase;
+    color: #2a1c08; background: linear-gradient(180deg, #d8bd7e, #a07d40); padding: 4px 6px; text-align: center;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .art .del { position: absolute; top: 4px; right: 4px; width: 22px; height: 22px; border-radius: 6px; cursor: pointer;
+    border: 1px solid rgba(201,168,106,0.5); background: rgba(12,8,8,0.8); color: var(--parch); font-size: 13px; line-height: 1; padding: 0; }
+  .art .del:hover { color: #fff; border-color: #f0a0a0; background: rgba(80,20,20,0.8); }
+  .gallery-empty { color: var(--dim); font-style: italic; font-size: 14px; }
+
+  .tools-row { margin-top: 22px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .tools-row .tlabel { margin-right: 4px; }
+  .ext { font-family: var(--body); font-size: 14px; text-decoration: none; color: var(--parch);
+    border: 1px solid rgba(201,168,106,0.25); border-radius: 999px; padding: 6px 13px; }
+  .ext:hover { color: var(--gold-bright); border-color: rgba(236,212,154,0.6); }
+
+  .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%) translateY(16px);
+    background: rgba(30,18,18,0.97); border: 1px solid rgba(201,168,106,0.5); color: var(--ivory);
+    font-style: italic; padding: 11px 18px; border-radius: 9px; opacity: 0; pointer-events: none; transition: 0.2s; z-index: 50; }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+<div class="studio">
+  <div class="s-head">
+    <div>
+      <h1 class="s-title">Art Studio</h1>
+      <div class="s-sub">Paint with your finger. Save it to the vault, keep it forever.</div>
+    </div>
+    <a class="s-back" href="/vault">&#8592; The Vault</a>
+  </div>
+
+  <div class="easel">
+    <div class="canvas-wrap"><canvas id="pad"></canvas></div>
+  </div>
+
+  <div class="toolbar">
+    <div class="tgroup"><span class="tlabel">Color</span>
+      <div class="swatches" id="swatches"></div>
+      <input type="color" id="picker" value="#1b6fb3" title="Custom color" />
+    </div>
+    <div class="tgroup"><span class="tlabel">Brush</span>
+      <input type="range" id="size" min="1" max="60" value="9" />
+      <span class="size-dot" id="sizedot"></span>
+    </div>
+    <div class="tgroup">
+      <button class="btn active" id="brush" type="button">Brush</button>
+      <button class="btn" id="eraser" type="button">Eraser</button>
+      <button class="btn" id="undo" type="button">Undo</button>
+      <button class="btn" id="clear" type="button">Clear</button>
+    </div>
+    <div class="tgroup" style="margin-left:auto">
+      <input class="nameinput" id="artname" type="text" placeholder="Title this piece…" maxlength="60" />
+      <button class="btn gold" id="save" type="button">Save to Vault</button>
+      <button class="btn" id="download" type="button">Download</button>
+    </div>
+  </div>
+
+  <div class="gallery-head">The Collection</div>
+  <div class="gallery" id="gallery"></div>
+
+  <div class="tools-row">
+    <span class="tlabel">More tools</span>
+    <a class="ext" href="https://excalidraw.com/" target="_blank" rel="noopener noreferrer">Excalidraw</a>
+    <a class="ext" href="https://www.tldraw.com/" target="_blank" rel="noopener noreferrer">tldraw</a>
+    <a class="ext" href="https://jspaint.app/" target="_blank" rel="noopener noreferrer">JS Paint</a>
+    <a class="ext" href="https://www.photopea.com/" target="_blank" rel="noopener noreferrer">Photopea</a>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+  var $ = function (id) { return document.getElementById(id); };
+  var pad = $("pad"), ctx = pad.getContext("2d");
+  var COLORS = ["#1b1b1b", "#ffffff", "#d63b3b", "#e8862a", "#f2c438", "#3aa657", "#1b6fb3", "#7a4db3", "#8a5a2b", "#d96fa6"];
+  var state = { color: "#1b6fb3", size: 9, erasing: false, drawing: false, lastX: 0, lastY: 0, dpr: 1 };
+  var undoStack = [];
+
+  function toast(m) { var t = $("toast"); t.textContent = m; t.classList.add("show"); clearTimeout(t._t); t._t = setTimeout(function () { t.classList.remove("show"); }, 2200); }
+
+  // ---- canvas sizing (DPR-aware; preserves drawing across resize) ----
+  function fitCanvas() {
+    var prev = pad.width ? pad.toDataURL() : null;
+    var rect = pad.getBoundingClientRect();
+    state.dpr = Math.min(window.devicePixelRatio || 1, 2);
+    pad.width = Math.max(1, Math.round(rect.width * state.dpr));
+    pad.height = Math.max(1, Math.round(rect.height * state.dpr));
+    ctx.setTransform(state.dpr, 0, 0, state.dpr, 0, 0);
+    ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, rect.width, rect.height);
+    ctx.lineCap = "round"; ctx.lineJoin = "round";
+    if (prev) { var img = new Image(); img.onload = function () { ctx.drawImage(img, 0, 0, rect.width, rect.height); }; img.src = prev; }
+  }
+
+  function pushUndo() {
+    try { undoStack.push(pad.toDataURL()); if (undoStack.length > 16) undoStack.shift(); } catch (e) {}
+  }
+
+  function pos(e) {
+    var r = pad.getBoundingClientRect();
+    return { x: e.clientX - r.left, y: e.clientY - r.top };
+  }
+  function start(e) {
+    e.preventDefault();
+    state.drawing = true; var p = pos(e); state.lastX = p.x; state.lastY = p.y;
+    pushUndo();
+    // a dot for taps
+    ctx.beginPath(); ctx.fillStyle = state.erasing ? "#fff" : state.color;
+    ctx.arc(p.x, p.y, state.size / 2, 0, Math.PI * 2); ctx.fill();
+  }
+  function move(e) {
+    if (!state.drawing) return; e.preventDefault();
+    var p = pos(e);
+    ctx.strokeStyle = state.erasing ? "#fff" : state.color;
+    ctx.lineWidth = state.size * (e.pressure && e.pressure > 0 && e.pointerType === "pen" ? (0.4 + e.pressure) : 1);
+    ctx.beginPath(); ctx.moveTo(state.lastX, state.lastY); ctx.lineTo(p.x, p.y); ctx.stroke();
+    state.lastX = p.x; state.lastY = p.y;
+  }
+  function end() { state.drawing = false; }
+
+  pad.addEventListener("pointerdown", function (e) { pad.setPointerCapture(e.pointerId); start(e); });
+  pad.addEventListener("pointermove", move);
+  pad.addEventListener("pointerup", end);
+  pad.addEventListener("pointercancel", end);
+  pad.addEventListener("pointerleave", end);
+
+  // ---- tools ----
+  var sw = $("swatches");
+  COLORS.forEach(function (c, i) {
+    var b = document.createElement("button"); b.className = "sw" + (c === state.color ? " active" : "");
+    b.type = "button"; b.style.background = c; b.title = c;
+    b.addEventListener("click", function () { setColor(c); markSwatch(b); });
+    sw.appendChild(b);
+  });
+  function markSwatch(active) { Array.prototype.forEach.call(sw.children, function (x) { x.classList.toggle("active", x === active); }); }
+  function setColor(c) { state.color = c; state.erasing = false; $("brush").classList.add("active"); $("eraser").classList.remove("active"); $("picker").value = toHex(c); }
+  function toHex(c) { return /^#/.test(c) ? c : "#1b6fb3"; }
+  $("picker").addEventListener("input", function (e) { setColor(e.target.value); markSwatch(null); });
+  function setSize(v) { state.size = +v; $("sizedot").style.setProperty("--d", Math.max(4, Math.min(34, state.size)) + "px"); }
+  $("size").addEventListener("input", function (e) { setSize(e.target.value); });
+  $("brush").addEventListener("click", function () { state.erasing = false; $("brush").classList.add("active"); $("eraser").classList.remove("active"); });
+  $("eraser").addEventListener("click", function () { state.erasing = true; $("eraser").classList.add("active"); $("brush").classList.remove("active"); });
+  $("undo").addEventListener("click", function () {
+    if (!undoStack.length) return; var d = undoStack.pop();
+    var img = new Image(); img.onload = function () { var r = pad.getBoundingClientRect(); ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, r.width, r.height); ctx.drawImage(img, 0, 0, r.width, r.height); }; img.src = d;
+  });
+  $("clear").addEventListener("click", function () { pushUndo(); var r = pad.getBoundingClientRect(); ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, r.width, r.height); });
+
+  // ---- save / download ----
+  $("download").addEventListener("click", function () {
+    var a = document.createElement("a"); a.download = (($("artname").value || "painting").trim() || "painting") + ".png";
+    a.href = pad.toDataURL("image/png"); a.click();
+  });
+  $("save").addEventListener("click", function () {
+    var name = ($("artname").value || "Untitled").trim() || "Untitled";
+    var btn = $("save"); btn.disabled = true; var old = btn.textContent; btn.textContent = "Saving…";
+    fetch("/api/art", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: name, dataUrl: pad.toDataURL("image/png") }) })
+      .then(function (r) { if (!r.ok) throw new Error(); return r.json(); })
+      .then(function () { toast("Saved to the vault."); $("artname").value = ""; loadGallery(); })
+      .catch(function () { toast("Save failed — is the service reachable?"); })
+      .then(function () { btn.disabled = false; btn.textContent = old; });
+  });
+
+  // ---- gallery ----
+  function loadGallery() {
+    fetch("/api/art", { cache: "no-store" }).then(function (r) { return r.json(); }).then(function (items) {
+      var g = $("gallery"); g.innerHTML = "";
+      if (!items || !items.length) { g.innerHTML = '<div class="gallery-empty">No paintings yet — make something and Save to Vault.</div>'; return; }
+      items.forEach(function (it) {
+        var card = document.createElement("div"); card.className = "art";
+        var a = document.createElement("a"); a.href = "/art/" + it.id + ".png"; a.target = "_blank"; a.rel = "noopener";
+        var img = document.createElement("img"); img.loading = "lazy"; img.alt = it.name; img.src = "/art/" + it.id + ".png";
+        a.appendChild(img);
+        var plate = document.createElement("div"); plate.className = "plate"; plate.textContent = it.name;
+        var del = document.createElement("button"); del.className = "del"; del.type = "button"; del.title = "Remove"; del.textContent = "×";
+        del.addEventListener("click", function () { if (!confirm("Remove “" + it.name + "”?")) return;
+          fetch("/api/art/" + encodeURIComponent(it.id), { method: "DELETE" }).then(function () { loadGallery(); }); });
+        card.appendChild(a); card.appendChild(plate); card.appendChild(del);
+        g.appendChild(card);
+      });
+    }).catch(function () { $("gallery").innerHTML = '<div class="gallery-empty">Could not load the collection.</div>'; });
+  }
+
+  // ---- init ----
+  window.addEventListener("resize", function () { clearTimeout(window._rz); window._rz = setTimeout(fitCanvas, 200); });
+  fitCanvas(); setSize(state.size); loadGallery();
+</script>
+</body>
+</html>

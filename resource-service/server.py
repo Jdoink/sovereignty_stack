@@ -1,8 +1,11 @@
+import base64
 import hashlib
 import json
 import logging
 import os
+import re
 import time
+import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -34,6 +37,10 @@ THEATER_URL = os.getenv(
 VAULT_PAGE_URL = os.getenv(
     "VAULT_PAGE_URL",
     "https://raw.githubusercontent.com/Jdoink/sovereignty_stack/main/command-center-portal/vault.html",
+)
+STUDIO_URL = os.getenv(
+    "STUDIO_URL",
+    "https://raw.githubusercontent.com/Jdoink/sovereignty_stack/main/command-center-portal/studio.html",
 )
 
 http_client: Optional[httpx.AsyncClient] = None
@@ -116,6 +123,11 @@ async def portal() -> HTMLResponse:
 @app.get("/theater", response_class=HTMLResponse, include_in_schema=False)
 async def theater() -> HTMLResponse:
     return await _serve_page(THEATER_URL, "Media Theater")
+
+
+@app.get("/studio", response_class=HTMLResponse, include_in_schema=False)
+async def studio() -> HTMLResponse:
+    return await _serve_page(STUDIO_URL, "Art Studio")
 
 
 # === Resource Vault =========================================================
@@ -228,4 +240,90 @@ async def delete_from_vault(item_id: str) -> JSONResponse:
 @app.options("/api/vault")
 @app.options("/api/vault/{item_id}")
 async def vault_options(item_id: str = "") -> Response:
+    return Response(headers=CORS_HEADERS)
+
+
+# === Art Studio gallery =====================================================
+# Paintings are stored as PNG files on the Seagate (RESOURCE_DATA_PATH/art),
+# with an index.json of {id, name, created} — open formats, recoverable,
+# and the seed of the Family Archive (e.g. the kids' artwork).
+ART_DIR = Path(os.getenv("RESOURCE_DATA_PATH", "/data")) / "art"
+ART_DIR.mkdir(parents=True, exist_ok=True)
+ART_INDEX = ART_DIR / "index.json"
+MAX_ART = 1000
+MAX_ART_BYTES = 8 * 1024 * 1024  # 8 MB per painting
+_ID_RE = re.compile(r"^[a-f0-9]{8,32}$")
+
+app.mount("/art", StaticFiles(directory=str(ART_DIR)), name="art")
+
+
+def _read_art_index() -> List[Dict[str, Any]]:
+    try:
+        if ART_INDEX.exists():
+            data = json.loads(ART_INDEX.read_text())
+            if isinstance(data, list):
+                return data
+    except Exception:
+        logger.exception("failed to read art index")
+    return []
+
+
+def _write_art_index(items: List[Dict[str, Any]]) -> None:
+    tmp = ART_INDEX.with_suffix(".json.tmp")
+    tmp.write_text(json.dumps(items, indent=2))
+    tmp.replace(ART_INDEX)
+
+
+@app.get("/api/art")
+async def list_art() -> JSONResponse:
+    return JSONResponse(content=_read_art_index(), headers=CORS_HEADERS)
+
+
+@app.post("/api/art")
+async def save_art(payload: Any = Body(...)) -> JSONResponse:
+    if not isinstance(payload, dict):
+        raise HTTPException(status_code=400, detail="body must be an object")
+    name = str(payload.get("name", "Untitled")).strip()[:60] or "Untitled"
+    data_url = str(payload.get("dataUrl", ""))
+    prefix = "data:image/png;base64,"
+    if not data_url.startswith(prefix):
+        raise HTTPException(status_code=400, detail="dataUrl must be a base64 PNG")
+    try:
+        raw = base64.b64decode(data_url[len(prefix):], validate=True)
+    except Exception:
+        raise HTTPException(status_code=400, detail="invalid base64 image data")
+    if not raw.startswith(b"\x89PNG\r\n\x1a\n"):
+        raise HTTPException(status_code=400, detail="not a valid PNG")
+    if len(raw) > MAX_ART_BYTES:
+        raise HTTPException(status_code=413, detail="painting too large")
+    index = _read_art_index()
+    if len(index) >= MAX_ART:
+        raise HTTPException(status_code=409, detail=f"gallery is full ({MAX_ART})")
+    art_id = uuid.uuid4().hex[:16]
+    (ART_DIR / (art_id + ".png")).write_bytes(raw)
+    entry = {"id": art_id, "name": name, "created": int(time.time())}
+    index.insert(0, entry)
+    _write_art_index(index)
+    return JSONResponse(content={"ok": True, "item": entry, "count": len(index)}, headers=CORS_HEADERS)
+
+
+@app.delete("/api/art/{art_id}")
+async def delete_art(art_id: str) -> JSONResponse:
+    if not _ID_RE.match(art_id):
+        raise HTTPException(status_code=400, detail="bad id")
+    index = _read_art_index()
+    kept = [it for it in index if it.get("id") != art_id]
+    if len(kept) == len(index):
+        raise HTTPException(status_code=404, detail="not found")
+    try:
+        (ART_DIR / (art_id + ".png")).unlink(missing_ok=True)
+    except Exception:
+        logger.exception("failed to delete art file %s", art_id)
+    _write_art_index(kept)
+    return JSONResponse(content={"ok": True, "count": len(kept)}, headers=CORS_HEADERS)
+
+
+@app.options("/api/art")
+@app.options("/api/art/{art_id}")
+async def art_options(art_id: str = "") -> Response:
     return Response(headers=CORS_HEADERS)
