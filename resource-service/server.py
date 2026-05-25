@@ -11,6 +11,7 @@ import httpx
 from dotenv import load_dotenv
 from fastapi import Body, FastAPI, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
+from fastapi.staticfiles import StaticFiles
 
 load_dotenv()
 
@@ -56,6 +57,13 @@ app = FastAPI(
     description="Serves the Sovereign Resource Portal (and, later, the vault API + Media Theater).",
     lifespan=lifespan,
 )
+
+# Self-hosted classical fonts (Cinzel / Cormorant) for the Vault. The dir is
+# committed (with a README) so it always exists; until the font files are
+# dropped in, the pages fall back to a web-safe classical stack.
+FONTS_DIR = Path(__file__).resolve().parent / "fonts"
+FONTS_DIR.mkdir(parents=True, exist_ok=True)
+app.mount("/fonts", StaticFiles(directory=str(FONTS_DIR)), name="fonts")
 
 
 @app.get("/health")
