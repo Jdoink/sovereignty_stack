@@ -22,6 +22,10 @@ PORTAL_URL = os.getenv(
     "PORTAL_URL",
     "https://raw.githubusercontent.com/Jdoink/sovereignty_stack/main/command-center-portal/portal.html",
 )
+THEATER_URL = os.getenv(
+    "THEATER_URL",
+    "https://raw.githubusercontent.com/Jdoink/sovereignty_stack/main/command-center-portal/theater.html",
+)
 
 http_client: Optional[httpx.AsyncClient] = None
 
@@ -56,29 +60,38 @@ async def root() -> RedirectResponse:
     return RedirectResponse(url="/portal", status_code=302)
 
 
-@app.get("/portal", response_class=HTMLResponse, include_in_schema=False)
-async def portal() -> HTMLResponse:
-    """Serve the latest portal.html from GitHub main; fall back to a small
-    notice page if GitHub is unreachable."""
+async def _serve_page(url: str, label: str) -> HTMLResponse:
+    """Serve the latest page HTML from GitHub main; fall back to a small notice
+    page if GitHub is unreachable."""
     if http_client is not None:
         try:
-            r = await http_client.get(PORTAL_URL)
+            r = await http_client.get(url)
             if r.status_code == 200 and r.text:
                 return HTMLResponse(
                     content=r.text,
                     headers={"Cache-Control": "no-store, max-age=0"},
                 )
         except Exception:
-            logger.exception("failed to fetch portal from %s", PORTAL_URL)
+            logger.exception("failed to fetch %s from %s", label, url)
 
     fallback = (
         "<!doctype html><meta charset='utf-8'>"
-        "<title>Sovereign Resource Portal</title>"
+        f"<title>{label}</title>"
         "<body style='font-family:system-ui;background:#050816;color:#edfdf8;"
         "padding:24px'>"
-        "<h2 style='color:#86efac'>Resource Portal unavailable</h2>"
-        f"<p>Could not fetch the portal from <code>{PORTAL_URL}</code>.</p>"
+        f"<h2 style='color:#86efac'>{label} unavailable</h2>"
+        f"<p>Could not fetch the page from <code>{url}</code>.</p>"
         "<p>Check the Pi's network connection and try again.</p>"
         "</body>"
     )
     return HTMLResponse(content=fallback, status_code=503)
+
+
+@app.get("/portal", response_class=HTMLResponse, include_in_schema=False)
+async def portal() -> HTMLResponse:
+    return await _serve_page(PORTAL_URL, "Sovereign Resource Portal")
+
+
+@app.get("/theater", response_class=HTMLResponse, include_in_schema=False)
+async def theater() -> HTMLResponse:
+    return await _serve_page(THEATER_URL, "Media Theater")

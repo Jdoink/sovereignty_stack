@@ -15,9 +15,10 @@ to GitHub — no container rebuild required.
 
 | Method | Path      | Description |
 |--------|-----------|-------------|
-| `GET`  | `/`       | Redirects to `/portal` |
-| `GET`  | `/portal` | The Sovereign Resource Portal page (latest `command-center-portal/portal.html` from GitHub `main`, with an offline fallback notice) |
-| `GET`  | `/health` | Liveness check |
+| `GET`  | `/`        | Redirects to `/portal` |
+| `GET`  | `/portal`  | The Sovereign Resource Portal page (latest `command-center-portal/portal.html` from GitHub `main`, with an offline fallback notice) |
+| `GET`  | `/theater` | The Media Theater page (latest `command-center-portal/theater.html` from GitHub `main`) |
+| `GET`  | `/health`  | Liveness check |
 
 ## V1 features
 
@@ -31,13 +32,26 @@ to GitHub — no container rebuild required.
 - **Safety banner** — FMHY is framed as a reference directory only; legal /
   public-domain / open-source resources are prioritized.
 
-## Roadmap (not in V1)
+## Media Theater (`/theater`)
 
-- **V2 — Media Theater**: Internet Archive search/browse + in-page player,
-  fullscreen, reusing the radio's archive.org resolution.
-- **V3 — Resource Vault**: `RESOURCE_DATA_PATH` JSON (read + write "Add to
-  Vault"), link-health checks, and truthful downloaded/backed-up status by
-  inspecting the external drive.
+Internet Archive search + in-page playback. Type a query (or pick a preset),
+toggle Video / Audio, and tap a result to play it — resolved entirely
+client-side via archive.org's public API (`advancedsearch.php` →
+`metadata/<id>` → `download/<id>/<file>`, the same flow the radio uses), so no
+API key or backend proxy is needed. Picks the best web-playable container
+(MP4/WebM/OGV for video, MP3/OGG for audio), has a fullscreen button, links each
+item back to archive.org, and includes an "advanced" direct-URL player as a
+fallback. Legal-by-construction: only public-domain / Creative-Commons archive
+content and user-supplied direct URLs.
+
+> The Grafana iframe embedding `/theater` should include `allow="fullscreen"`
+> so the fullscreen button works inside the panel.
+
+## Roadmap (not yet built)
+
+- **Resource Vault**: `RESOURCE_DATA_PATH` JSON (read + write "Add to Vault"),
+  link-health checks, and truthful downloaded/backed-up status by inspecting the
+  external drive. Save-to-vault hooks from both the Portal and the Theater.
 
 ## Run locally
 
