@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Media Theater</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg1: #050609; --line: rgba(148,163,184,0.18);
+    --amber: #fbbf24; --red: #f87171; --cyan: #5eead4; --green: #34d399;
+    --text: #f4f6f8; --dim: #94a3b8;
+  }
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background:
+      radial-gradient(circle at top left, rgba(248,113,113,0.14), transparent 32%),
+      radial-gradient(circle at bottom right, rgba(59,130,246,0.14), transparent 32%),
+      linear-gradient(135deg, #050609, #0a0d14 55%, #11151f);
+    min-height: 100vh; color: var(--text);
+    font-family: Inter, system-ui, Arial, sans-serif; -webkit-font-smoothing: antialiased;
+  }
+  .theater { max-width: 1180px; margin: 0 auto; padding: 18px; }
+
+  .t-header { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; margin-bottom: 12px; }
+  .t-kicker { font-size: 11px; letter-spacing: 0.18em; color: var(--red); font-weight: 800; }
+  .t-title { font-size: 26px; line-height: 1.1; font-weight: 950; margin-top: 4px; }
+  .t-sub { font-size: 13px; color: var(--dim); margin-top: 6px; max-width: 720px; }
+  .t-statusbar { display: grid; gap: 6px; justify-items: end; font-size: 11px; letter-spacing: 0.08em; white-space: nowrap; }
+  .chip { border: 1px solid rgba(248,113,113,0.30); background: rgba(15,23,42,0.7); color: #fecaca;
+          border-radius: 999px; padding: 5px 11px; font-weight: 800; display: inline-flex; align-items: center; gap: 7px; }
+  .chip a { color: inherit; text-decoration: none; }
+  .led { width: 8px; height: 8px; border-radius: 50%; background: var(--red); box-shadow: 0 0 8px var(--red); animation: pulse 2s ease-in-out infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
+  .mono { color: #c7d0da; font-variant-numeric: tabular-nums; }
+
+  .t-warning { border: 1px solid rgba(251,191,36,0.42); background: rgba(120,53,15,0.22);
+    color: #fde68a; border-radius: 14px; padding: 9px 12px; font-size: 12.5px; margin-bottom: 14px; }
+
+  /* player */
+  .player-shell { position: relative; background: #000; border: 1px solid var(--line);
+    border-radius: 16px; overflow: hidden; aspect-ratio: 16 / 9; margin-bottom: 10px;
+    display: flex; align-items: center; justify-content: center; }
+  .player-shell video { width: 100%; height: 100%; background: #000; display: block; }
+  .player-idle { position: absolute; inset: 0; display: flex; flex-direction: column; gap: 6px;
+    align-items: center; justify-content: center; color: var(--dim); text-align: center; padding: 20px; pointer-events: none; }
+  .player-idle .big { font-size: 15px; font-weight: 800; letter-spacing: 0.1em; color: #cbd5e1; }
+  .player-idle .small { font-size: 12px; }
+
+  .now-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+  .now-title { flex: 1 1 240px; font-size: 13px; font-weight: 800; color: #e5e7eb; min-width: 0;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .now-title .src { color: var(--dim); font-weight: 600; }
+
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    border: 1px solid rgba(248,113,113,0.28); background: linear-gradient(180deg, rgba(30,41,59,0.95), rgba(15,23,42,0.95));
+    color: #e5e7eb; border-radius: 11px; padding: 9px 13px; font-size: 12px; font-weight: 850;
+    cursor: pointer; text-decoration: none; transition: transform 0.12s, border-color 0.12s, background 0.12s; }
+  .btn:hover { transform: translateY(-1px); border-color: rgba(252,165,165,0.75);
+    background: linear-gradient(180deg, rgba(185,28,28,0.6), rgba(127,29,29,0.6)); }
+  .btn.primary { background: linear-gradient(180deg, #dc2626, #991b1b); border-color: rgba(252,165,165,0.6); }
+  .btn.ghost { background: transparent; }
+  .btn[disabled] { opacity: 0.4; pointer-events: none; }
+
+  /* search */
+  .t-search { background: rgba(15,23,42,0.7); border: 1px solid rgba(248,113,113,0.24);
+    border-radius: 16px; padding: 13px; margin-bottom: 14px; }
+  .search-row { display: grid; grid-template-columns: 1fr auto auto; gap: 9px; }
+  .search-input { width: 100%; box-sizing: border-box; background: rgba(2,6,12,0.92); color: #e5e7eb;
+    border: 1px solid rgba(248,113,113,0.30); border-radius: 11px; padding: 11px 13px; outline: none; font-size: 15px; }
+  .search-input:focus { border-color: rgba(252,165,165,0.8); }
+  .seg { display: inline-flex; border: 1px solid rgba(248,113,113,0.28); border-radius: 11px; overflow: hidden; }
+  .seg button { background: transparent; color: var(--dim); border: 0; padding: 0 14px; font-weight: 850;
+    font-size: 12px; cursor: pointer; }
+  .seg button.active { background: rgba(220,38,38,0.85); color: #fff; }
+  .preset-row { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 10px; }
+  .preset { font-size: 11px; font-weight: 800; color: #cbd5e1; border: 1px solid var(--line);
+    background: rgba(30,41,59,0.6); border-radius: 999px; padding: 5px 11px; cursor: pointer; }
+  .preset:hover { border-color: rgba(252,165,165,0.6); color: #fff; }
+
+  .results-note { font-size: 12px; color: var(--dim); margin: 4px 2px 10px; min-height: 16px; }
+  .results { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 10px; }
+  .rcard { border: 1px solid var(--line); background: rgba(15,23,42,0.6); border-radius: 12px;
+    overflow: hidden; cursor: pointer; transition: transform 0.12s, border-color 0.12s; display: flex; flex-direction: column; }
+  .rcard:hover { transform: translateY(-2px); border-color: rgba(252,165,165,0.55); }
+  .rthumb { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; background: #0a0d14; display: block; }
+  .rmeta { padding: 8px 9px; }
+  .rtitle { font-size: 12px; font-weight: 800; line-height: 1.25; max-height: 2.5em; overflow: hidden; }
+  .rcreator { font-size: 10.5px; color: var(--dim); margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  details.advanced { margin-top: 14px; border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; background: rgba(15,23,42,0.5); }
+  details.advanced summary { cursor: pointer; font-size: 12px; font-weight: 800; color: var(--dim); letter-spacing: 0.05em; }
+  .adv-row { display: grid; grid-template-columns: 1fr auto; gap: 9px; margin-top: 10px; }
+
+  .t-footer { margin-top: 14px; padding-top: 10px; border-top: 1px solid rgba(148,163,184,0.14);
+    font-size: 10.5px; letter-spacing: 0.1em; color: #5b7184; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+
+  @media (max-width: 900px) {
+    .results { grid-template-columns: repeat(2, minmax(0,1fr)); }
+    .search-row { grid-template-columns: 1fr; }
+    .t-header { flex-direction: column; }
+    .t-statusbar { justify-items: start; }
+  }
+</style>
+</head>
+<body>
+<div class="theater">
+  <div class="t-header">
+    <div>
+      <div class="t-kicker">PRIVATE COMMAND CENTER // MEDIA LAYER</div>
+      <div class="t-title">MEDIA THEATER</div>
+      <div class="t-sub">Search and play public-domain &amp; Creative-Commons media straight from the Internet Archive — or paste a direct legal media URL.</div>
+    </div>
+    <div class="t-statusbar">
+      <span class="chip"><span class="led"></span> LEGAL / LOCAL MODE</span>
+      <span class="chip"><a href="/portal">&#8592; RESOURCE PORTAL</a></span>
+      <span class="chip"><span class="mono" id="clock">--:--:--</span></span>
+    </div>
+  </div>
+
+  <div class="t-warning">
+    Plays public-domain, Creative-Commons, and openly-licensed media from the Internet Archive. Verify an item's license before downloading or reusing. Do not use this for unauthorized copyrighted streaming.
+  </div>
+
+  <div class="player-shell" id="player-shell">
+    <video id="player" controls playsinline preload="metadata"></video>
+    <div class="player-idle" id="player-idle">
+      <div class="big">NO SIGNAL</div>
+      <div class="small">Search the archive below, or paste a direct media URL, to begin playback.</div>
+    </div>
+  </div>
+
+  <div class="now-bar">
+    <div class="now-title" id="now-title"><span class="src">Awaiting selection…</span></div>
+    <a class="btn ghost" id="open-archive" target="_blank" rel="noopener noreferrer" style="display:none">View on archive.org &#8599;</a>
+    <button class="btn" id="fullscreen-btn" type="button">&#9974; Fullscreen</button>
+  </div>
+
+  <div class="t-search">
+    <div class="search-row">
+      <input id="search-input" class="search-input" type="search" autocomplete="off" spellcheck="false"
+             placeholder="Search the Internet Archive (e.g. Charlie Chaplin, Nosferatu, NASA)..." />
+      <div class="seg" id="media-seg">
+        <button type="button" data-media="movies" class="active">VIDEO</button>
+        <button type="button" data-media="audio">AUDIO</button>
+      </div>
+      <button id="search-btn" class="btn primary" type="button">Search</button>
+    </div>
+    <div class="preset-row" id="preset-row"></div>
+  </div>
+
+  <div class="results-note" id="results-note">Try a preset above, or search for anything in the public domain.</div>
+  <div class="results" id="results"></div>
+
+  <details class="advanced">
+    <summary>Advanced — play a direct media URL (MP4 / WebM / MP3)</summary>
+    <div class="adv-row">
+      <input id="direct-input" class="search-input" type="url" autocomplete="off" spellcheck="false"
+             placeholder="https://… direct link to a legal .mp4 / .webm / .mp3 file" />
+      <button id="direct-btn" class="btn" type="button">Load URL</button>
+    </div>
+  </details>
+
+  <div class="t-footer">
+    <span>SOVEREIGNTY STACK · MEDIA THEATER · powered by archive.org</span>
+    <span id="footer-status">READY</span>
+  </div>
+</div>
+
+<script>
+  var IA = "https://archive.org";
+  // Web-playable container formats, ranked best-first per media type.
+  var VIDEO_EXT = [".mp4", ".m4v", ".webm", ".ogv", ".ogg"];
+  var AUDIO_EXT = [".mp3", ".ogg", ".oga", ".m4a"];
+
+  var PRESETS = {
+    movies: [
+      { label: "Classic Cartoons", q: 'subject:(cartoon) OR collection:(classic_cartoons)' },
+      { label: "Sci-Fi & Horror", q: 'collection:(SciFi_Horror)' },
+      { label: "Charlie Chaplin", q: 'Charlie Chaplin' },
+      { label: "Nosferatu", q: 'Nosferatu' },
+      { label: "NASA Films", q: 'collection:(nasa) mediatype:(movies)' },
+      { label: "Newsreels", q: 'collection:(newsandpublicaffairs) OR subject:(newsreel)' }
+    ],
+    audio: [
+      { label: "Live Music Archive", q: 'collection:(etree)' },
+      { label: "Old Time Radio", q: 'collection:(oldtimeradio)' },
+      { label: "Classical 78s", q: 'collection:(78rpm) mozart OR bach OR beethoven' },
+      { label: "Jazz", q: 'subject:(jazz) mediatype:(audio)' },
+      { label: "Audiobooks", q: 'collection:(librivoxaudio)' }
+    ]
+  };
+
+  var $ = function (id) { return document.getElementById(id); };
+  var player = $("player"), idle = $("player-idle");
+  var resultsEl = $("results"), note = $("results-note");
+  var searchInput = $("search-input"), footStatus = $("footer-status");
+  var nowTitle = $("now-title"), openArchive = $("open-archive");
+  var media = "movies";
+
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+  function setNote(t) { note.textContent = t; }
+  function setFoot(t) { footStatus.textContent = t; }
+
+  // ---- presets ----
+  function renderPresets() {
+    var row = $("preset-row"); row.innerHTML = "";
+    PRESETS[media].forEach(function (p) {
+      var b = document.createElement("button");
+      b.className = "preset"; b.type = "button"; b.textContent = p.label;
+      b.addEventListener("click", function () { searchInput.value = p.label; runSearch(p.q); });
+      row.appendChild(b);
+    });
+  }
+
+  // ---- media-type segmented control ----
+  Array.prototype.forEach.call($("media-seg").children, function (btn) {
+    btn.addEventListener("click", function () {
+      media = btn.dataset.media;
+      Array.prototype.forEach.call($("media-seg").children, function (b) { b.classList.toggle("active", b === btn); });
+      renderPresets();
+      resultsEl.innerHTML = ""; setNote("Search " + (media === "audio" ? "audio" : "video") + " in the public domain, or pick a preset.");
+    });
+  });
+
+  // ---- search ----
+  function runSearch(rawQuery) {
+    var q = (rawQuery != null ? rawQuery : searchInput.value || "").trim();
+    if (!q) { setNote("Type something to search for."); return; }
+    var full = "(" + q + ") AND mediatype:(" + media + ")";
+    var url = IA + "/advancedsearch.php?q=" + encodeURIComponent(full) +
+      "&fl%5B%5D=identifier&fl%5B%5D=title&fl%5B%5D=creator&fl%5B%5D=year" +
+      "&rows=24&page=1&output=json&sort%5B%5D=downloads+desc";
+    resultsEl.innerHTML = ""; setNote("Searching…"); setFoot("SEARCHING");
+    fetch(url, { cache: "no-store" })
+      .then(function (r) { if (!r.ok) throw new Error("search " + r.status); return r.json(); })
+      .then(function (j) {
+        var docs = (j && j.response && j.response.docs) || [];
+        if (!docs.length) { setNote('No results for "' + q + '". Try different words.'); setFoot("READY"); return; }
+        renderResults(docs); setNote(docs.length + " results — tap one to play."); setFoot("READY");
+      })
+      .catch(function (e) { setNote("Search failed: " + e.message + " (archive.org may be unreachable)."); setFoot("ERROR"); });
+  }
+
+  function renderResults(docs) {
+    resultsEl.innerHTML = "";
+    docs.forEach(function (d) {
+      if (!d.identifier) return;
+      var card = document.createElement("div");
+      card.className = "rcard";
+      var creator = Array.isArray(d.creator) ? d.creator[0] : d.creator;
+      card.innerHTML =
+        '<img class="rthumb" loading="lazy" alt="" src="' + IA + '/services/img/' + encodeURIComponent(d.identifier) + '">' +
+        '<div class="rmeta"><div class="rtitle">' + esc(d.title || d.identifier) + '</div>' +
+        '<div class="rcreator">' + esc([creator, d.year].filter(Boolean).join(" · ")) + '</div></div>';
+      card.addEventListener("click", function () { loadItem(d.identifier, d.title || d.identifier); });
+      resultsEl.appendChild(card);
+    });
+  }
+
+  // ---- resolve + play an archive.org item ----
+  function pickFile(files) {
+    var exts = media === "audio" ? AUDIO_EXT : VIDEO_EXT;
+    var playable = files.filter(function (f) {
+      var n = (f.name || "").toLowerCase();
+      return exts.some(function (e) { return n.endsWith(e); });
+    });
+    if (!playable.length) return null;
+    function rank(f) {
+      var n = f.name.toLowerCase();
+      for (var i = 0; i < exts.length; i++) { if (n.endsWith(exts[i])) return i; }
+      return exts.length;
+    }
+    playable.sort(function (a, b) { return rank(a) - rank(b); });
+    return playable[0];
+  }
+
+  function loadItem(identifier, title) {
+    setFoot("RESOLVING"); setNote("Loading “" + title + "”…");
+    fetch(IA + "/metadata/" + encodeURIComponent(identifier), { cache: "no-store" })
+      .then(function (r) { if (!r.ok) throw new Error("metadata " + r.status); return r.json(); })
+      .then(function (m) {
+        var file = pickFile((m && m.files) || []);
+        if (!file) throw new Error("no web-playable file in this item");
+        var src = IA + "/download/" + encodeURIComponent(identifier) + "/" + encodeURIComponent(file.name);
+        playUrl(src, title, IA + "/details/" + encodeURIComponent(identifier));
+        setNote("Now playing from archive.org/" + identifier);
+        setFoot("PLAYING");
+      })
+      .catch(function (e) { setNote("Could not play this item: " + e.message + "."); setFoot("ERROR"); });
+  }
+
+  function playUrl(src, title, archiveUrl) {
+    idle.style.display = "none";
+    player.src = src; player.load();
+    var p = player.play(); if (p && p.catch) p.catch(function () {});
+    nowTitle.innerHTML = esc(title) + ' <span class="src">· ' + (media === "audio" ? "audio" : "video") + '</span>';
+    if (archiveUrl) { openArchive.href = archiveUrl; openArchive.style.display = ""; }
+    else { openArchive.style.display = "none"; }
+  }
+
+  // ---- fullscreen ----
+  $("fullscreen-btn").addEventListener("click", function () {
+    var shell = $("player-shell");
+    if (!document.fullscreenElement) {
+      (shell.requestFullscreen || shell.webkitRequestFullscreen || function () {}).call(shell);
+    } else {
+      (document.exitFullscreen || document.webkitExitFullscreen || function () {}).call(document);
+    }
+  });
+
+  // ---- direct URL ----
+  $("direct-btn").addEventListener("click", function () {
+    var url = ($("direct-input").value || "").trim();
+    if (!/^https?:\/\//i.test(url)) { setNote("Enter a full http(s) URL to a direct media file."); return; }
+    playUrl(url, url.split("/").pop() || "Direct URL", null);
+    setNote("Playing direct URL."); setFoot("PLAYING");
+  });
+
+  // ---- wire up search ----
+  $("search-btn").addEventListener("click", function () { runSearch(); });
+  searchInput.addEventListener("keydown", function (e) { if (e.key === "Enter") runSearch(); });
+
+  // ---- clock ----
+  function tick() {
+    var d = new Date(), p = function (n) { return String(n).padStart(2, "0"); };
+    $("clock").textContent = p(d.getHours()) + ":" + p(d.getMinutes()) + ":" + p(d.getSeconds());
+  }
+  tick(); setInterval(tick, 1000);
+
+  renderPresets();
+</script>
+</body>
+</html>

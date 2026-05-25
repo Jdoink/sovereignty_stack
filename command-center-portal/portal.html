@@ -53,6 +53,9 @@
          box-shadow: 0 0 8px var(--pd); animation: pulse 2s ease-in-out infinite; }
   @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
   .stat-mono { color: #93c5b8; font-variant-numeric: tabular-nums; }
+  .stat-link { text-decoration: none; color: #bbf7d0; border-color: rgba(248,113,113,0.4);
+    background: rgba(127,29,29,0.25); transition: border-color 0.12s, background 0.12s; }
+  .stat-link:hover { border-color: rgba(252,165,165,0.8); background: rgba(185,28,28,0.4); color: #fff; }
 
   .portal-warning {
     border: 1px solid rgba(251, 191, 36, 0.42);
@@ -164,6 +167,7 @@
       </div>
     </div>
     <div class="portal-statusbar">
+      <a class="stat-chip stat-link" href="/theater">MEDIA THEATER &#8594;</a>
       <span class="stat-chip"><span class="led"></span> CURATED MODE</span>
       <span class="stat-chip"><span class="stat-mono" id="stat-count">--</span> RESOURCES</span>
       <span class="stat-chip"><span class="stat-mono" id="stat-clock">--:--:--</span></span>

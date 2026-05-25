@@ -18,4 +18,5 @@ services:
       # Where the latest portal.html is fetched from. Default points at this
       # repo's main branch so "push, no rebuild" works.
       - PORTAL_URL=https://raw.githubusercontent.com/Jdoink/sovereignty_stack/main/command-center-portal/portal.html
+      - THEATER_URL=https://raw.githubusercontent.com/Jdoink/sovereignty_stack/main/command-center-portal/theater.html
     command: uvicorn server:app --host 0.0.0.0 --port 8789
