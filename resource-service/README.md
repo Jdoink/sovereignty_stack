@@ -17,7 +17,10 @@ to GitHub — no container rebuild required.
 |--------|-----------|-------------|
 | `GET`  | `/`        | Redirects to `/portal` |
 | `GET`  | `/portal`  | The Sovereign Resource Portal page (latest `command-center-portal/portal.html` from GitHub `main`, with an offline fallback notice) |
-| `GET`  | `/theater` | The Media Theater page (latest `command-center-portal/theater.html` from GitHub `main`) |
+| `GET`  | `/theater` | The Media Theater page — your saved Library + player + archive search |
+| `GET`  | `/api/vault` | List saved resources (the Library) |
+| `POST` | `/api/vault` | Save a resource (deduped by URL / archive.org identifier) |
+| `DELETE` | `/api/vault/{id}` | Remove a saved resource |
 | `GET`  | `/health`  | Liveness check |
 
 ## V1 features
@@ -32,26 +35,48 @@ to GitHub — no container rebuild required.
 - **Safety banner** — FMHY is framed as a reference directory only; legal /
   public-domain / open-source resources are prioritized.
 
+## Resource Vault (the Library)
+
+Saved resources persist in a flat JSON array at `RESOURCE_DATA_PATH/vault.json`
+on the Seagate (same pattern as the radio library), so the Library survives
+container rebuilds and is shared across every device on the LAN/tailnet. Items
+are deduped by archive.org identifier or URL, capped at 2000, and size-limited
+per field. Anything can be saved — links *or* media:
+
+| `type` | meaning | Library action |
+|--------|---------|----------------|
+| `link` | a resource URL (book, tool, docs) | **Open ↗** |
+| `media-archive` | an archive.org item (has `identifier` + `media`) | **▶ Play** (resolved on demand) |
+| `media-direct` | a direct media file URL | **▶ Play** |
+
+The **Portal** writes `link` items via the `+` on each tile; the **Theater**'s
+Find & Add tab writes `media-archive` items from search results (and
+`media-direct` from the advanced URL box).
+
 ## Media Theater (`/theater`)
 
-Internet Archive search + in-page playback. Type a query (or pick a preset),
-toggle Video / Audio, and tap a result to play it — resolved entirely
-client-side via archive.org's public API (`advancedsearch.php` →
-`metadata/<id>` → `download/<id>/<file>`, the same flow the radio uses), so no
-API key or backend proxy is needed. Picks the best web-playable container
-(MP4/WebM/OGV for video, MP3/OGG for audio), has a fullscreen button, links each
-item back to archive.org, and includes an "advanced" direct-URL player as a
-fallback. Legal-by-construction: only public-domain / Creative-Commons archive
-content and user-supplied direct URLs.
+Now a two-tab page:
+
+- **My Library** — your saved resources (`GET /api/vault`), filterable by
+  All / Video / Audio / Links, each with Play or Open + Remove.
+- **Find & Add** — Internet Archive search + in-page playback, resolved
+  client-side via archive.org's public API (`advancedsearch.php` →
+  `metadata/<id>` → `download/<id>/<file>`, the same flow the radio uses — no API
+  key, no proxy). Tap a result to play; tap `+` to save it to the Library. Picks
+  the best web-playable container (MP4/WebM/OGV for video, MP3/OGG for audio),
+  with a fullscreen button and an advanced direct-URL play/save box.
+
+Legal-by-construction: only public-domain / Creative-Commons archive content and
+user-supplied URLs.
 
 > The Grafana iframe embedding `/theater` should include `allow="fullscreen"`
 > so the fullscreen button works inside the panel.
 
 ## Roadmap (not yet built)
 
-- **Resource Vault**: `RESOURCE_DATA_PATH` JSON (read + write "Add to Vault"),
-  link-health checks, and truthful downloaded/backed-up status by inspecting the
-  external drive. Save-to-vault hooks from both the Portal and the Theater.
+- Link-health checks (flag dead saved links) and truthful downloaded/backed-up
+  status by inspecting the external drive.
+- Notes / tags / "legacy" flag on saved items.
 
 ## Run locally
 
