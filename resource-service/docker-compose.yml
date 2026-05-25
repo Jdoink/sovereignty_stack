@@ -19,4 +19,5 @@ services:
       # repo's main branch so "push, no rebuild" works.
       - PORTAL_URL=https://raw.githubusercontent.com/Jdoink/sovereignty_stack/main/command-center-portal/portal.html
       - THEATER_URL=https://raw.githubusercontent.com/Jdoink/sovereignty_stack/main/command-center-portal/theater.html
+      - VAULT_PAGE_URL=https://raw.githubusercontent.com/Jdoink/sovereignty_stack/main/command-center-portal/vault.html
     command: uvicorn server:app --host 0.0.0.0 --port 8789

@@ -30,6 +30,10 @@ THEATER_URL = os.getenv(
     "THEATER_URL",
     "https://raw.githubusercontent.com/Jdoink/sovereignty_stack/main/command-center-portal/theater.html",
 )
+VAULT_PAGE_URL = os.getenv(
+    "VAULT_PAGE_URL",
+    "https://raw.githubusercontent.com/Jdoink/sovereignty_stack/main/command-center-portal/vault.html",
+)
 
 http_client: Optional[httpx.AsyncClient] = None
 
@@ -61,7 +65,12 @@ async def health() -> dict:
 
 @app.get("/", include_in_schema=False)
 async def root() -> RedirectResponse:
-    return RedirectResponse(url="/portal", status_code=302)
+    return RedirectResponse(url="/vault", status_code=302)
+
+
+@app.get("/vault", response_class=HTMLResponse, include_in_schema=False)
+async def vault_page() -> HTMLResponse:
+    return await _serve_page(VAULT_PAGE_URL, "The Vault")
 
 
 async def _serve_page(url: str, label: str) -> HTMLResponse:
