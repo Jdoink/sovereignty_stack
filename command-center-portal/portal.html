@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Sovereign Resource Portal</title>
+<style>
+  :root { color-scheme: dark; }
+  *, *::before, *::after { box-sizing: border-box; }
+
+  html, body { margin: 0; padding: 0; }
+
+  body {
+    background:
+      radial-gradient(circle at top left, rgba(16, 185, 129, 0.16), transparent 30%),
+      radial-gradient(circle at bottom right, rgba(59, 130, 246, 0.13), transparent 30%),
+      linear-gradient(135deg, #050816, #0b1020 55%, #111827);
+    min-height: 100vh;
+    color: #edfdf8;
+    font-family: Inter, system-ui, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .resource-portal { max-width: 1100px; margin: 0 auto; padding: 18px; }
+
+  .portal-header {
+    display: flex;
+    justify-content: space-between;
+    gap: 14px;
+    align-items: flex-start;
+    margin-bottom: 12px;
+  }
+  .portal-kicker {
+    font-size: 11px; letter-spacing: 0.16em; color: #86efac;
+    opacity: 0.9; font-weight: 800;
+  }
+  .portal-title { font-size: 25px; line-height: 1.1; font-weight: 950; margin-top: 4px; }
+  .portal-subtitle { font-size: 13px; color: #cbd5e1; margin-top: 6px; max-width: 900px; }
+  .portal-status {
+    border: 1px solid rgba(34, 197, 94, 0.45);
+    background: rgba(22, 101, 52, 0.20);
+    color: #bbf7d0; border-radius: 999px; padding: 7px 10px;
+    font-size: 11px; font-weight: 900; white-space: nowrap;
+  }
+
+  .portal-warning {
+    border: 1px solid rgba(251, 191, 36, 0.42);
+    background: rgba(120, 53, 15, 0.22);
+    color: #fde68a; border-radius: 14px; padding: 10px 12px;
+    font-size: 13px; margin-bottom: 14px;
+  }
+
+  /* ---- Federated search ---- */
+  .portal-search {
+    background: rgba(15, 23, 42, 0.74);
+    border: 1px solid rgba(52, 211, 153, 0.30);
+    border-radius: 16px; padding: 13px; margin-bottom: 14px;
+    box-shadow: inset 0 0 22px rgba(16, 185, 129, 0.05);
+  }
+  .search-input {
+    width: 100%; box-sizing: border-box;
+    background: rgba(2, 6, 23, 0.92); color: #e5e7eb;
+    border: 1px solid rgba(52, 211, 153, 0.32);
+    border-radius: 12px; padding: 12px; outline: none; font-size: 15px;
+  }
+  .search-input:focus { border-color: rgba(134, 239, 172, 0.75); }
+  .search-hint { font-size: 11px; color: #94a3b8; margin: 8px 2px 9px; }
+  .search-grid {
+    display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px;
+  }
+
+  .portal-grid {
+    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px;
+  }
+  .portal-card {
+    background: rgba(15, 23, 42, 0.74);
+    border: 1px solid rgba(148, 163, 184, 0.18);
+    border-radius: 16px; padding: 13px;
+  }
+  .portal-wide { grid-column: span 2; }
+  .card-title {
+    color: #86efac; text-transform: uppercase; font-size: 11px;
+    letter-spacing: 0.12em; font-weight: 900; margin-bottom: 9px;
+  }
+  .button-grid {
+    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px;
+  }
+
+  .portal-button {
+    display: flex; align-items: center; justify-content: center;
+    min-height: 38px; text-align: center; text-decoration: none;
+    border: 1px solid rgba(52, 211, 153, 0.24);
+    background: linear-gradient(180deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.95));
+    color: #e5e7eb; border-radius: 12px; padding: 8px 9px;
+    font-size: 12px; font-weight: 850; cursor: pointer;
+    transition: transform 0.12s ease, border-color 0.12s ease, background 0.12s ease;
+  }
+  .portal-button:hover {
+    transform: translateY(-1px);
+    border-color: rgba(134, 239, 172, 0.72);
+    background: linear-gradient(180deg, rgba(5, 150, 105, 0.72), rgba(6, 95, 70, 0.72));
+  }
+  .portal-button.primary {
+    background: linear-gradient(180deg, #059669, #047857);
+    border-color: rgba(134, 239, 172, 0.58);
+  }
+  .portal-button.disabled {
+    opacity: 0.45; pointer-events: none; filter: grayscale(0.4);
+  }
+
+  .archive-steps {
+    display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px 12px; color: #d1fae5; font-size: 13px; line-height: 1.35;
+  }
+
+  @media (max-width: 900px) {
+    .portal-grid, .button-grid, .archive-steps, .search-grid {
+      grid-template-columns: 1fr;
+    }
+    .portal-wide { grid-column: span 1; }
+    .portal-header { flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+<div class="resource-portal">
+  <div class="portal-header">
+    <div>
+      <div class="portal-kicker">PRIVATE COMMAND CENTER</div>
+      <div class="portal-title">SOVEREIGN RESOURCE PORTAL</div>
+      <div class="portal-subtitle">
+        Curated launchpad for free media, public-domain archives, learning, privacy, self-hosting, AI, and Web3 resources.
+      </div>
+    </div>
+    <div class="portal-status">CURATED MODE</div>
+  </div>
+
+  <div class="portal-warning">
+    Use FMHY as a reference directory only. Prioritize legal, public-domain, open-source, educational, and trusted resources. Do not enter secrets, install unknown executables, or automate questionable downloads.
+  </div>
+
+  <!-- Federated search: type once, jump to the right trusted source -->
+  <div class="portal-search">
+    <div class="card-title">Search Trusted Sources</div>
+    <input id="search-input" class="search-input" type="search" autocomplete="off"
+           spellcheck="false" placeholder="Search books, audio, code, knowledge..." />
+    <div class="search-hint">Type a term, then open it on a trusted source (new tab).</div>
+    <div class="search-grid" id="search-grid"></div>
+  </div>
+
+  <div class="portal-grid">
+
+    <div class="portal-card">
+      <div class="card-title">FMHY Index</div>
+      <div class="button-grid">
+        <a class="portal-button primary" href="https://fmhy.net/" target="_blank" rel="noopener noreferrer">FMHY Home</a>
+        <a class="portal-button" href="https://fmhy.net/posts/search" target="_blank" rel="noopener noreferrer">FMHY Search</a>
+        <a class="portal-button" href="https://fmhy.net/other/backups" target="_blank" rel="noopener noreferrer">Backups</a>
+        <a class="portal-button" href="https://fmhy.net/internet-tools" target="_blank" rel="noopener noreferrer">Internet Tools</a>
+        <a class="portal-button" href="https://fmhy.net/educational" target="_blank" rel="noopener noreferrer">Educational</a>
+      </div>
+    </div>
+
+    <div class="portal-card">
+      <div class="card-title">Music / Audio</div>
+      <div class="button-grid">
+        <a class="portal-button primary" href="https://archive.org/details/audio" target="_blank" rel="noopener noreferrer">Archive Audio</a>
+        <a class="portal-button" href="https://freemusicarchive.org/" target="_blank" rel="noopener noreferrer">Free Music Archive</a>
+        <a class="portal-button" href="https://somafm.com/" target="_blank" rel="noopener noreferrer">SomaFM</a>
+        <a class="portal-button" href="https://www.jamendo.com/" target="_blank" rel="noopener noreferrer">Jamendo</a>
+        <a class="portal-button" href="http://192.168.1.189:4533" target="_blank" rel="noopener noreferrer">Navidrome</a>
+      </div>
+    </div>
+
+    <div class="portal-card">
+      <div class="card-title">Books / Reading</div>
+      <div class="button-grid">
+        <a class="portal-button primary" href="https://www.gutenberg.org/" target="_blank" rel="noopener noreferrer">Gutenberg</a>
+        <a class="portal-button" href="https://standardebooks.org/" target="_blank" rel="noopener noreferrer">Standard Ebooks</a>
+        <a class="portal-button" href="https://openlibrary.org/" target="_blank" rel="noopener noreferrer">Open Library</a>
+        <a class="portal-button" href="https://archive.org/details/texts" target="_blank" rel="noopener noreferrer">Archive Texts</a>
+        <a class="portal-button" href="https://www.loc.gov/collections/" target="_blank" rel="noopener noreferrer">Library of Congress</a>
+      </div>
+    </div>
+
+    <div class="portal-card">
+      <div class="card-title">Learning / Courses</div>
+      <div class="button-grid">
+        <a class="portal-button primary" href="https://ocw.mit.edu/" target="_blank" rel="noopener noreferrer">MIT OCW</a>
+        <a class="portal-button" href="https://www.khanacademy.org/" target="_blank" rel="noopener noreferrer">Khan Academy</a>
+        <a class="portal-button" href="https://www.freecodecamp.org/" target="_blank" rel="noopener noreferrer">freeCodeCamp</a>
+        <a class="portal-button" href="https://www.open.edu/openlearn/" target="_blank" rel="noopener noreferrer">OpenLearn</a>
+        <a class="portal-button" href="https://pll.harvard.edu/catalog/free" target="_blank" rel="noopener noreferrer">Harvard Free</a>
+      </div>
+    </div>
+
+    <div class="portal-card">
+      <div class="card-title">Privacy / Security</div>
+      <div class="button-grid">
+        <a class="portal-button primary" href="https://www.privacyguides.org/" target="_blank" rel="noopener noreferrer">Privacy Guides</a>
+        <a class="portal-button" href="https://ssd.eff.org/" target="_blank" rel="noopener noreferrer">EFF SSD</a>
+        <a class="portal-button" href="https://github.com/pluja/awesome-privacy" target="_blank" rel="noopener noreferrer">Awesome Privacy</a>
+        <a class="portal-button" href="https://haveibeenpwned.com/" target="_blank" rel="noopener noreferrer">Pwned?</a>
+        <a class="portal-button" href="https://alternativeto.net/" target="_blank" rel="noopener noreferrer">AlternativeTo</a>
+      </div>
+    </div>
+
+    <div class="portal-card">
+      <div class="card-title">Self-Hosting / Software</div>
+      <div class="button-grid">
+        <a class="portal-button primary" href="https://github.com/awesome-selfhosted/awesome-selfhosted" target="_blank" rel="noopener noreferrer">Awesome Selfhosted</a>
+        <a class="portal-button" href="https://casaos.io/" target="_blank" rel="noopener noreferrer">CasaOS</a>
+        <a class="portal-button" href="https://hub.docker.com/" target="_blank" rel="noopener noreferrer">Docker Hub</a>
+        <a class="portal-button" href="https://www.linuxserver.io/" target="_blank" rel="noopener noreferrer">LinuxServer</a>
+        <a class="portal-button" href="https://github.com/trending" target="_blank" rel="noopener noreferrer">GitHub Trending</a>
+      </div>
+    </div>
+
+    <div class="portal-card">
+      <div class="card-title">AI / Research</div>
+      <div class="button-grid">
+        <a class="portal-button primary" href="https://huggingface.co/" target="_blank" rel="noopener noreferrer">Hugging Face</a>
+        <a class="portal-button" href="https://ollama.com/" target="_blank" rel="noopener noreferrer">Ollama</a>
+        <a class="portal-button" href="https://openwebui.com/" target="_blank" rel="noopener noreferrer">Open WebUI</a>
+        <a class="portal-button" href="https://lmstudio.ai/" target="_blank" rel="noopener noreferrer">LM Studio</a>
+        <a class="portal-button" href="https://paperswithcode.com/" target="_blank" rel="noopener noreferrer">Papers w/ Code</a>
+      </div>
+    </div>
+
+    <div class="portal-card">
+      <div class="card-title">Web3 / Crypto Docs</div>
+      <div class="button-grid">
+        <a class="portal-button primary" href="https://docs.chain.link/" target="_blank" rel="noopener noreferrer">Chainlink</a>
+        <a class="portal-button" href="https://ethereum.org/developers/" target="_blank" rel="noopener noreferrer">Ethereum</a>
+        <a class="portal-button" href="https://docs.base.org/" target="_blank" rel="noopener noreferrer">Base</a>
+        <a class="portal-button" href="https://docs.optimism.io/" target="_blank" rel="noopener noreferrer">Optimism</a>
+        <a class="portal-button" href="https://docs.arbitrum.io/" target="_blank" rel="noopener noreferrer">Arbitrum</a>
+        <a class="portal-button" href="https://defillama.com/" target="_blank" rel="noopener noreferrer">DefiLlama</a>
+      </div>
+    </div>
+
+    <div class="portal-card portal-wide">
+      <div class="card-title">Archive Workflow — Future Upgrade</div>
+      <div class="archive-steps">
+        <div>1. Discover useful resource</div>
+        <div>2. Verify legality/trustworthiness</div>
+        <div>3. Save link + notes to local Resource Vault</div>
+        <div>4. Download only legal/public/open resources</div>
+        <div>5. Store in Archive / Navidrome / Knowledge Vault</div>
+        <div>6. Backup to external drive</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Federated search: render one trusted-source button per provider, and keep
+  // each one's href live-updated to the typed query. Real anchors with
+  // target="_blank" are used (not window.open) so this works inside the
+  // Grafana iframe embed without popup blocking.
+  var PROVIDERS = [
+    { label: "Internet Archive", tpl: "https://archive.org/search?query=", home: "https://archive.org/" },
+    { label: "Project Gutenberg", tpl: "https://www.gutenberg.org/ebooks/search/?query=", home: "https://www.gutenberg.org/" },
+    { label: "Open Library", tpl: "https://openlibrary.org/search?q=", home: "https://openlibrary.org/" },
+    { label: "Wikipedia", tpl: "https://en.wikipedia.org/w/index.php?search=", home: "https://en.wikipedia.org/" },
+    { label: "Library of Congress", tpl: "https://www.loc.gov/search/?q=", home: "https://www.loc.gov/" },
+    { label: "GitHub", tpl: "https://github.com/search?q=", home: "https://github.com/" }
+  ];
+
+  (function () {
+    var input = document.getElementById("search-input");
+    var grid = document.getElementById("search-grid");
+    var anchors = PROVIDERS.map(function (p, i) {
+      var a = document.createElement("a");
+      a.className = "portal-button" + (i === 0 ? " primary" : "");
+      a.textContent = p.label;
+      a.target = "_blank";
+      a.rel = "noopener noreferrer";
+      a.href = p.home;
+      grid.appendChild(a);
+      return a;
+    });
+
+    function update() {
+      var q = (input.value || "").trim();
+      PROVIDERS.forEach(function (p, i) {
+        anchors[i].href = q ? p.tpl + encodeURIComponent(q) : p.home;
+      });
+    }
+    input.addEventListener("input", update);
+    // Enter opens the first (primary) provider.
+    input.addEventListener("keydown", function (e) {
+      if (e.key === "Enter") { update(); anchors[0].click(); }
+    });
+    update();
+  })();
+</script>
+</body>
+</html>

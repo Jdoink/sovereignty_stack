@@ -1,0 +1,21 @@
+services:
+  resource-service:
+    container_name: resource-service
+    build: .
+    image: sovereignty-stack/resource-service:latest
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "8789:8789"
+    volumes:
+      # Resource Vault JSON will live on the Seagate so it survives container
+      # rebuilds and syncs across every device that talks to this Pi. Wired up
+      # now so the V2/V3 vault API needs no compose changes.
+      - /media/devmon/sda1-usb-Seagate_BUP_Slim/sovereignty-stack/resources:/data
+    environment:
+      - RESOURCE_DATA_PATH=/data
+      # Where the latest portal.html is fetched from. Default points at this
+      # repo's main branch so "push, no rebuild" works.
+      - PORTAL_URL=https://raw.githubusercontent.com/Jdoink/sovereignty_stack/main/command-center-portal/portal.html
+    command: uvicorn server:app --host 0.0.0.0 --port 8789
