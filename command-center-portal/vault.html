@@ -5,125 +5,168 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>The Vault</title>
 <style>
+  /* Self-hosted classical fonts (drop cinzel/cormorant into resource-service/fonts/).
+     Until present, the web-safe classical stack below carries the look. */
+  @font-face { font-family: "Cinzel"; font-display: swap; font-weight: 400 700;
+    src: url("/fonts/cinzel.woff2") format("woff2"), url("/fonts/cinzel.ttf") format("truetype"); }
+  @font-face { font-family: "Cormorant"; font-display: swap; font-weight: 400 600;
+    src: url("/fonts/cormorant.woff2") format("woff2"), url("/fonts/cormorant.ttf") format("truetype"); }
+
   :root {
     color-scheme: dark;
-    --bg: #05060a; --panel: rgba(18,20,28,0.72); --line: rgba(170,160,130,0.16);
-    --gold: #c9a86a; --gold-dim: #8a7444; --steel: #7fa8c9;
-    --text: #ece7da; --dim: #9a9483;
+    --wall-1: #2c1618; --wall-2: #1a1011; --wall-3: #0c0808;
+    --gold: #c9a86a; --gold-bright: #ecd49a; --gold-deep: #6f5226; --bronze: #8a6c39;
+    --ivory: #ece3cf; --parch: #cdbf9f; --dim: #a4977b;
+    --display: "Cinzel", "Trajan Pro", Optima, "Palatino Linotype", Palatino, Georgia, serif;
+    --body: "Cormorant", "Cormorant Garamond", "EB Garamond", "Palatino Linotype", Palatino, Georgia, "Times New Roman", serif;
+    --meander: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='16'%20height='16'%3E%3Cpath%20d='M0,1H15V15H4V4H11V11H7'%20fill='none'%20stroke='%23c9a86a'%20stroke-width='1.3'/%3E%3C/svg%3E");
   }
   * { box-sizing: border-box; }
-  html, body { margin: 0; padding: 0; height: 100%; }
+  html, body { margin: 0; padding: 0; min-height: 100%; }
   body {
     background:
-      radial-gradient(ellipse at 50% -10%, rgba(201,168,106,0.10), transparent 45%),
-      radial-gradient(ellipse at 50% 120%, rgba(127,168,201,0.07), transparent 50%),
-      linear-gradient(180deg, #05060a, #07080e 60%, #0a0b12);
-    min-height: 100%; color: var(--text);
-    font-family: Inter, system-ui, Arial, sans-serif; -webkit-font-smoothing: antialiased;
-    letter-spacing: 0.01em;
+      radial-gradient(ellipse 60% 45% at 50% -8%, rgba(236,212,154,0.16), transparent 70%),
+      radial-gradient(ellipse 90% 60% at 50% 120%, rgba(0,0,0,0.6), transparent 70%),
+      linear-gradient(178deg, var(--wall-1), var(--wall-2) 52%, var(--wall-3));
+    background-attachment: fixed;
+    min-height: 100vh; color: var(--ivory);
+    font-family: var(--body); font-size: 17px;
+    -webkit-font-smoothing: antialiased;
   }
-  body::before {
-    content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 0;
-    background-image: repeating-linear-gradient(to bottom, rgba(255,255,255,0.018) 0 1px, transparent 1px 3px);
-    mix-blend-mode: overlay; opacity: 0.5;
-  }
-  .vault { position: relative; z-index: 1; max-width: 1240px; margin: 0 auto; padding: 34px 22px 26px; }
+  /* faint canvas weave + edge vignette */
+  body::before { content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+    background-image: repeating-linear-gradient(45deg, rgba(255,255,255,0.014) 0 1px, transparent 1px 3px),
+      repeating-linear-gradient(-45deg, rgba(0,0,0,0.05) 0 1px, transparent 1px 3px); }
+  body::after { content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+    box-shadow: inset 0 0 240px rgba(0,0,0,0.7); }
 
-  .v-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 18px; margin-bottom: 6px; }
-  .v-kicker { font-size: 11px; letter-spacing: 0.42em; color: var(--gold); font-weight: 700; text-transform: uppercase; }
-  .v-title { font-family: Georgia, "Times New Roman", serif; font-size: 52px; line-height: 1.0; font-weight: 700;
-    letter-spacing: 0.04em; margin: 8px 0 6px; text-shadow: 0 0 30px rgba(201,168,106,0.12); }
-  .v-title .amp { color: var(--gold); }
-  .v-sub { font-size: 13.5px; color: var(--dim); max-width: 620px; line-height: 1.5; }
-  .v-status { text-align: right; display: grid; gap: 6px; font-size: 11px; letter-spacing: 0.12em; color: var(--dim); }
-  .v-status .mono { color: #cfc7b2; font-variant-numeric: tabular-nums; }
-  .v-status .node { display: inline-flex; align-items: center; gap: 7px; }
-  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--gold); box-shadow: 0 0 9px var(--gold); animation: pulse 2.4s ease-in-out infinite; }
+  .hall { position: relative; z-index: 1; max-width: 1200px; margin: 0 auto; padding: 26px 24px 30px; }
+
+  .topbar { display: flex; justify-content: space-between; align-items: center;
+    font-family: var(--display); font-size: 11px; letter-spacing: 0.34em; text-transform: uppercase;
+    color: var(--dim); padding-bottom: 18px; }
+  .topbar .meta { display: inline-flex; gap: 16px; align-items: center; }
+  .topbar .mono { color: var(--parch); font-variant-numeric: tabular-nums; letter-spacing: 0.18em; }
+  .dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--gold);
+    box-shadow: 0 0 8px var(--gold); margin-right: 7px; animation: pulse 3s ease-in-out infinite; vertical-align: middle; }
   @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
 
-  .v-rule { height: 1px; background: linear-gradient(90deg, transparent, var(--gold-dim), transparent); margin: 20px 0 22px; opacity: 0.6; }
+  .masthead { text-align: center; }
+  .title-row { display: flex; align-items: center; justify-content: center; gap: 22px; }
+  .laurel { width: 86px; height: 40px; color: var(--gold); opacity: 0.9; flex: 0 0 auto; }
+  .laurel.flip { transform: scaleX(-1); }
+  .title { font-family: var(--display); font-weight: 700;
+    font-size: clamp(38px, 7vw, 72px); letter-spacing: 0.16em; text-transform: uppercase;
+    margin: 0; color: var(--gold-bright);
+    text-shadow: 0 2px 1px rgba(0,0,0,0.7), 0 -1px 0 rgba(255,244,214,0.18), 0 0 34px rgba(236,212,154,0.18); }
+  .subtitle { font-style: italic; font-size: 17px; color: var(--parch); margin: 12px auto 0; max-width: 600px; line-height: 1.5; }
 
-  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
-  .mod {
-    position: relative; display: flex; flex-direction: column; gap: 12px; min-height: 178px;
-    background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 18px;
-    cursor: pointer; overflow: hidden; text-align: left; color: inherit;
-    transition: transform 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
-  }
-  .mod::after { content: ""; position: absolute; inset: 0; border-radius: 16px; pointer-events: none;
-    box-shadow: inset 0 0 50px rgba(0,0,0,0.4); }
-  .mod:hover { transform: translateY(-3px); border-color: rgba(201,168,106,0.5);
-    box-shadow: 0 14px 40px rgba(0,0,0,0.5), 0 0 0 1px rgba(201,168,106,0.18); background: rgba(24,25,34,0.82); }
-  .mod.soon { cursor: default; opacity: 0.62; }
-  .mod.soon:hover { transform: none; border-color: var(--line); box-shadow: none; background: var(--panel); }
-  .mod-ico { width: 34px; height: 34px; color: var(--gold); opacity: 0.92; }
-  .mod-ico svg { width: 34px; height: 34px; display: block; }
-  .mod-name { font-family: Georgia, "Times New Roman", serif; font-size: 21px; font-weight: 700; letter-spacing: 0.03em; }
-  .mod-tag { font-size: 12px; color: var(--dim); line-height: 1.45; flex: 1; }
-  .mod-foot { display: flex; align-items: center; justify-content: space-between; }
-  .pill { font-size: 9px; font-weight: 800; letter-spacing: 0.14em; padding: 3px 8px; border-radius: 999px; border: 1px solid currentColor; }
-  .pill.live { color: #8fd6a3; } .pill.soon { color: var(--gold-dim); }
-  .enter { font-size: 11px; letter-spacing: 0.16em; color: var(--gold); opacity: 0; transition: opacity 0.16s; }
-  .mod:hover .enter { opacity: 1; }
+  .meander { height: 16px; margin: 22px auto 26px; max-width: 720px;
+    background-image: var(--meander); background-repeat: repeat-x; background-position: center; opacity: 0.5; }
 
-  .v-foot { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px;
-    margin-top: 24px; padding-top: 14px; border-top: 1px solid var(--line);
-    font-size: 10.5px; letter-spacing: 0.16em; color: #6b6555; text-transform: uppercase; }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 26px 24px; }
 
-  /* immersive module overlay */
-  .stage { position: fixed; inset: 0; z-index: 30; background: #05060a; display: none;
-    flex-direction: column; opacity: 0; transition: opacity 0.22s ease; }
+  /* a framed painting on the wall */
+  .piece { display: flex; flex-direction: column; align-items: center; }
+  .frame { width: 100%; position: relative; cursor: pointer; border-radius: 3px; padding: 11px;
+    background: linear-gradient(135deg, #f1dba4 0%, #b18f50 22%, #ecd197 42%, #7c5f30 66%, #d9be7f 86%, #a07d40 100%);
+    box-shadow: 0 20px 42px rgba(0,0,0,0.6), 0 0 0 1px rgba(70,50,16,0.9), inset 0 1px 0 rgba(255,246,214,0.5);
+    transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease; }
+  .frame::before { content: ""; position: absolute; inset: 6px; border-radius: 2px; pointer-events: none;
+    box-shadow: inset 0 0 0 1px rgba(60,42,12,0.7), inset 0 0 0 3px rgba(255,244,214,0.18); }
+  .canvas { position: relative; border-radius: 1px; min-height: 188px; overflow: hidden;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+    padding: 26px 20px;
+    background:
+      repeating-linear-gradient(45deg, rgba(255,255,255,0.018) 0 1px, transparent 1px 3px),
+      radial-gradient(ellipse 70% 55% at 50% 32%, #4a352a, #241813 62%, #160d0b);
+    box-shadow: inset 0 0 50px rgba(0,0,0,0.78), inset 0 0 0 1px rgba(201,168,106,0.22); }
+  .canvas::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 55%;
+    background: radial-gradient(ellipse 60% 100% at 50% 0%, rgba(236,212,154,0.16), transparent 70%); pointer-events: none; }
+  .ico { width: 48px; height: 48px; color: var(--gold); opacity: 0.94;
+    filter: drop-shadow(0 2px 3px rgba(0,0,0,0.6)) drop-shadow(0 0 10px rgba(236,212,154,0.18)); }
+  .ico svg { width: 48px; height: 48px; display: block; }
+  .canvas .tag { font-style: italic; font-size: 14.5px; line-height: 1.45; color: var(--parch); text-align: center; max-width: 240px; }
+  .enter { font-family: var(--display); font-size: 10px; letter-spacing: 0.3em; text-transform: uppercase;
+    color: var(--gold-bright); opacity: 0; transition: opacity 0.18s; }
+
+  .frame:hover { transform: translateY(-5px);
+    box-shadow: 0 28px 56px rgba(0,0,0,0.7), 0 0 0 1px rgba(90,66,22,0.9), 0 0 34px rgba(236,212,154,0.22), inset 0 1px 0 rgba(255,246,214,0.6); }
+  .frame:hover .enter { opacity: 0.85; }
+
+  /* brass museum placard under each painting */
+  .placard { margin-top: 14px; padding: 6px 16px; border-radius: 3px; text-align: center;
+    background: linear-gradient(180deg, #d8bd7e, #a07d40 55%, #7c5f30);
+    box-shadow: 0 3px 7px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,246,214,0.6), inset 0 -1px 0 rgba(40,28,8,0.5); }
+  .placard .name { font-family: var(--display); font-weight: 700; font-size: 12.5px; letter-spacing: 0.14em;
+    text-transform: uppercase; color: #2a1c08; }
+  .caption { margin-top: 7px; font-style: italic; font-size: 12.5px; color: var(--dim); letter-spacing: 0.02em; }
+  .caption .on { color: var(--gold); font-style: normal; font-variant: small-caps; letter-spacing: 0.1em; }
+
+  .piece.soon .frame { cursor: default; filter: grayscale(0.55) brightness(0.7); }
+  .piece.soon .frame:hover { transform: none; box-shadow: 0 20px 42px rgba(0,0,0,0.6), 0 0 0 1px rgba(70,50,16,0.9), inset 0 1px 0 rgba(255,246,214,0.5); }
+  .piece.soon .frame:hover .enter { opacity: 0; }
+
+  .foot { margin-top: 30px; padding-top: 16px; border-top: 1px solid rgba(201,168,106,0.2);
+    display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px;
+    font-family: var(--display); font-size: 10px; letter-spacing: 0.24em; text-transform: uppercase; color: #6e6047; }
+
+  /* immersive module stage */
+  .stage { position: fixed; inset: 0; z-index: 30; background: var(--wall-3); display: none; flex-direction: column; opacity: 0; transition: opacity 0.24s ease; }
   .stage.open { display: flex; opacity: 1; }
-  .stage-bar { display: flex; align-items: center; gap: 14px; padding: 10px 16px; border-bottom: 1px solid var(--line);
-    background: linear-gradient(180deg, rgba(12,13,19,0.96), rgba(12,13,19,0.8)); }
-  .stage-back { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; color: var(--gold);
-    background: transparent; border: 1px solid rgba(201,168,106,0.4); border-radius: 10px; padding: 8px 13px;
-    font-size: 12px; font-weight: 800; letter-spacing: 0.1em; }
+  .stage-bar { display: flex; align-items: center; gap: 14px; padding: 11px 18px; border-bottom: 1px solid rgba(201,168,106,0.28);
+    background: linear-gradient(180deg, rgba(28,16,16,0.97), rgba(20,12,12,0.85)); }
+  .stage-back { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; color: var(--gold-bright);
+    background: transparent; border: 1px solid rgba(201,168,106,0.45); border-radius: 8px; padding: 8px 14px;
+    font-family: var(--display); font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; }
   .stage-back:hover { background: rgba(201,168,106,0.14); }
-  .stage-name { font-family: Georgia, serif; font-size: 16px; letter-spacing: 0.06em; }
+  .stage-name { font-family: var(--display); font-size: 15px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--gold-bright); }
   .stage-spacer { flex: 1; }
-  .stage-open-tab { color: var(--dim); font-size: 11px; letter-spacing: 0.1em; text-decoration: none; }
-  .stage-open-tab:hover { color: var(--gold); }
-  .stage iframe { flex: 1; width: 100%; border: 0; background: #05060a; }
+  .stage-tab { color: var(--dim); font-family: var(--display); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; text-decoration: none; }
+  .stage-tab:hover { color: var(--gold-bright); }
+  .stage iframe { flex: 1; width: 100%; border: 0; background: var(--wall-3); }
 
-  .toast { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%) translateY(20px);
-    background: rgba(20,21,30,0.96); border: 1px solid rgba(201,168,106,0.4); color: var(--text);
-    padding: 11px 18px; border-radius: 12px; font-size: 13px; opacity: 0; pointer-events: none;
-    transition: opacity 0.2s, transform 0.2s; z-index: 40; }
+  .toast { position: fixed; left: 50%; bottom: 30px; transform: translateX(-50%) translateY(20px);
+    background: linear-gradient(180deg, rgba(40,24,24,0.98), rgba(26,16,16,0.98)); border: 1px solid rgba(201,168,106,0.45);
+    color: var(--ivory); font-family: var(--body); font-style: italic; font-size: 15px;
+    padding: 12px 20px; border-radius: 8px; opacity: 0; pointer-events: none; transition: opacity 0.22s, transform 0.22s; z-index: 40; }
   .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
-  @media (max-width: 920px) { .grid { grid-template-columns: repeat(2, 1fr); } .v-title { font-size: 40px; } .v-head { flex-direction: column; } .v-status { text-align: left; } }
-  @media (max-width: 560px) { .grid { grid-template-columns: 1fr; } }
+  @media (max-width: 920px) { .grid { grid-template-columns: repeat(2, 1fr); } .laurel { width: 56px; } .title { letter-spacing: 0.1em; } }
+  @media (max-width: 560px) { .grid { grid-template-columns: 1fr; } .laurel { display: none; } .topbar { font-size: 9px; letter-spacing: 0.2em; } }
 </style>
 </head>
 <body>
-<div class="vault">
-  <div class="v-head">
-    <div>
-      <div class="v-kicker">Sovereignty Stack</div>
-      <div class="v-title">THE&nbsp;VAULT</div>
-      <div class="v-sub">A sovereign knowledge &amp; media environment — built to be understood, preserved, and passed down. Everything here is yours, portable, and recoverable.</div>
-    </div>
-    <div class="v-status">
-      <span class="node"><span class="dot"></span> <span id="node">commandcenter</span></span>
-      <span class="mono" id="clock">--:--:--</span>
-      <span id="datestr">—</span>
-    </div>
+<div class="hall">
+  <div class="topbar">
+    <span>Sovereignty Stack</span>
+    <span class="meta"><span><span class="dot"></span><span id="node">commandcenter</span></span><span class="mono" id="clock">--:--:--</span></span>
   </div>
-  <div class="v-rule"></div>
+
+  <div class="masthead">
+    <div class="title-row">
+      <svg class="laurel" viewBox="0 0 86 40" aria-hidden="true"><path d="M6 34 C 30 34 64 24 82 6" fill="none" stroke="currentColor" stroke-width="1.4"/><g fill="currentColor"><ellipse cx="18" cy="31" rx="6.5" ry="2.5" transform="rotate(-16 18 31)"/><ellipse cx="31" cy="28" rx="7" ry="2.6" transform="rotate(-22 31 28)"/><ellipse cx="44" cy="23" rx="7.4" ry="2.7" transform="rotate(-29 44 23)"/><ellipse cx="57" cy="17" rx="7" ry="2.6" transform="rotate(-36 57 17)"/><ellipse cx="69" cy="11" rx="6.4" ry="2.4" transform="rotate(-43 69 11)"/></g></svg>
+      <h1 class="title">The&nbsp;Vault</h1>
+      <svg class="laurel flip" viewBox="0 0 86 40" aria-hidden="true"><path d="M6 34 C 30 34 64 24 82 6" fill="none" stroke="currentColor" stroke-width="1.4"/><g fill="currentColor"><ellipse cx="18" cy="31" rx="6.5" ry="2.5" transform="rotate(-16 18 31)"/><ellipse cx="31" cy="28" rx="7" ry="2.6" transform="rotate(-22 31 28)"/><ellipse cx="44" cy="23" rx="7.4" ry="2.7" transform="rotate(-29 44 23)"/><ellipse cx="57" cy="17" rx="7" ry="2.6" transform="rotate(-36 57 17)"/><ellipse cx="69" cy="11" rx="6.4" ry="2.4" transform="rotate(-43 69 11)"/></g></svg>
+    </div>
+    <div class="subtitle">A sovereign hall of knowledge, media, and memory — built to be understood, preserved, and passed down.</div>
+  </div>
+
+  <div class="meander"></div>
   <div class="grid" id="grid"></div>
-  <div class="v-foot">
-    <span>Knowledge · Media · Finance · Archive · Tools</span>
-    <span>Local-first · Open formats · Recoverable</span>
+
+  <div class="foot">
+    <span>Knowledge &middot; Media &middot; Finance &middot; Archive &middot; Tools</span>
+    <span>Local-first &middot; Open formats &middot; Recoverable</span>
   </div>
 </div>
 
 <div class="stage" id="stage">
   <div class="stage-bar">
-    <button class="stage-back" id="stage-back" type="button">&#8592; THE VAULT</button>
+    <button class="stage-back" id="stage-back" type="button">&#8592; The Vault</button>
     <span class="stage-name" id="stage-name"></span>
     <span class="stage-spacer"></span>
-    <a class="stage-open-tab" id="stage-tab" target="_blank" rel="noopener noreferrer">Open in new tab &#8599;</a>
+    <a class="stage-tab" id="stage-tab" target="_blank" rel="noopener noreferrer">Open in new tab &#8599;</a>
   </div>
   <iframe id="stage-frame" title="module" allow="fullscreen; autoplay; clipboard-write"></iframe>
 </div>
@@ -131,85 +174,81 @@
 <div class="toast" id="toast"></div>
 
 <script>
-  // ---- Module registry. URLs are plain config so this stays portable + easy
-  // to edit/recover. "embed" loads inside the Vault; "tab" opens a new tab
-  // (for apps that refuse to be framed, e.g. Grafana by default). ----
   var PI = location.hostname || "192.168.1.189";
   var MODULES = [
     { key: "library", name: "Library", status: "live", mode: "embed", url: "/portal",
-      tag: "Curated resources & knowledge. The Resource Portal lives here; structured learning grows over time.",
+      tag: "Curated resources and knowledge. The Resource Portal lives here.",
       icon: '<path d="M4 5a2 2 0 0 1 2-2h5v18H6a2 2 0 0 1-2-2z"/><path d="M20 5a2 2 0 0 0-2-2h-5v18h5a2 2 0 0 0 2-2z"/>' },
     { key: "theater", name: "Media Theater", status: "live", mode: "embed", url: "/theater",
-      tag: "Watch, listen, and keep public-domain film, audio & archive media. Your saved library + player.",
+      tag: "Watch, listen, and keep public-domain film and archive media.",
       icon: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M10 9l5 3-5 3z"/>' },
     { key: "art", name: "Art Studio", status: "soon", mode: "embed", url: "/studio",
-      tag: "A room of tools for making art — including touch finger-painting on the panel. Coming next.",
-      icon: '<path d="M12 3a9 9 0 1 0 0 18c1.5 0 2-1 2-2s-.5-1.5-.5-2.5S14 14 15.5 14H18a3 3 0 0 0 3-3 8 8 0 0 0-9-8z"/><circle cx="7.5" cy="11.5" r="1.2"/><circle cx="12" cy="7.5" r="1.2"/><circle cx="16.5" cy="11.5" r="1.2"/>' },
+      tag: "A room of tools for making art — including touch finger-painting.",
+      icon: '<path d="M12 3a9 9 0 1 0 0 18c1.5 0 2-1 2-2s-.5-1.5-.5-2.5S14 14 15.5 14H18a3 3 0 0 0 3-3 8 8 0 0 0-9-8z"/><circle cx="7.5" cy="11.5" r="1.1"/><circle cx="12" cy="7.5" r="1.1"/><circle cx="16.5" cy="11.5" r="1.1"/>' },
     { key: "finance", name: "Financial Cockpit", status: "live", mode: "tab", url: "http://" + PI + ":8788/console",
-      tag: "Wallet, DeFi & market operations — the secure Web3 console.",
+      tag: "Wallet, DeFi, and market operations — the Web3 console.",
       icon: '<path d="M3 17l5-5 4 4 8-9"/><path d="M21 7v5h-5"/>' },
     { key: "archive", name: "Family Archive", status: "soon", mode: "tab", url: "",
-      tag: "Photos, records, journals & memories — preserved for generations. (Immich, later.)",
+      tag: "Photos, records, and memories — preserved for generations.",
       icon: '<rect x="3" y="4" width="18" height="4" rx="1"/><path d="M5 8v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/>' },
     { key: "research", name: "Research Lab", status: "soon", mode: "tab", url: "",
-      tag: "Notebooks, datasets & experiments. (Jupyter / local tooling, later.)",
+      tag: "Notebooks, datasets, and experiments.",
       icon: '<path d="M9 3v6l-5 9a2 2 0 0 0 2 3h12a2 2 0 0 0 2-3l-5-9V3"/><path d="M8 3h8"/>' },
     { key: "console", name: "Operational Console", status: "live", mode: "tab", url: "http://" + PI + ":3010",
-      tag: "Servers, storage, backups & service health — the command layer.",
+      tag: "Servers, storage, backups, and service health.",
       icon: '<rect x="3" y="4" width="18" height="7" rx="1"/><rect x="3" y="13" width="18" height="7" rx="1"/><path d="M7 7.5h.01M7 16.5h.01"/>' }
   ];
 
   var $ = function (id) { return document.getElementById(id); };
-
   function svg(inner) {
-    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" ' +
-      'stroke-linecap="round" stroke-linejoin="round">' + inner + '</svg>';
+    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">' + inner + '</svg>';
   }
   function toast(msg) {
     var t = $("toast"); t.textContent = msg; t.classList.add("show");
-    clearTimeout(t._timer); t._timer = setTimeout(function () { t.classList.remove("show"); }, 2200);
+    clearTimeout(t._timer); t._timer = setTimeout(function () { t.classList.remove("show"); }, 2400);
   }
 
-  // ---- render module grid ----
   var grid = $("grid");
   MODULES.forEach(function (m) {
-    var el = document.createElement(m.status === "live" ? "button" : "div");
-    el.className = "mod " + m.status; el.type = "button";
-    el.innerHTML =
-      '<div class="mod-ico">' + svg(m.icon) + '</div>' +
-      '<div class="mod-name">' + m.name + '</div>' +
-      '<div class="mod-tag">' + m.tag + '</div>' +
-      '<div class="mod-foot"><span class="pill ' + m.status + '">' + (m.status === "live" ? "LIVE" : "SOON") + '</span>' +
-      '<span class="enter">ENTER &#8594;</span></div>';
-    el.addEventListener("click", function () {
-      if (m.status !== "live") { toast(m.name + " — under construction. Coming in a later phase."); return; }
-      if (m.mode === "embed") openStage(m);
-      else window.open(m.url, "_blank", "noopener,noreferrer");
-    });
-    grid.appendChild(el);
+    var live = m.status === "live";
+    var piece = document.createElement("div");
+    piece.className = "piece " + m.status;
+    piece.innerHTML =
+      '<div class="frame" role="button" tabindex="0">' +
+        '<div class="canvas"><div class="ico">' + svg(m.icon) + '</div>' +
+        '<div class="tag">' + m.tag + '</div>' +
+        '<div class="enter">' + (live ? "Enter →" : "") + '</div></div>' +
+      '</div>' +
+      '<div class="placard"><div class="name">' + m.name + '</div></div>' +
+      '<div class="caption">' + (live ? '<span class="on">On View</span>' : '<span>Acquisition pending</span>') + '</div>';
+    var frame = piece.querySelector(".frame");
+    function activate() {
+      if (!live) { toast(m.name + " — acquisition pending. Coming in a later phase."); return; }
+      if (m.mode === "embed") openStage(m); else window.open(m.url, "_blank", "noopener,noreferrer");
+    }
+    frame.addEventListener("click", activate);
+    frame.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); activate(); } });
+    grid.appendChild(piece);
   });
 
-  // ---- immersive stage (embedded modules) ----
   function openStage(m) {
     $("stage-name").textContent = m.name;
     $("stage-frame").src = m.url;
-    var tab = $("stage-tab"); tab.href = m.url;
+    $("stage-tab").href = m.url;
     $("stage").classList.add("open");
     document.body.style.overflow = "hidden";
   }
   function closeStage() {
     $("stage").classList.remove("open");
-    setTimeout(function () { $("stage-frame").src = "about:blank"; }, 240);
+    setTimeout(function () { $("stage-frame").src = "about:blank"; }, 260);
     document.body.style.overflow = "";
   }
   $("stage-back").addEventListener("click", closeStage);
   document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeStage(); });
 
-  // ---- clock ----
   function tick() {
     var d = new Date(), p = function (n) { return String(n).padStart(2, "0"); };
     $("clock").textContent = p(d.getHours()) + ":" + p(d.getMinutes()) + ":" + p(d.getSeconds());
-    $("datestr").textContent = d.toLocaleDateString(undefined, { weekday: "short", year: "numeric", month: "short", day: "numeric" });
   }
   tick(); setInterval(tick, 1000);
 </script>
