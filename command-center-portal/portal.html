@@ -5,9 +5,17 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Sovereign Resource Portal</title>
 <style>
-  :root { color-scheme: dark; }
+  :root {
+    color-scheme: dark;
+    --pd:   #34d399;  /* public domain */
+    --free: #5eead4;  /* free */
+    --oss:  #7dd3fc;  /* free / open source */
+    --dir:  #fbbf24;  /* directory (verify) */
+    --local:#c4b5fd;  /* local / LAN */
+    --docs: #94a3b8;  /* docs */
+    --tool: #60a5fa;  /* tool */
+  }
   *, *::before, *::after { box-sizing: border-box; }
-
   html, body { margin: 0; padding: 0; }
 
   body {
@@ -20,34 +28,37 @@
     font-family: Inter, system-ui, Arial, sans-serif;
     -webkit-font-smoothing: antialiased;
   }
+  .resource-portal { max-width: 1180px; margin: 0 auto; padding: 18px; }
 
-  .resource-portal { max-width: 1100px; margin: 0 auto; padding: 18px; }
-
+  /* ---- Header / status bar ---- */
   .portal-header {
-    display: flex;
-    justify-content: space-between;
-    gap: 14px;
-    align-items: flex-start;
-    margin-bottom: 12px;
+    display: flex; justify-content: space-between; gap: 16px;
+    align-items: flex-start; margin-bottom: 12px;
   }
-  .portal-kicker {
-    font-size: 11px; letter-spacing: 0.16em; color: #86efac;
-    opacity: 0.9; font-weight: 800;
+  .portal-kicker { font-size: 11px; letter-spacing: 0.18em; color: #86efac; font-weight: 800; }
+  .portal-title { font-size: 26px; line-height: 1.1; font-weight: 950; margin-top: 4px; letter-spacing: 0.01em; }
+  .portal-subtitle { font-size: 13px; color: #cbd5e1; margin-top: 6px; max-width: 760px; }
+
+  .portal-statusbar {
+    display: grid; gap: 6px; justify-items: end;
+    font-size: 11px; letter-spacing: 0.08em; white-space: nowrap;
   }
-  .portal-title { font-size: 25px; line-height: 1.1; font-weight: 950; margin-top: 4px; }
-  .portal-subtitle { font-size: 13px; color: #cbd5e1; margin-top: 6px; max-width: 900px; }
-  .portal-status {
-    border: 1px solid rgba(34, 197, 94, 0.45);
-    background: rgba(22, 101, 52, 0.20);
-    color: #bbf7d0; border-radius: 999px; padding: 7px 10px;
-    font-size: 11px; font-weight: 900; white-space: nowrap;
+  .stat-chip {
+    border: 1px solid rgba(52, 211, 153, 0.30);
+    background: rgba(15, 23, 42, 0.7);
+    color: #bbf7d0; border-radius: 999px; padding: 5px 11px; font-weight: 800;
+    display: inline-flex; align-items: center; gap: 7px;
   }
+  .led { width: 8px; height: 8px; border-radius: 50%; background: var(--pd);
+         box-shadow: 0 0 8px var(--pd); animation: pulse 2s ease-in-out infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
+  .stat-mono { color: #93c5b8; font-variant-numeric: tabular-nums; }
 
   .portal-warning {
     border: 1px solid rgba(251, 191, 36, 0.42);
     background: rgba(120, 53, 15, 0.22);
-    color: #fde68a; border-radius: 14px; padding: 10px 12px;
-    font-size: 13px; margin-bottom: 14px;
+    color: #fde68a; border-radius: 14px; padding: 9px 12px;
+    font-size: 12.5px; margin-bottom: 14px;
   }
 
   /* ---- Federated search ---- */
@@ -61,64 +72,84 @@
     width: 100%; box-sizing: border-box;
     background: rgba(2, 6, 23, 0.92); color: #e5e7eb;
     border: 1px solid rgba(52, 211, 153, 0.32);
-    border-radius: 12px; padding: 12px; outline: none; font-size: 15px;
+    border-radius: 12px; padding: 12px 14px; outline: none; font-size: 15px;
   }
   .search-input:focus { border-color: rgba(134, 239, 172, 0.75); }
   .search-hint { font-size: 11px; color: #94a3b8; margin: 8px 2px 9px; }
-  .search-grid {
-    display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px;
-  }
-
-  .portal-grid {
-    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px;
-  }
-  .portal-card {
-    background: rgba(15, 23, 42, 0.74);
-    border: 1px solid rgba(148, 163, 184, 0.18);
-    border-radius: 16px; padding: 13px;
-  }
-  .portal-wide { grid-column: span 2; }
-  .card-title {
-    color: #86efac; text-transform: uppercase; font-size: 11px;
-    letter-spacing: 0.12em; font-weight: 900; margin-bottom: 9px;
-  }
-  .button-grid {
-    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px;
-  }
-
-  .portal-button {
+  .search-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .search-btn {
     display: flex; align-items: center; justify-content: center;
-    min-height: 38px; text-align: center; text-decoration: none;
+    min-height: 38px; text-decoration: none; text-align: center;
     border: 1px solid rgba(52, 211, 153, 0.24);
     background: linear-gradient(180deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.95));
     color: #e5e7eb; border-radius: 12px; padding: 8px 9px;
     font-size: 12px; font-weight: 850; cursor: pointer;
     transition: transform 0.12s ease, border-color 0.12s ease, background 0.12s ease;
   }
-  .portal-button:hover {
-    transform: translateY(-1px);
-    border-color: rgba(134, 239, 172, 0.72);
-    background: linear-gradient(180deg, rgba(5, 150, 105, 0.72), rgba(6, 95, 70, 0.72));
-  }
-  .portal-button.primary {
-    background: linear-gradient(180deg, #059669, #047857);
-    border-color: rgba(134, 239, 172, 0.58);
-  }
-  .portal-button.disabled {
-    opacity: 0.45; pointer-events: none; filter: grayscale(0.4);
-  }
+  .search-btn:hover { transform: translateY(-1px); border-color: rgba(134, 239, 172, 0.72);
+    background: linear-gradient(180deg, rgba(5, 150, 105, 0.72), rgba(6, 95, 70, 0.72)); }
+  .search-btn.primary { background: linear-gradient(180deg, #059669, #047857); border-color: rgba(134, 239, 172, 0.58); }
 
-  .archive-steps {
-    display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 8px 12px; color: #d1fae5; font-size: 13px; line-height: 1.35;
+  /* ---- Category grid ---- */
+  .portal-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .portal-card {
+    background: rgba(15, 23, 42, 0.74);
+    border: 1px solid rgba(148, 163, 184, 0.18);
+    border-radius: 16px; padding: 13px;
   }
+  .card-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 10px; }
+  .card-title { color: #86efac; text-transform: uppercase; font-size: 11px; letter-spacing: 0.12em; font-weight: 900; }
+  .card-count { color: #5b7184; font-size: 10px; font-weight: 800; letter-spacing: 0.1em; }
+  .tile-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+
+  /* ---- Resource tile (info-rich) ---- */
+  .tile {
+    display: flex; flex-direction: column; gap: 4px;
+    text-decoration: none; min-height: 56px;
+    border: 1px solid rgba(52, 211, 153, 0.20);
+    background: linear-gradient(180deg, rgba(30, 41, 59, 0.92), rgba(15, 23, 42, 0.95));
+    color: #e5e7eb; border-radius: 12px; padding: 9px 11px;
+    transition: transform 0.12s ease, border-color 0.12s ease, background 0.12s ease;
+  }
+  .tile:hover { transform: translateY(-1px); border-color: rgba(134, 239, 172, 0.6);
+    background: linear-gradient(180deg, rgba(6, 78, 59, 0.55), rgba(15, 23, 42, 0.95)); }
+  .tile.primary { border-color: rgba(134, 239, 172, 0.45); }
+  .tile-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .tile-name { font-size: 13px; font-weight: 850; letter-spacing: 0.01em; }
+  .tile-desc { font-size: 11px; color: #9fb3c8; line-height: 1.3; }
+  .tag {
+    font-size: 8.5px; font-weight: 900; letter-spacing: 0.08em;
+    padding: 2px 6px; border-radius: 6px; white-space: nowrap;
+    border: 1px solid currentColor; opacity: 0.9;
+  }
+  .tag-pd    { color: var(--pd); }
+  .tag-free  { color: var(--free); }
+  .tag-oss   { color: var(--oss); }
+  .tag-dir   { color: var(--dir); }
+  .tag-local { color: var(--local); }
+  .tag-docs  { color: var(--docs); }
+  .tag-tool  { color: var(--tool); }
+
+  /* ---- Workflow + footer ---- */
+  .portal-wide { grid-column: span 2; }
+  .archive-steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px 12px; color: #d1fae5; font-size: 12.5px; line-height: 1.35; }
+  .archive-steps div { display: flex; gap: 8px; align-items: baseline; }
+  .step-n { color: #34d399; font-weight: 900; }
+  .portal-footer {
+    margin-top: 14px; padding-top: 10px; border-top: 1px solid rgba(148, 163, 184, 0.14);
+    display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px;
+    font-size: 10.5px; letter-spacing: 0.1em; color: #5b7184;
+  }
+  .legend { display: flex; gap: 12px; flex-wrap: wrap; }
+  .legend span { display: inline-flex; align-items: center; gap: 5px; }
+  .legend i { width: 8px; height: 8px; border-radius: 2px; display: inline-block; }
 
   @media (max-width: 900px) {
-    .portal-grid, .button-grid, .archive-steps, .search-grid {
-      grid-template-columns: 1fr;
-    }
+    .portal-grid, .tile-grid, .archive-steps, .search-grid { grid-template-columns: 1fr; }
     .portal-wide { grid-column: span 1; }
     .portal-header { flex-direction: column; }
+    .portal-statusbar { justify-items: start; }
   }
 </style>
 </head>
@@ -126,138 +157,110 @@
 <div class="resource-portal">
   <div class="portal-header">
     <div>
-      <div class="portal-kicker">PRIVATE COMMAND CENTER</div>
+      <div class="portal-kicker">PRIVATE COMMAND CENTER // RESOURCE LAYER</div>
       <div class="portal-title">SOVEREIGN RESOURCE PORTAL</div>
       <div class="portal-subtitle">
         Curated launchpad for free media, public-domain archives, learning, privacy, self-hosting, AI, and Web3 resources.
       </div>
     </div>
-    <div class="portal-status">CURATED MODE</div>
+    <div class="portal-statusbar">
+      <span class="stat-chip"><span class="led"></span> CURATED MODE</span>
+      <span class="stat-chip"><span class="stat-mono" id="stat-count">--</span> RESOURCES</span>
+      <span class="stat-chip"><span class="stat-mono" id="stat-clock">--:--:--</span></span>
+    </div>
   </div>
 
   <div class="portal-warning">
     Use FMHY as a reference directory only. Prioritize legal, public-domain, open-source, educational, and trusted resources. Do not enter secrets, install unknown executables, or automate questionable downloads.
   </div>
 
-  <!-- Federated search: type once, jump to the right trusted source -->
   <div class="portal-search">
     <div class="card-title">Search Trusted Sources</div>
     <input id="search-input" class="search-input" type="search" autocomplete="off"
            spellcheck="false" placeholder="Search books, audio, code, knowledge..." />
-    <div class="search-hint">Type a term, then open it on a trusted source (new tab).</div>
+    <div class="search-hint">Type a term, then open it on a trusted source (new tab). Enter opens the first.</div>
     <div class="search-grid" id="search-grid"></div>
   </div>
 
-  <div class="portal-grid">
+  <div class="portal-grid" id="portal-grid"></div>
 
-    <div class="portal-card">
-      <div class="card-title">FMHY Index</div>
-      <div class="button-grid">
-        <a class="portal-button primary" href="https://fmhy.net/" target="_blank" rel="noopener noreferrer">FMHY Home</a>
-        <a class="portal-button" href="https://fmhy.net/posts/search" target="_blank" rel="noopener noreferrer">FMHY Search</a>
-        <a class="portal-button" href="https://fmhy.net/other/backups" target="_blank" rel="noopener noreferrer">Backups</a>
-        <a class="portal-button" href="https://fmhy.net/internet-tools" target="_blank" rel="noopener noreferrer">Internet Tools</a>
-        <a class="portal-button" href="https://fmhy.net/educational" target="_blank" rel="noopener noreferrer">Educational</a>
-      </div>
-    </div>
-
-    <div class="portal-card">
-      <div class="card-title">Music / Audio</div>
-      <div class="button-grid">
-        <a class="portal-button primary" href="https://archive.org/details/audio" target="_blank" rel="noopener noreferrer">Archive Audio</a>
-        <a class="portal-button" href="https://freemusicarchive.org/" target="_blank" rel="noopener noreferrer">Free Music Archive</a>
-        <a class="portal-button" href="https://somafm.com/" target="_blank" rel="noopener noreferrer">SomaFM</a>
-        <a class="portal-button" href="https://www.jamendo.com/" target="_blank" rel="noopener noreferrer">Jamendo</a>
-        <a class="portal-button" href="http://192.168.1.189:4533" target="_blank" rel="noopener noreferrer">Navidrome</a>
-      </div>
-    </div>
-
-    <div class="portal-card">
-      <div class="card-title">Books / Reading</div>
-      <div class="button-grid">
-        <a class="portal-button primary" href="https://www.gutenberg.org/" target="_blank" rel="noopener noreferrer">Gutenberg</a>
-        <a class="portal-button" href="https://standardebooks.org/" target="_blank" rel="noopener noreferrer">Standard Ebooks</a>
-        <a class="portal-button" href="https://openlibrary.org/" target="_blank" rel="noopener noreferrer">Open Library</a>
-        <a class="portal-button" href="https://archive.org/details/texts" target="_blank" rel="noopener noreferrer">Archive Texts</a>
-        <a class="portal-button" href="https://www.loc.gov/collections/" target="_blank" rel="noopener noreferrer">Library of Congress</a>
-      </div>
-    </div>
-
-    <div class="portal-card">
-      <div class="card-title">Learning / Courses</div>
-      <div class="button-grid">
-        <a class="portal-button primary" href="https://ocw.mit.edu/" target="_blank" rel="noopener noreferrer">MIT OCW</a>
-        <a class="portal-button" href="https://www.khanacademy.org/" target="_blank" rel="noopener noreferrer">Khan Academy</a>
-        <a class="portal-button" href="https://www.freecodecamp.org/" target="_blank" rel="noopener noreferrer">freeCodeCamp</a>
-        <a class="portal-button" href="https://www.open.edu/openlearn/" target="_blank" rel="noopener noreferrer">OpenLearn</a>
-        <a class="portal-button" href="https://pll.harvard.edu/catalog/free" target="_blank" rel="noopener noreferrer">Harvard Free</a>
-      </div>
-    </div>
-
-    <div class="portal-card">
-      <div class="card-title">Privacy / Security</div>
-      <div class="button-grid">
-        <a class="portal-button primary" href="https://www.privacyguides.org/" target="_blank" rel="noopener noreferrer">Privacy Guides</a>
-        <a class="portal-button" href="https://ssd.eff.org/" target="_blank" rel="noopener noreferrer">EFF SSD</a>
-        <a class="portal-button" href="https://github.com/pluja/awesome-privacy" target="_blank" rel="noopener noreferrer">Awesome Privacy</a>
-        <a class="portal-button" href="https://haveibeenpwned.com/" target="_blank" rel="noopener noreferrer">Pwned?</a>
-        <a class="portal-button" href="https://alternativeto.net/" target="_blank" rel="noopener noreferrer">AlternativeTo</a>
-      </div>
-    </div>
-
-    <div class="portal-card">
-      <div class="card-title">Self-Hosting / Software</div>
-      <div class="button-grid">
-        <a class="portal-button primary" href="https://github.com/awesome-selfhosted/awesome-selfhosted" target="_blank" rel="noopener noreferrer">Awesome Selfhosted</a>
-        <a class="portal-button" href="https://casaos.io/" target="_blank" rel="noopener noreferrer">CasaOS</a>
-        <a class="portal-button" href="https://hub.docker.com/" target="_blank" rel="noopener noreferrer">Docker Hub</a>
-        <a class="portal-button" href="https://www.linuxserver.io/" target="_blank" rel="noopener noreferrer">LinuxServer</a>
-        <a class="portal-button" href="https://github.com/trending" target="_blank" rel="noopener noreferrer">GitHub Trending</a>
-      </div>
-    </div>
-
-    <div class="portal-card">
-      <div class="card-title">AI / Research</div>
-      <div class="button-grid">
-        <a class="portal-button primary" href="https://huggingface.co/" target="_blank" rel="noopener noreferrer">Hugging Face</a>
-        <a class="portal-button" href="https://ollama.com/" target="_blank" rel="noopener noreferrer">Ollama</a>
-        <a class="portal-button" href="https://openwebui.com/" target="_blank" rel="noopener noreferrer">Open WebUI</a>
-        <a class="portal-button" href="https://lmstudio.ai/" target="_blank" rel="noopener noreferrer">LM Studio</a>
-        <a class="portal-button" href="https://paperswithcode.com/" target="_blank" rel="noopener noreferrer">Papers w/ Code</a>
-      </div>
-    </div>
-
-    <div class="portal-card">
-      <div class="card-title">Web3 / Crypto Docs</div>
-      <div class="button-grid">
-        <a class="portal-button primary" href="https://docs.chain.link/" target="_blank" rel="noopener noreferrer">Chainlink</a>
-        <a class="portal-button" href="https://ethereum.org/developers/" target="_blank" rel="noopener noreferrer">Ethereum</a>
-        <a class="portal-button" href="https://docs.base.org/" target="_blank" rel="noopener noreferrer">Base</a>
-        <a class="portal-button" href="https://docs.optimism.io/" target="_blank" rel="noopener noreferrer">Optimism</a>
-        <a class="portal-button" href="https://docs.arbitrum.io/" target="_blank" rel="noopener noreferrer">Arbitrum</a>
-        <a class="portal-button" href="https://defillama.com/" target="_blank" rel="noopener noreferrer">DefiLlama</a>
-      </div>
-    </div>
-
-    <div class="portal-card portal-wide">
-      <div class="card-title">Archive Workflow — Future Upgrade</div>
-      <div class="archive-steps">
-        <div>1. Discover useful resource</div>
-        <div>2. Verify legality/trustworthiness</div>
-        <div>3. Save link + notes to local Resource Vault</div>
-        <div>4. Download only legal/public/open resources</div>
-        <div>5. Store in Archive / Navidrome / Knowledge Vault</div>
-        <div>6. Backup to external drive</div>
-      </div>
-    </div>
+  <div class="portal-footer">
+    <span>SOVEREIGNTY STACK · RESOURCE SERVICE :8789</span>
+    <span class="legend">
+      <span><i style="background:var(--pd)"></i>PUBLIC DOMAIN</span>
+      <span><i style="background:var(--oss)"></i>FREE / OSS</span>
+      <span><i style="background:var(--dir)"></i>DIRECTORY</span>
+      <span><i style="background:var(--local)"></i>LOCAL</span>
+    </span>
   </div>
 </div>
 
 <script>
-  // Federated search: render one trusted-source button per provider, and keep
-  // each one's href live-updated to the typed query. Real anchors with
-  // target="_blank" are used (not window.open) so this works inside the
-  // Grafana iframe embed without popup blocking.
+  // ---- Resource model (info-rich): each item has a one-line descriptor and a
+  // trust/legal tag. Defining resources as data keeps the page maintainable and
+  // sets up the future JSON-backed Resource Vault. ----
+  var CATEGORIES = [
+    { title: "FMHY Index", items: [
+      { name: "FMHY Home", url: "https://fmhy.net/", desc: "Master directory of free resources", tag: "dir", primary: true },
+      { name: "FMHY Search", url: "https://fmhy.net/posts/search", desc: "Search the whole wiki", tag: "dir" },
+      { name: "Backups", url: "https://fmhy.net/other/backups", desc: "Wiki mirrors & selfhosting", tag: "dir" },
+      { name: "Internet Tools", url: "https://fmhy.net/internet-tools", desc: "Utilities & web tools", tag: "dir" },
+      { name: "Educational", url: "https://fmhy.net/educational", desc: "Learning resources index", tag: "dir" }
+    ]},
+    { title: "Music / Audio", items: [
+      { name: "Archive Audio", url: "https://archive.org/details/audio", desc: "Public-domain & live recordings", tag: "pd", primary: true },
+      { name: "Free Music Archive", url: "https://freemusicarchive.org/", desc: "Creative Commons music", tag: "free" },
+      { name: "SomaFM", url: "https://somafm.com/", desc: "Commercial-free net radio", tag: "free" },
+      { name: "Jamendo", url: "https://www.jamendo.com/", desc: "Free & CC music downloads", tag: "free" },
+      { name: "Navidrome", url: "http://192.168.1.189:4533", desc: "Your local music server", tag: "local" }
+    ]},
+    { title: "Books / Reading", items: [
+      { name: "Gutenberg", url: "https://www.gutenberg.org/", desc: "70k+ public-domain ebooks", tag: "pd", primary: true },
+      { name: "Standard Ebooks", url: "https://standardebooks.org/", desc: "Polished public-domain editions", tag: "pd" },
+      { name: "Open Library", url: "https://openlibrary.org/", desc: "Borrow & read scanned books", tag: "free" },
+      { name: "Archive Texts", url: "https://archive.org/details/texts", desc: "Millions of scanned texts", tag: "pd" },
+      { name: "Library of Congress", url: "https://www.loc.gov/collections/", desc: "US national digital collections", tag: "pd" }
+    ]},
+    { title: "Learning / Courses", items: [
+      { name: "MIT OCW", url: "https://ocw.mit.edu/", desc: "Free MIT course materials", tag: "free", primary: true },
+      { name: "Khan Academy", url: "https://www.khanacademy.org/", desc: "K-12 through early college", tag: "free" },
+      { name: "freeCodeCamp", url: "https://www.freecodecamp.org/", desc: "Learn to code, free", tag: "oss" },
+      { name: "OpenLearn", url: "https://www.open.edu/openlearn/", desc: "Open University courses", tag: "free" },
+      { name: "Harvard Free", url: "https://pll.harvard.edu/catalog/free", desc: "Free Harvard online courses", tag: "free" }
+    ]},
+    { title: "Privacy / Security", items: [
+      { name: "Privacy Guides", url: "https://www.privacyguides.org/", desc: "Vetted privacy tools & advice", tag: "free", primary: true },
+      { name: "EFF SSD", url: "https://ssd.eff.org/", desc: "Surveillance self-defense", tag: "free" },
+      { name: "Awesome Privacy", url: "https://github.com/pluja/awesome-privacy", desc: "Curated privacy software list", tag: "oss" },
+      { name: "Have I Been Pwned", url: "https://haveibeenpwned.com/", desc: "Check breached accounts", tag: "tool" },
+      { name: "AlternativeTo", url: "https://alternativeto.net/", desc: "Find software alternatives", tag: "free" }
+    ]},
+    { title: "Self-Hosting / Software", items: [
+      { name: "Awesome Selfhosted", url: "https://github.com/awesome-selfhosted/awesome-selfhosted", desc: "The big self-host list", tag: "oss", primary: true },
+      { name: "CasaOS", url: "https://casaos.io/", desc: "Simple home server OS", tag: "oss" },
+      { name: "Docker Hub", url: "https://hub.docker.com/", desc: "Container images", tag: "free" },
+      { name: "LinuxServer", url: "https://www.linuxserver.io/", desc: "Maintained container images", tag: "oss" },
+      { name: "GitHub Trending", url: "https://github.com/trending", desc: "What's hot in open source", tag: "oss" }
+    ]},
+    { title: "AI / Research", items: [
+      { name: "Hugging Face", url: "https://huggingface.co/", desc: "Models, datasets & demos", tag: "oss", primary: true },
+      { name: "Ollama", url: "https://ollama.com/", desc: "Run LLMs locally", tag: "oss" },
+      { name: "Open WebUI", url: "https://openwebui.com/", desc: "Local AI chat interface", tag: "oss" },
+      { name: "LM Studio", url: "https://lmstudio.ai/", desc: "Desktop local-LLM app", tag: "free" },
+      { name: "Papers w/ Code", url: "https://paperswithcode.com/", desc: "ML papers with code", tag: "free" }
+    ]},
+    { title: "Web3 / Crypto Docs", items: [
+      { name: "Chainlink", url: "https://docs.chain.link/", desc: "Oracles & CCIP docs", tag: "docs", primary: true },
+      { name: "Ethereum", url: "https://ethereum.org/developers/", desc: "Core developer docs", tag: "docs" },
+      { name: "Base", url: "https://docs.base.org/", desc: "Base L2 docs", tag: "docs" },
+      { name: "Optimism", url: "https://docs.optimism.io/", desc: "OP Stack docs", tag: "docs" },
+      { name: "Arbitrum", url: "https://docs.arbitrum.io/", desc: "Arbitrum docs", tag: "docs" },
+      { name: "DefiLlama", url: "https://defillama.com/", desc: "DeFi TVL & analytics", tag: "tool" }
+    ]}
+  ];
+
+  var TAG_LABEL = { pd: "PUBLIC DOMAIN", free: "FREE", oss: "FREE / OSS", dir: "DIRECTORY", local: "LOCAL", docs: "DOCS", tool: "TOOL" };
+
   var PROVIDERS = [
     { label: "Internet Archive", tpl: "https://archive.org/search?query=", home: "https://archive.org/" },
     { label: "Project Gutenberg", tpl: "https://www.gutenberg.org/ebooks/search/?query=", home: "https://www.gutenberg.org/" },
@@ -268,31 +271,83 @@
   ];
 
   (function () {
-    var input = document.getElementById("search-input");
-    var grid = document.getElementById("search-grid");
-    var anchors = PROVIDERS.map(function (p, i) {
+    // Build a same-origin-safe anchor (real <a target=_blank>, never window.open).
+    function anchor(url, cls) {
       var a = document.createElement("a");
-      a.className = "portal-button" + (i === 0 ? " primary" : "");
-      a.textContent = p.label;
-      a.target = "_blank";
-      a.rel = "noopener noreferrer";
-      a.href = p.home;
-      grid.appendChild(a);
+      a.className = cls; a.href = url; a.target = "_blank"; a.rel = "noopener noreferrer";
       return a;
+    }
+
+    // ---- Render category tiles ----
+    var grid = document.getElementById("portal-grid");
+    var total = 0;
+    CATEGORIES.forEach(function (cat) {
+      total += cat.items.length;
+      var card = document.createElement("div");
+      card.className = "portal-card";
+      var head = document.createElement("div");
+      head.className = "card-head";
+      var t = document.createElement("div"); t.className = "card-title"; t.textContent = cat.title;
+      var c = document.createElement("div"); c.className = "card-count"; c.textContent = cat.items.length + " LINKS";
+      head.appendChild(t); head.appendChild(c);
+      card.appendChild(head);
+
+      var tiles = document.createElement("div");
+      tiles.className = "tile-grid";
+      cat.items.forEach(function (it) {
+        var a = anchor(it.url, "tile" + (it.primary ? " primary" : ""));
+        var top = document.createElement("div"); top.className = "tile-top";
+        var name = document.createElement("span"); name.className = "tile-name"; name.textContent = it.name;
+        var tag = document.createElement("span"); tag.className = "tag tag-" + it.tag; tag.textContent = TAG_LABEL[it.tag] || it.tag;
+        top.appendChild(name); top.appendChild(tag);
+        var desc = document.createElement("div"); desc.className = "tile-desc"; desc.textContent = it.desc;
+        a.appendChild(top); a.appendChild(desc);
+        tiles.appendChild(a);
+      });
+      card.appendChild(tiles);
+      grid.appendChild(card);
     });
 
+    // ---- Archive workflow card ----
+    var wf = document.createElement("div");
+    wf.className = "portal-card portal-wide";
+    wf.innerHTML = '<div class="card-head"><div class="card-title">Archive Workflow — Future Upgrade</div></div>';
+    var steps = document.createElement("div"); steps.className = "archive-steps";
+    ["Discover useful resource", "Verify legality / trustworthiness", "Save link + notes to local Resource Vault",
+     "Download only legal / public / open resources", "Store in Archive / Navidrome / Knowledge Vault",
+     "Back up to external drive"].forEach(function (s, i) {
+      var d = document.createElement("div");
+      var n = document.createElement("span"); n.className = "step-n"; n.textContent = (i + 1) + ".";
+      var txt = document.createElement("span"); txt.textContent = s;
+      d.appendChild(n); d.appendChild(txt); steps.appendChild(d);
+    });
+    wf.appendChild(steps);
+    grid.appendChild(wf);
+
+    document.getElementById("stat-count").textContent = total;
+
+    // ---- Federated search ----
+    var input = document.getElementById("search-input");
+    var sgrid = document.getElementById("search-grid");
+    var anchors = PROVIDERS.map(function (p, i) {
+      var a = anchor(p.home, "search-btn" + (i === 0 ? " primary" : ""));
+      a.textContent = p.label; sgrid.appendChild(a); return a;
+    });
     function update() {
       var q = (input.value || "").trim();
-      PROVIDERS.forEach(function (p, i) {
-        anchors[i].href = q ? p.tpl + encodeURIComponent(q) : p.home;
-      });
+      PROVIDERS.forEach(function (p, i) { anchors[i].href = q ? p.tpl + encodeURIComponent(q) : p.home; });
     }
     input.addEventListener("input", update);
-    // Enter opens the first (primary) provider.
-    input.addEventListener("keydown", function (e) {
-      if (e.key === "Enter") { update(); anchors[0].click(); }
-    });
+    input.addEventListener("keydown", function (e) { if (e.key === "Enter") { update(); anchors[0].click(); } });
     update();
+
+    // ---- Live clock ----
+    function tick() {
+      var d = new Date();
+      var p = function (n) { return String(n).padStart(2, "0"); };
+      document.getElementById("stat-clock").textContent = p(d.getHours()) + ":" + p(d.getMinutes()) + ":" + p(d.getSeconds());
+    }
+    tick(); setInterval(tick, 1000);
   })();
 </script>
 </body>
