@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>The Library</title>
+<style>
+  @font-face { font-family: "Cinzel"; font-display: swap; font-weight: 400 700;
+    src: url("/fonts/cinzel.woff2") format("woff2"), url("/fonts/cinzel.ttf") format("truetype"); }
+  @font-face { font-family: "Cormorant"; font-display: swap; font-weight: 400 600;
+    src: url("/fonts/cormorant.woff2") format("woff2"), url("/fonts/cormorant.ttf") format("truetype"); }
+  :root {
+    --marble-1:#f5f0e6; --marble-2:#e9decb; --marble-3:#dcceb2;
+    --gold:#b8902f; --gold-bright:#d8b352; --gold-soft:#c9a86a; --gold-deep:#6f5226;
+    --emerald:#1f6b4f; --emerald-deep:#0f3d2e; --emerald-bright:#2f8c66;
+    --ink:#243029; --ink-soft:#5e5848; --parch:#f1ecdd; --card:#fbf7ee;
+    --display:"Cinzel","Trajan Pro",Optima,"Palatino Linotype",Palatino,Georgia,serif;
+    --body:"Cormorant","Cormorant Garamond","EB Garamond","Palatino Linotype",Palatino,Georgia,serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background:
+      radial-gradient(ellipse 55% 45% at 28% 14%, rgba(255,255,255,0.6), transparent 60%),
+      radial-gradient(ellipse 50% 45% at 78% 84%, rgba(31,107,79,0.10), transparent 62%),
+      linear-gradient(162deg, var(--marble-1), var(--marble-2) 58%, var(--marble-3));
+    background-attachment: fixed; min-height: 100vh; color: var(--ink);
+    font-family: var(--body); font-size: 17px; -webkit-font-smoothing: antialiased; }
+  body::before { content:""; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+    background-image: repeating-linear-gradient(57deg, rgba(120,116,104,0.045) 0 1px, transparent 1px 27px),
+      repeating-linear-gradient(-34deg, rgba(120,116,104,0.035) 0 1px, transparent 1px 41px); }
+
+  .wrap { position: relative; z-index: 1; max-width: 1180px; margin: 0 auto; padding: 26px 22px 40px; }
+
+  header { text-align: center; }
+  .kicker { font-family: var(--display); font-size: 11px; letter-spacing: 0.34em; text-transform: uppercase; color: var(--gold-deep); }
+  h1 { font-family: var(--display); font-weight: 700; font-size: clamp(34px,6vw,60px); letter-spacing: 0.14em;
+    text-transform: uppercase; margin: 8px 0 0; color: var(--emerald-deep);
+    text-shadow: 0 1px 0 rgba(255,255,255,0.6), 0 2px 5px rgba(120,96,40,0.18); }
+  .sub { font-style: italic; color: var(--ink-soft); margin: 10px auto 0; max-width: 580px; line-height: 1.5; }
+  .rule { height: 14px; max-width: 620px; margin: 18px auto 22px; opacity: 0.7;
+    background-image: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='16'%20height='16'%3E%3Cpath%20d='M0,1H15V15H4V4H11V11H7'%20fill='none'%20stroke='%23b8902f'%20stroke-width='1.3'/%3E%3C/svg%3E");
+    background-repeat: repeat-x; background-position: center; }
+
+  .controls { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; justify-content: center; margin-bottom: 14px; }
+  .search { flex: 1 1 320px; max-width: 460px; position: relative; }
+  .search input { width: 100%; font-family: var(--body); font-size: 16px; color: var(--ink);
+    background: var(--card); border: 1px solid rgba(120,96,40,0.4); border-radius: 10px; padding: 11px 14px 11px 38px;
+    box-shadow: inset 0 1px 3px rgba(80,60,20,0.08); }
+  .search input:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 3px rgba(184,144,47,0.18); }
+  .search svg { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); width: 17px; height: 17px; color: var(--gold-deep); }
+  .btn { font-family: var(--display); font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
+    cursor: pointer; border-radius: 9px; padding: 11px 16px; border: 1px solid rgba(110,82,38,0.6);
+    background: linear-gradient(180deg, #e3c987, #b8902f); color: #33240c; }
+  .btn:hover { filter: brightness(1.06); }
+  .btn.ghost { background: transparent; color: var(--emerald-deep); }
+
+  .chips { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-bottom: 22px; }
+  .chip { font-family: var(--display); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; cursor: pointer;
+    padding: 6px 12px; border-radius: 999px; border: 1px solid rgba(120,96,40,0.35); background: rgba(255,255,255,0.4); color: var(--ink-soft); }
+  .chip .n { color: var(--gold-deep); margin-left: 5px; }
+  .chip.active { background: linear-gradient(180deg, #1f6b4f, #0f3d2e); color: var(--parch); border-color: var(--emerald-deep); }
+  .chip.active .n { color: var(--gold-bright); }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 18px; }
+  .entry { position: relative; cursor: pointer; background: var(--card); border-radius: 4px; padding: 18px 18px 16px;
+    border: 1px solid rgba(120,96,40,0.22); border-top: 3px solid var(--gold);
+    box-shadow: 0 8px 20px rgba(80,60,20,0.12); transition: transform 0.15s ease, box-shadow 0.15s ease; }
+  .entry:hover { transform: translateY(-3px); box-shadow: 0 16px 30px rgba(80,60,20,0.2); }
+  .entry .dom { font-family: var(--display); font-size: 9.5px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--emerald); }
+  .entry h3 { font-family: var(--display); font-weight: 700; font-size: 18px; line-height: 1.25; margin: 6px 0 7px; color: var(--emerald-deep); }
+  .entry .smry { font-size: 15px; line-height: 1.45; color: var(--ink); margin: 0 0 12px;
+    display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .meta { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 11px; color: var(--ink-soft);
+    font-family: var(--display); letter-spacing: 0.06em; padding-top: 10px; border-top: 1px solid rgba(120,96,40,0.18); }
+  .pill { font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase; padding: 3px 9px; border-radius: 999px; }
+  .pill.canonical { background: linear-gradient(180deg,#e3c987,#b8902f); color: #33240c; }
+  .pill.reviewed { background: rgba(31,107,79,0.16); color: var(--emerald-deep); border: 1px solid rgba(31,107,79,0.4); }
+  .pill.seedling { background: rgba(94,88,72,0.12); color: var(--ink-soft); border: 1px solid rgba(94,88,72,0.3); }
+  .meta .grow { flex: 1; }
+  .meta .tally { display: inline-flex; gap: 9px; }
+  .empty { text-align: center; color: var(--ink-soft); font-style: italic; padding: 50px 0; }
+
+  /* reading + capture overlays */
+  .overlay { position: fixed; inset: 0; z-index: 30; display: none; background: rgba(40,30,12,0.32); backdrop-filter: blur(2px); }
+  .overlay.open { display: block; }
+  .sheet { position: absolute; inset: 0; margin: auto; max-width: 820px; max-height: 92vh; overflow: auto;
+    background:
+      radial-gradient(ellipse 60% 40% at 30% 0%, rgba(255,255,255,0.6), transparent 60%),
+      linear-gradient(170deg, #f7f2e7, #efe6d2);
+    border: 1px solid rgba(120,96,40,0.5); border-radius: 8px; box-shadow: 0 30px 70px rgba(40,30,12,0.4);
+    padding: 34px 40px 44px; }
+  .sheet .close { position: sticky; top: 0; float: right; cursor: pointer; font-family: var(--display); font-size: 11px;
+    letter-spacing: 0.12em; text-transform: uppercase; color: var(--emerald-deep); background: none; border: 0; padding: 0 0 8px; }
+  .read .dom { font-family: var(--display); font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--emerald); }
+  .read h2 { font-family: var(--display); font-weight: 700; font-size: clamp(24px,4vw,38px); line-height: 1.15;
+    color: var(--emerald-deep); margin: 6px 0 10px; }
+  .stamp { display: inline-flex; align-items: center; gap: 9px; font-family: var(--display); font-size: 10px;
+    letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-soft); margin-bottom: 6px; }
+  .read .lead { font-style: italic; font-size: 18px; color: var(--ink); line-height: 1.5; margin: 12px 0 18px;
+    padding: 12px 0; border-top: 1px solid rgba(120,96,40,0.25); border-bottom: 1px solid rgba(120,96,40,0.25); }
+  .prose { font-size: 17.5px; line-height: 1.62; color: var(--ink); }
+  .prose h1,.prose h2,.prose h3 { font-family: var(--display); color: var(--emerald-deep); letter-spacing: 0.02em; line-height: 1.2; margin: 1.4em 0 0.5em; }
+  .prose h2 { font-size: 21px; } .prose h3 { font-size: 18px; }
+  .prose a { color: var(--gold-deep); }
+  .prose code { background: rgba(120,96,40,0.1); padding: 1px 5px; border-radius: 4px; font-size: 0.9em; }
+  .prose blockquote { border-left: 3px solid var(--gold); margin: 1em 0; padding: 2px 0 2px 16px; color: var(--ink-soft); font-style: italic; }
+  .prose img { max-width: 100%; border-radius: 4px; }
+  .section-h { font-family: var(--display); font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--gold-deep);
+    margin: 28px 0 10px; padding-bottom: 6px; border-bottom: 1px solid rgba(120,96,40,0.3); }
+  .src { font-size: 15px; line-height: 1.5; margin-bottom: 10px; color: var(--ink); }
+  .src .t { font-weight: 600; }
+  .src a { color: var(--gold-deep); text-decoration: none; border-bottom: 1px solid rgba(184,144,47,0.4); }
+  .src .arch { font-style: italic; color: var(--emerald); font-size: 13px; margin-left: 8px; }
+  .related a { display: inline-block; margin: 0 8px 8px 0; padding: 5px 11px; border-radius: 999px;
+    background: rgba(31,107,79,0.12); color: var(--emerald-deep); text-decoration: none; font-size: 13px; }
+
+  /* capture form */
+  .tabs { display: flex; gap: 8px; margin-bottom: 18px; }
+  .tab { flex: 1; text-align: center; cursor: pointer; font-family: var(--display); font-size: 11px; letter-spacing: 0.12em;
+    text-transform: uppercase; padding: 10px; border-radius: 8px; border: 1px solid rgba(120,96,40,0.4); color: var(--ink-soft); background: rgba(255,255,255,0.4); }
+  .tab.active { background: linear-gradient(180deg,#1f6b4f,#0f3d2e); color: var(--parch); border-color: var(--emerald-deep); }
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-family: var(--display); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--gold-deep); margin-bottom: 5px; }
+  .field input, .field textarea, .field select { width: 100%; font-family: var(--body); font-size: 16px; color: var(--ink);
+    background: #fffdf8; border: 1px solid rgba(120,96,40,0.4); border-radius: 8px; padding: 9px 11px; }
+  .field textarea { min-height: 90px; resize: vertical; line-height: 1.5; }
+  .field input:focus, .field textarea:focus, .field select:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 3px rgba(184,144,47,0.16); }
+  .field .hint { font-size: 12px; color: var(--ink-soft); font-style: italic; margin-top: 4px; }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .srcrow { display: grid; grid-template-columns: 1fr 1.4fr auto; gap: 8px; margin-bottom: 8px; }
+  .srcrow input { font-size: 14px; padding: 7px 9px; }
+  .srcrow button { border: 1px solid rgba(120,96,40,0.4); background: rgba(255,255,255,0.5); border-radius: 8px; cursor: pointer; color: var(--ink-soft); }
+  .addsrc { font-family: var(--display); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; cursor: pointer;
+    background: none; border: 1px dashed rgba(120,96,40,0.5); border-radius: 8px; padding: 7px 12px; color: var(--gold-deep); }
+  .formfoot { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+
+  .toast { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%) translateY(20px);
+    background: linear-gradient(180deg,#1f6b4f,#0f3d2e); border: 1px solid rgba(216,179,82,0.6); color: var(--parch);
+    font-family: var(--body); font-style: italic; font-size: 15px; padding: 11px 20px; border-radius: 8px;
+    opacity: 0; pointer-events: none; transition: opacity 0.22s, transform 0.22s; z-index: 60; }
+  .toast.bad { background: linear-gradient(180deg,#7c2d2d,#4a1414); }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  @media (max-width: 560px) { .sheet { padding: 26px 20px 36px; } .row2, .srcrow { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="kicker">Sovereignty Stack</div>
+    <h1>The&nbsp;Library</h1>
+    <div class="sub">A curated substrate of knowledge — recorded, cited, and preserved. Every entry carries its sources and the date it was last verified.</div>
+    <div class="rule"></div>
+  </header>
+
+  <div class="controls">
+    <div class="search">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+      <input id="q" type="search" placeholder="Search the collection…" autocomplete="off" />
+    </div>
+    <button class="btn" id="add-btn" type="button">+ Add Knowledge</button>
+  </div>
+
+  <div class="chips" id="chips"></div>
+  <div class="grid" id="grid"></div>
+  <div class="empty" id="empty" style="display:none">Nothing here yet. Add the first piece of knowledge.</div>
+</div>
+
+<!-- Reading room -->
+<div class="overlay" id="read-overlay">
+  <article class="sheet read" id="read-sheet">
+    <button class="close" id="read-close" type="button">&#10005; Close</button>
+    <div id="read-body"></div>
+  </article>
+</div>
+
+<!-- Capture -->
+<div class="overlay" id="cap-overlay">
+  <div class="sheet" id="cap-sheet">
+    <button class="close" id="cap-close" type="button">&#10005; Close</button>
+    <div class="tabs">
+      <div class="tab active" data-mode="clip">Clip a Source</div>
+      <div class="tab" data-mode="author">Author an Entry</div>
+    </div>
+
+    <form id="clip-form">
+      <div class="field"><label>Source URL</label><input name="url" type="url" placeholder="https://…" required /></div>
+      <div class="row2">
+        <div class="field"><label>Domain</label><input name="domain" placeholder="References" /></div>
+        <div class="field"><label>Topics (comma-separated)</label><input name="topics" placeholder="health, sleep" /></div>
+      </div>
+      <div class="field"><label>Note</label><textarea name="note" placeholder="Why this matters / what to remember…"></textarea>
+        <div class="hint">Saves the page text locally as an archived snapshot, so the citation survives even if the link dies.</div></div>
+      <div class="formfoot"><button class="btn ghost" type="button" data-close>Cancel</button><button class="btn" type="submit">Clip &amp; Archive</button></div>
+    </form>
+
+    <form id="author-form" style="display:none">
+      <div class="field"><label>Title</label><input name="title" required /></div>
+      <div class="row2">
+        <div class="field"><label>Domain</label><input name="domain" placeholder="Health" required /></div>
+        <div class="field"><label>Topics (comma-separated)</label><input name="topics" placeholder="metabolism, cold" /></div>
+      </div>
+      <div class="field"><label>Summary</label><input name="summary" placeholder="One-line abstract" /></div>
+      <div class="field"><label>Body (Markdown)</label><textarea name="body" placeholder="# Heading&#10;Write the knowledge here…" style="min-height:150px"></textarea></div>
+      <div class="field"><label>Sources</label><div id="srclist"></div>
+        <button class="addsrc" type="button" id="addsrc">+ Add source</button>
+        <div class="hint">A <b>Canonical</b> entry requires at least one source with a URL.</div></div>
+      <div class="row2">
+        <div class="field"><label>Status</label>
+          <select name="status"><option value="seedling">Seedling — draft / unverified</option><option value="reviewed">Reviewed</option><option value="canonical">Canonical — trusted</option></select></div>
+        <div class="field"><label>Last verified</label><input name="verified" type="date" /></div>
+      </div>
+      <div class="formfoot"><button class="btn ghost" type="button" data-close>Cancel</button><button class="btn" type="submit">Save Entry</button></div>
+    </form>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  var $ = function (s, r) { return (r || document).querySelector(s); };
+  var state = { domain: "", status: "", q: "" };
+
+  function toast(msg, bad) {
+    var t = $("#toast"); t.textContent = msg; t.className = "toast show" + (bad ? " bad" : "");
+    clearTimeout(t._t); t._t = setTimeout(function () { t.className = "toast"; }, 2600);
+  }
+  async function api(path, opts) {
+    var r = await fetch("/api/library" + path, opts);
+    if (!r.ok) { var d = null; try { d = await r.json(); } catch (e) {} throw new Error((d && d.detail) || ("HTTP " + r.status)); }
+    return r.status === 204 ? null : r.json();
+  }
+  function esc(s) { var d = document.createElement("div"); d.textContent = s == null ? "" : String(s); return d.innerHTML; }
+  function fmtDate(d) { return d || ""; }
+  function pill(status) { var labels = { canonical: "Canonical", reviewed: "Reviewed", seedling: "Seedling" }; return '<span class="pill ' + status + '">' + (labels[status] || status) + "</span>"; }
+
+  async function loadChips() {
+    var doms = await api("/domains");
+    var total = doms.reduce(function (a, d) { return a + d.count; }, 0);
+    var html = '<div class="chip' + (state.domain === "" ? " active" : "") + '" data-dom="">All<span class="n">' + total + "</span></div>";
+    doms.forEach(function (d) {
+      html += '<div class="chip' + (state.domain === d.domain ? " active" : "") + '" data-dom="' + esc(d.domain) + '">' + esc(d.domain) + '<span class="n">' + d.count + "</span></div>";
+    });
+    $("#chips").innerHTML = html;
+    Array.prototype.forEach.call($("#chips").querySelectorAll(".chip"), function (c) {
+      c.addEventListener("click", function () { state.domain = c.getAttribute("data-dom"); loadChips(); loadGrid(); });
+    });
+  }
+  async function loadGrid() {
+    var params = new URLSearchParams();
+    if (state.domain) params.set("domain", state.domain);
+    if (state.status) params.set("status", state.status);
+    if (state.q) params.set("q", state.q);
+    var entries = await api("/entries?" + params.toString());
+    var grid = $("#grid");
+    $("#empty").style.display = entries.length ? "none" : "block";
+    grid.innerHTML = entries.map(function (e) {
+      var tally = [];
+      if (e.n_sources) tally.push(e.n_sources + " src");
+      if (e.n_media) tally.push(e.n_media + " media");
+      return '<article class="entry" data-slug="' + esc(e.slug) + '">' +
+        '<div class="dom">' + esc(e.domain) + "</div>" +
+        "<h3>" + esc(e.title) + "</h3>" +
+        '<p class="smry">' + esc(e.summary || "") + "</p>" +
+        '<div class="meta">' + pill(e.status) +
+        (e.verified ? '<span>Verified ' + esc(e.verified) + "</span>" : "") +
+        '<span class="grow"></span><span class="tally">' + tally.map(esc).join(" · ") + "</span></div>" +
+        "</article>";
+    }).join("");
+    Array.prototype.forEach.call(grid.querySelectorAll(".entry"), function (el) {
+      el.addEventListener("click", function () { openEntry(el.getAttribute("data-slug")); });
+    });
+  }
+
+  async function openEntry(slug) {
+    try {
+      var e = await api("/entries/" + encodeURIComponent(slug));
+    } catch (err) { toast(err.message, true); return; }
+    var stamp = [pill(e.status)];
+    if (e.verified) stamp.push("Verified " + esc(e.verified));
+    if (e.confidence && e.confidence !== "unrated") stamp.push("Confidence: " + esc(e.confidence));
+    var srcHtml = (e.sources || []).map(function (s) {
+      var t = s.url ? '<a href="' + esc(s.url) + '" target="_blank" rel="noopener noreferrer">' + esc(s.title || s.url) + "</a>" : esc(s.title || "");
+      var bits = [];
+      if (s.author) bits.push(esc(s.author));
+      if (s.type) bits.push(esc(s.type));
+      if (s.retrieved) bits.push("retrieved " + esc(s.retrieved));
+      var arch = s.archived ? '<a class="arch" href="/library-assets/' + esc(s.archived) + '" target="_blank" rel="noopener noreferrer">archived copy</a>' : "";
+      return '<div class="src"><span class="t">' + t + "</span>" + (bits.length ? " — " + bits.join(", ") : "") + arch + "</div>";
+    }).join("");
+    var relHtml = (e.related || []).map(function (r) { return '<a href="#" data-rel="' + esc(r) + '">' + esc(r) + "</a>"; }).join("");
+    var mediaHtml = (e.media || []).map(function (m) {
+      var url = "/library-assets/" + esc(m);
+      if (/\.(png|jpe?g|gif|webp|svg)$/i.test(m)) return '<img src="' + url + '" alt="" />';
+      return '<div class="src"><a href="' + url + '" target="_blank" rel="noopener noreferrer">' + esc(m) + "</a></div>";
+    }).join("");
+    $("#read-body").innerHTML =
+      '<div class="dom">' + esc(e.domain) + "</div>" +
+      "<h2>" + esc(e.title) + "</h2>" +
+      '<div class="stamp">' + stamp.join('<span style="opacity:.5">·</span>') + "</div>" +
+      (e.summary ? '<div class="lead">' + esc(e.summary) + "</div>" : "") +
+      '<div class="prose">' + (e.html || "") + "</div>" +
+      (mediaHtml ? '<div class="section-h">Media</div>' + mediaHtml : "") +
+      (srcHtml ? '<div class="section-h">Sources</div>' + srcHtml : "") +
+      (relHtml ? '<div class="section-h">Related</div><div class="related">' + relHtml + "</div>" : "");
+    Array.prototype.forEach.call($("#read-body").querySelectorAll("[data-rel]"), function (a) {
+      a.addEventListener("click", function (ev) { ev.preventDefault(); openEntry(a.getAttribute("data-rel")); });
+    });
+    $("#read-overlay").classList.add("open");
+  }
+
+  // ---- capture ----
+  function csv(v) { return (v || "").split(",").map(function (s) { return s.trim(); }).filter(Boolean); }
+  function addSrcRow(s) {
+    s = s || {};
+    var row = document.createElement("div"); row.className = "srcrow";
+    row.innerHTML = '<input class="s-title" placeholder="Title" value="' + esc(s.title || "") + '" />' +
+      '<input class="s-url" placeholder="https://…" value="' + esc(s.url || "") + '" />' +
+      '<button type="button" title="remove">&#10005;</button>';
+    row.querySelector("button").addEventListener("click", function () { row.remove(); });
+    $("#srclist").appendChild(row);
+  }
+  function gatherSources() {
+    return Array.prototype.map.call($("#srclist").querySelectorAll(".srcrow"), function (r) {
+      return { title: r.querySelector(".s-title").value.trim(), url: r.querySelector(".s-url").value.trim() };
+    }).filter(function (s) { return s.title || s.url; });
+  }
+  function openCapture() {
+    $("#srclist").innerHTML = ""; addSrcRow();
+    $("#clip-form").reset(); $("#author-form").reset();
+    setMode("clip");
+    $("#cap-overlay").classList.add("open");
+  }
+  function setMode(m) {
+    Array.prototype.forEach.call(document.querySelectorAll(".tab"), function (t) { t.classList.toggle("active", t.getAttribute("data-mode") === m); });
+    $("#clip-form").style.display = m === "clip" ? "" : "none";
+    $("#author-form").style.display = m === "author" ? "" : "none";
+  }
+
+  function wire() {
+    $("#add-btn").addEventListener("click", openCapture);
+    $("#read-close").addEventListener("click", function () { $("#read-overlay").classList.remove("open"); });
+    $("#cap-close").addEventListener("click", function () { $("#cap-overlay").classList.remove("open"); });
+    Array.prototype.forEach.call(document.querySelectorAll("[data-close]"), function (b) {
+      b.addEventListener("click", function () { $("#cap-overlay").classList.remove("open"); });
+    });
+    Array.prototype.forEach.call(document.querySelectorAll(".overlay"), function (o) {
+      o.addEventListener("click", function (e) { if (e.target === o) o.classList.remove("open"); });
+    });
+    document.addEventListener("keydown", function (e) { if (e.key === "Escape") Array.prototype.forEach.call(document.querySelectorAll(".overlay.open"), function (o) { o.classList.remove("open"); }); });
+    Array.prototype.forEach.call(document.querySelectorAll(".tab"), function (t) { t.addEventListener("click", function () { setMode(t.getAttribute("data-mode")); }); });
+    $("#addsrc").addEventListener("click", function () { addSrcRow(); });
+
+    var qt;
+    $("#q").addEventListener("input", function (e) { clearTimeout(qt); qt = setTimeout(function () { state.q = e.target.value.trim(); loadGrid(); }, 220); });
+
+    $("#clip-form").addEventListener("submit", async function (e) {
+      e.preventDefault();
+      var f = e.target;
+      try {
+        var res = await api("/clip", { method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url: f.url.value.trim(), domain: f.domain.value.trim(), topics: csv(f.topics.value), note: f.note.value.trim() }) });
+        $("#cap-overlay").classList.remove("open");
+        toast(res.archived ? "Clipped & archived." : "Clipped (snapshot unavailable).");
+        await refresh();
+      } catch (err) { toast(err.message, true); }
+    });
+    $("#author-form").addEventListener("submit", async function (e) {
+      e.preventDefault();
+      var f = e.target;
+      try {
+        var res = await api("/entries", { method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title: f.title.value.trim(), domain: f.domain.value.trim(), topics: csv(f.topics.value),
+            summary: f.summary.value.trim(), body: f.body.value, status: f.status.value, verified: f.verified.value, sources: gatherSources() }) });
+        $("#cap-overlay").classList.remove("open");
+        toast(res.duplicate ? "Entry updated." : "Entry added to the collection.");
+        await refresh();
+      } catch (err) { toast(err.message, true); }
+    });
+  }
+
+  async function refresh() { await loadChips(); await loadGrid(); }
+  wire();
+  refresh().catch(function (e) { toast("Could not load the Library: " + e.message, true); });
+</script>
+</body>
+</html>

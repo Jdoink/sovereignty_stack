@@ -4,13 +4,17 @@ import json
 import logging
 import os
 import re
+import sqlite3
 import time
 import uuid
 from contextlib import asynccontextmanager
+from datetime import date
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import httpx
+import markdown as md
+import yaml
 from dotenv import load_dotenv
 from fastapi import Body, FastAPI, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
@@ -46,6 +50,10 @@ ENTRANCE_URL = os.getenv(
     "ENTRANCE_URL",
     "https://raw.githubusercontent.com/Jdoink/sovereignty_stack/main/command-center-portal/entrance.html",
 )
+LIBRARY_URL = os.getenv(
+    "LIBRARY_URL",
+    "https://raw.githubusercontent.com/Jdoink/sovereignty_stack/main/command-center-portal/library.html",
+)
 
 http_client: Optional[httpx.AsyncClient] = None
 
@@ -55,6 +63,10 @@ async def lifespan(_app: FastAPI):
     global http_client
     http_client = httpx.AsyncClient(timeout=httpx.Timeout(10.0))
     logger.info("HTTP client initialized")
+    try:
+        library_startup()
+    except Exception:
+        logger.exception("library startup failed")
     try:
         yield
     finally:
@@ -137,6 +149,11 @@ async def studio() -> HTMLResponse:
 @app.get("/entrance", response_class=HTMLResponse, include_in_schema=False)
 async def entrance() -> HTMLResponse:
     return await _serve_page(ENTRANCE_URL, "Enter The Vault")
+
+
+@app.get("/library", response_class=HTMLResponse, include_in_schema=False)
+async def library_page() -> HTMLResponse:
+    return await _serve_page(LIBRARY_URL, "The Library")
 
 
 # === Resource Vault =========================================================
@@ -335,4 +352,377 @@ async def delete_art(art_id: str) -> JSONResponse:
 @app.options("/api/art")
 @app.options("/api/art/{art_id}")
 async def art_options(art_id: str = "") -> Response:
+    return Response(headers=CORS_HEADERS)
+
+
+# === The Library — knowledge substrate ======================================
+# Files-as-truth: each entry is a Markdown file with YAML front-matter under
+# /data/library/entries/<slug>.md; media + archived source snapshots live in
+# /data/library/assets. A SQLite FTS5 index (index.db) is *derived* from the
+# files and rebuilt on every write, so the files remain the durable, portable,
+# human-readable source of truth (open formats, recoverable, editable anywhere).
+LIB_DIR = Path(os.getenv("RESOURCE_DATA_PATH", "/data")) / "library"
+ENTRIES_DIR = LIB_DIR / "entries"
+ASSETS_DIR = LIB_DIR / "assets"
+INDEX_DB = LIB_DIR / "index.db"
+ENTRIES_DIR.mkdir(parents=True, exist_ok=True)
+(ASSETS_DIR / "sources").mkdir(parents=True, exist_ok=True)
+app.mount("/library-assets", StaticFiles(directory=str(ASSETS_DIR)), name="library-assets")
+
+STATUSES = {"seedling", "reviewed", "canonical"}
+CONFIDENCE = {"unrated", "low", "medium", "high"}
+_SLUG_RE = re.compile(r"[^a-z0-9]+")
+
+
+def _today() -> str:
+    return date.today().isoformat()
+
+
+def slugify(raw: Any) -> str:
+    s = _SLUG_RE.sub("-", str(raw or "").strip().lower()).strip("-")
+    return s[:80] or "untitled"
+
+
+def _clean_list(raw: Any) -> List[str]:
+    if isinstance(raw, str):
+        raw = raw.split(",")
+    if not isinstance(raw, list):
+        return []
+    seen, out = set(), []
+    for x in raw:
+        v = str(x).strip()[:60]
+        if v and v.lower() not in seen:
+            seen.add(v.lower())
+            out.append(v)
+    return out[:40]
+
+
+def _clean_date(raw: Any) -> str:
+    s = str(raw or "").strip()[:10]
+    return s if re.match(r"^\d{4}-\d{2}-\d{2}$", s) else ""
+
+
+def _clean_sources(raw: Any) -> List[Dict[str, str]]:
+    if not isinstance(raw, list):
+        return []
+    out = []
+    for s in raw[:50]:
+        if not isinstance(s, dict):
+            continue
+        url = _s(s.get("url"), 1000)
+        title = _s(s.get("title"), 240) or url
+        if not (url or title):
+            continue
+        item = {"title": title}
+        if url:
+            item["url"] = url
+        for k, lim in (("author", 160), ("archived", 200), ("type", 24)):
+            v = _s(s.get(k), lim)
+            if v:
+                item[k] = v
+        item["retrieved"] = _clean_date(s.get("retrieved")) or _today()
+        out.append(item)
+    return out
+
+
+def _normalize_entry(raw: Dict[str, Any], existing: Optional[Dict[str, Any]] = None):
+    if not isinstance(raw, dict):
+        raise ValueError("entry must be an object")
+    title = _s(raw.get("title"), 240)
+    if not title:
+        raise ValueError("title is required")
+    status = raw.get("status") if raw.get("status") in STATUSES else "seedling"
+    sources = _clean_sources(raw.get("sources"))
+    if status == "canonical" and not any(s.get("url") for s in sources):
+        raise ValueError("a canonical entry needs at least one cited source")
+    now = int(time.time())
+    meta = {
+        "title": title,
+        "slug": slugify(raw.get("slug") or title),
+        "domain": _s(raw.get("domain"), 80) or "Uncategorized",
+        "topics": _clean_list(raw.get("topics")),
+        "summary": _s(raw.get("summary"), 600),
+        "status": status,
+        "confidence": raw.get("confidence") if raw.get("confidence") in CONFIDENCE else "unrated",
+        "verified": _clean_date(raw.get("verified")),
+        "sources": sources,
+        "media": _clean_list(raw.get("media")),
+        "related": _clean_list(raw.get("related")),
+        "created": int((existing or {}).get("created") or now),
+        "updated": now,
+    }
+    body = str(raw.get("body") or "").strip()
+    return meta, body
+
+
+def parse_entry(text: str):
+    if text.startswith("---"):
+        end = text.find("\n---", 3)
+        if end != -1:
+            meta = yaml.safe_load(text[3:end]) or {}
+            body = text[end + 4:].lstrip("\n")
+            return (meta if isinstance(meta, dict) else {}), body
+    return {}, text
+
+
+def dump_entry(meta: Dict[str, Any], body: str) -> str:
+    fm = yaml.safe_dump(meta, sort_keys=False, allow_unicode=True).strip()
+    return f"---\n{fm}\n---\n\n{body.strip()}\n"
+
+
+def _write_entry(meta: Dict[str, Any], body: str) -> None:
+    ENTRIES_DIR.mkdir(parents=True, exist_ok=True)
+    p = ENTRIES_DIR / (meta["slug"] + ".md")
+    tmp = p.with_suffix(".md.tmp")
+    tmp.write_text(dump_entry(meta, body), encoding="utf-8")
+    tmp.replace(p)
+
+
+def read_all_metas(with_body: bool = False) -> List[Dict[str, Any]]:
+    out = []
+    for p in sorted(ENTRIES_DIR.glob("*.md")):
+        try:
+            meta, body = parse_entry(p.read_text(encoding="utf-8"))
+        except Exception:
+            logger.exception("failed to parse entry %s", p)
+            continue
+        if not isinstance(meta, dict):
+            continue
+        meta["slug"] = str(meta.get("slug") or p.stem)
+        if with_body:
+            meta["_body"] = body
+        out.append(meta)
+    return out
+
+
+def _card(meta: Dict[str, Any]) -> Dict[str, Any]:
+    return {
+        "title": meta.get("title", ""),
+        "slug": meta.get("slug", ""),
+        "domain": meta.get("domain", "Uncategorized"),
+        "topics": meta.get("topics") or [],
+        "summary": meta.get("summary", ""),
+        "status": meta.get("status", "seedling"),
+        "confidence": meta.get("confidence", "unrated"),
+        "verified": meta.get("verified", ""),
+        "updated": meta.get("updated", 0),
+        "n_sources": len(meta.get("sources") or []),
+        "n_media": len(meta.get("media") or []),
+    }
+
+
+def rebuild_index() -> None:
+    metas = read_all_metas(with_body=True)
+    con = sqlite3.connect(str(INDEX_DB))
+    try:
+        con.execute("DROP TABLE IF EXISTS libfts")
+        con.execute("CREATE VIRTUAL TABLE libfts USING fts5(slug, title, summary, topics, body)")
+        con.executemany(
+            "INSERT INTO libfts(slug,title,summary,topics,body) VALUES(?,?,?,?,?)",
+            [(m["slug"], m.get("title", ""), m.get("summary", ""),
+              " ".join(m.get("topics") or []), m.get("_body", "")) for m in metas],
+        )
+        con.commit()
+    finally:
+        con.close()
+
+
+def _fts_query(q: str) -> str:
+    toks = re.findall(r"[A-Za-z0-9]+", q)
+    return " ".join(t + "*" for t in toks)
+
+
+def fts_search(q: str) -> Optional[List[str]]:
+    expr = _fts_query(q)
+    if not expr:
+        return []
+    try:
+        con = sqlite3.connect(str(INDEX_DB))
+        try:
+            rows = con.execute(
+                "SELECT slug FROM libfts WHERE libfts MATCH ? ORDER BY rank", (expr,)
+            ).fetchall()
+        finally:
+            con.close()
+        return [r[0] for r in rows]
+    except Exception:
+        logger.exception("library search failed")
+        return None
+
+
+SEED_ABOUT = {
+    "title": "About the Library",
+    "slug": "about-the-library",
+    "domain": "Meta",
+    "topics": ["library", "how-to", "curation"],
+    "summary": "How this knowledge substrate works: files-as-truth, cited sources, and a curation lifecycle built for longevity.",
+    "status": "canonical",
+    "confidence": "high",
+    "verified": _today(),
+    "sources": [{
+        "title": "Sovereignty Stack — repository & architecture",
+        "url": "https://github.com/Jdoink/sovereignty_stack",
+        "type": "primary",
+        "retrieved": _today(),
+    }],
+    "body": (
+        "The Library is a **curated knowledge substrate** — a place to record, "
+        "categorize, search, and preserve high-value knowledge, rather than let it "
+        "scatter across bookmarks and notes.\n\n"
+        "## Files as the source of truth\n"
+        "Every entry is a plain **Markdown file with YAML front-matter**, stored on "
+        "the Seagate under `library/entries/`. Media and **archived snapshots of "
+        "cited sources** live alongside in `library/assets/`. A search index is "
+        "*derived* from these files and can be rebuilt at any time — so the files "
+        "themselves, readable in any text editor, are what endures.\n\n"
+        "## Curation lifecycle\n"
+        "Entries move through three states:\n\n"
+        "- **Seedling** — a capture or draft, not yet verified.\n"
+        "- **Reviewed** — checked over and tidied.\n"
+        "- **Canonical** — trusted; *requires at least one cited source*.\n\n"
+        "## Citations that outlive the web\n"
+        "Each source records its URL **and** a saved local copy, so the knowledge "
+        "survives even when the original page disappears. Every entry shows when it "
+        "was last verified, so stale knowledge is visible rather than hidden.\n"
+    ),
+}
+
+
+def library_startup() -> None:
+    ENTRIES_DIR.mkdir(parents=True, exist_ok=True)
+    (ASSETS_DIR / "sources").mkdir(parents=True, exist_ok=True)
+    if not any(ENTRIES_DIR.glob("*.md")):
+        meta, body = _normalize_entry(SEED_ABOUT)
+        _write_entry(meta, body)
+        logger.info("seeded Library with 'About the Library'")
+    rebuild_index()
+
+
+@app.get("/api/library/domains")
+async def library_domains() -> JSONResponse:
+    counts: Dict[str, int] = {}
+    for m in read_all_metas():
+        d = m.get("domain") or "Uncategorized"
+        counts[d] = counts.get(d, 0) + 1
+    items = [{"domain": d, "count": c} for d, c in sorted(counts.items())]
+    return JSONResponse(content=items, headers=CORS_HEADERS)
+
+
+@app.get("/api/library/entries")
+async def library_entries(domain: str = "", topic: str = "", status: str = "", q: str = "") -> JSONResponse:
+    metas = read_all_metas()
+    q = q.strip()
+    if q:
+        ranked = fts_search(q)
+        if ranked is not None:
+            order = {s: i for i, s in enumerate(ranked)}
+            metas = [m for m in metas if m["slug"] in order]
+            metas.sort(key=lambda m: order.get(m["slug"], 1_000_000))
+        else:
+            ql = q.lower()
+            metas = [m for m in metas if ql in (m.get("title", "") + " " + m.get("summary", "")).lower()]
+    if domain:
+        metas = [m for m in metas if m.get("domain") == domain]
+    if status:
+        metas = [m for m in metas if m.get("status") == status]
+    if topic:
+        metas = [m for m in metas if topic in (m.get("topics") or [])]
+    return JSONResponse(content=[_card(m) for m in metas], headers=CORS_HEADERS)
+
+
+@app.get("/api/library/entries/{slug}")
+async def library_entry(slug: str) -> JSONResponse:
+    p = ENTRIES_DIR / (slugify(slug) + ".md")
+    if not p.exists():
+        raise HTTPException(status_code=404, detail="entry not found")
+    meta, body = parse_entry(p.read_text(encoding="utf-8"))
+    meta["slug"] = str(meta.get("slug") or p.stem)
+    html = md.markdown(body, extensions=["extra", "sane_lists", "toc"])
+    return JSONResponse(content={**meta, "body": body, "html": html}, headers=CORS_HEADERS)
+
+
+@app.post("/api/library/entries")
+async def library_save(raw: Any = Body(...)) -> JSONResponse:
+    if not isinstance(raw, dict):
+        raise HTTPException(status_code=400, detail="body must be an object")
+    existing = None
+    slug_in = slugify(raw.get("slug") or raw.get("title") or "")
+    ep = ENTRIES_DIR / (slug_in + ".md")
+    if ep.exists():
+        em, _ = parse_entry(ep.read_text(encoding="utf-8"))
+        existing = em if isinstance(em, dict) else None
+    try:
+        meta, body = _normalize_entry(raw, existing)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    _write_entry(meta, body)
+    rebuild_index()
+    return JSONResponse(
+        content={"ok": True, "duplicate": existing is not None, "item": _card(meta)},
+        headers=CORS_HEADERS,
+    )
+
+
+@app.delete("/api/library/entries/{slug}")
+async def library_delete(slug: str) -> JSONResponse:
+    p = ENTRIES_DIR / (slugify(slug) + ".md")
+    if not p.exists():
+        raise HTTPException(status_code=404, detail="entry not found")
+    p.unlink()
+    rebuild_index()
+    return JSONResponse(content={"ok": True}, headers=CORS_HEADERS)
+
+
+@app.post("/api/library/clip")
+async def library_clip(raw: Any = Body(...)) -> JSONResponse:
+    """Save a web source: archive a local HTML snapshot (so the citation outlives
+    link rot) and create a seedling reference entry. Single-user LAN tool; only
+    http(s) URLs are fetched, and the snapshot is size-capped."""
+    if not isinstance(raw, dict):
+        raise HTTPException(status_code=400, detail="body must be an object")
+    url = _s(raw.get("url"), 1000)
+    if not re.match(r"^https?://", url):
+        raise HTTPException(status_code=400, detail="a valid http(s) url is required")
+    title = _s(raw.get("title"), 240)
+    archived = ""
+    if http_client is not None:
+        try:
+            r = await http_client.get(url, follow_redirects=True)
+            text = r.text[:2_000_000]
+            sha = hashlib.sha1(url.encode("utf-8")).hexdigest()[:16]
+            (ASSETS_DIR / "sources").mkdir(parents=True, exist_ok=True)
+            (ASSETS_DIR / "sources" / (sha + ".html")).write_bytes(text.encode("utf-8", "ignore"))
+            archived = f"sources/{sha}.html"
+            if not title:
+                m = re.search(r"<title[^>]*>(.*?)</title>", text, re.I | re.S)
+                if m:
+                    title = re.sub(r"\s+", " ", m.group(1)).strip()[:240]
+        except Exception:
+            logger.exception("clip fetch failed for %s", url)
+    if not title:
+        title = url
+    note = _s(raw.get("note"), 2000)
+    src: Dict[str, str] = {"title": title, "url": url, "type": "article", "retrieved": _today()}
+    if archived:
+        src["archived"] = archived
+    payload = {
+        "title": title,
+        "domain": _s(raw.get("domain"), 80) or "References",
+        "topics": raw.get("topics"),
+        "summary": note[:300],
+        "body": note,
+        "status": "seedling",
+        "sources": [src],
+    }
+    meta, body = _normalize_entry(payload)
+    _write_entry(meta, body)
+    rebuild_index()
+    return JSONResponse(
+        content={"ok": True, "item": _card(meta), "archived": bool(archived)},
+        headers=CORS_HEADERS,
+    )
+
+
+@app.options("/api/library/{rest:path}")
+async def library_options(rest: str = "") -> Response:
     return Response(headers=CORS_HEADERS)
