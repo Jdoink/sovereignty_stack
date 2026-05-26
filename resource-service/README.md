@@ -50,7 +50,7 @@ trivial to edit and recover.
 
 | Module | Status | Target |
 |--------|--------|--------|
-| Library | live | embeds `/portal` (Resource Portal lives inside the Library) |
+| Library | live | embeds `/library` (the curated knowledge substrate; `/portal` directory still served) |
 | Media Theater | live | embeds `/theater` |
 | Art Studio | soon | `/studio` (next build — touch finger-painting) |
 | Financial Cockpit | live | wallet-service `/console` |
