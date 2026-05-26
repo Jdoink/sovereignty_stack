@@ -42,6 +42,10 @@ STUDIO_URL = os.getenv(
     "STUDIO_URL",
     "https://raw.githubusercontent.com/Jdoink/sovereignty_stack/main/command-center-portal/studio.html",
 )
+ENTRANCE_URL = os.getenv(
+    "ENTRANCE_URL",
+    "https://raw.githubusercontent.com/Jdoink/sovereignty_stack/main/command-center-portal/entrance.html",
+)
 
 http_client: Optional[httpx.AsyncClient] = None
 
@@ -128,6 +132,11 @@ async def theater() -> HTMLResponse:
 @app.get("/studio", response_class=HTMLResponse, include_in_schema=False)
 async def studio() -> HTMLResponse:
     return await _serve_page(STUDIO_URL, "Art Studio")
+
+
+@app.get("/entrance", response_class=HTMLResponse, include_in_schema=False)
+async def entrance() -> HTMLResponse:
+    return await _serve_page(ENTRANCE_URL, "Enter The Vault")
 
 
 # === Resource Vault =========================================================
