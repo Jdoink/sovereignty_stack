@@ -18,6 +18,7 @@
     --display: "Cinzel", "Trajan Pro", Optima, "Palatino Linotype", Palatino, Georgia, serif;
     --body: "Cormorant", "Cormorant Garamond", "EB Garamond", "Palatino Linotype", Palatino, Georgia, serif;
     --meander: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='16'%20height='16'%3E%3Cpath%20d='M0,1H15V15H4V4H11V11H7'%20fill='none'%20stroke='%23b8902f'%20stroke-width='1.3'/%3E%3C/svg%3E");
+    --rosette: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='20'%20height='20'%3E%3Cg%20fill='%23e3c987'%20stroke='%236f5226'%20stroke-width='0.7'%3E%3Ccircle%20cx='10'%20cy='5'%20r='3.3'/%3E%3Ccircle%20cx='10'%20cy='15'%20r='3.3'/%3E%3Ccircle%20cx='5'%20cy='10'%20r='3.3'/%3E%3Ccircle%20cx='15'%20cy='10'%20r='3.3'/%3E%3Ccircle%20cx='10'%20cy='10'%20r='2.2'%20fill='%236f5226'/%3E%3C/g%3E%3C/svg%3E");
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; min-height: 100%; }
@@ -56,25 +57,54 @@
     margin: 0; color: var(--emerald-deep);
     text-shadow: 0 1px 0 rgba(255,255,255,0.6), 0 2px 5px rgba(120,96,40,0.18); }
   .subtitle { font-style: italic; font-size: 17px; color: var(--ink-soft); margin: 12px auto 0; max-width: 600px; line-height: 1.5; }
+  .estd { font-family: var(--display); font-size: 10px; letter-spacing: 0.4em; text-transform: uppercase; color: var(--gold-deep); margin-top: 14px; }
 
   .meander { height: 16px; margin: 22px auto 26px; max-width: 720px;
     background-image: var(--meander); background-repeat: repeat-x; background-position: center; opacity: 0.7; }
 
   .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 26px 24px; }
 
-  .piece { display: flex; flex-direction: column; align-items: center; }
-  .frame { width: 100%; position: relative; cursor: pointer; border-radius: 3px; padding: 11px;
-    background: linear-gradient(135deg, #f1dba4 0%, #b18f50 22%, #ecd197 42%, #7c5f30 66%, #d9be7f 86%, #a07d40 100%);
+  .piece { position: relative; display: flex; flex-direction: column; align-items: center; padding-top: 14px; }
+  .lamp { position: relative; z-index: 3; width: 42%; max-width: 150px; height: 9px; margin: 0 auto -3px; border-radius: 6px 6px 3px 3px;
+    background: linear-gradient(180deg, #f4e2ac, #c9a247 45%, #7c5f30); box-shadow: 0 4px 8px rgba(80,60,20,0.32), inset 0 1px 0 rgba(255,248,224,0.8); }
+  .lamp::before { content: ""; position: absolute; left: 50%; top: 100%; transform: translateX(-50%); width: 4px; height: 7px; background: linear-gradient(180deg, #a07d40, #6f5226); }
+  .lamp::after { content: ""; position: absolute; left: 50%; top: 9px; transform: translateX(-50%); width: 165%; height: 150px; pointer-events: none; z-index: -1;
+    background: radial-gradient(ellipse 44% 100% at 50% 0%, rgba(255,243,206,0.5), rgba(255,243,206,0) 72%); opacity: 0.6; transition: opacity 0.25s; }
+  .piece:hover .lamp::after { opacity: 1; }
+  .piece.soon .lamp { filter: grayscale(0.5) opacity(0.7); }
+
+  .frame { width: 100%; position: relative; cursor: pointer; border-radius: 3px; padding: 14px;
+    background:
+      var(--rosette) top 5px left 5px / 18px 18px no-repeat,
+      var(--rosette) top 5px right 5px / 18px 18px no-repeat,
+      var(--rosette) bottom 5px left 5px / 18px 18px no-repeat,
+      var(--rosette) bottom 5px right 5px / 18px 18px no-repeat,
+      linear-gradient(135deg, #f1dba4 0%, #b18f50 22%, #ecd197 42%, #7c5f30 66%, #d9be7f 86%, #a07d40 100%);
     box-shadow: 0 16px 34px rgba(80,60,20,0.28), 0 0 0 1px rgba(110,82,38,0.6), inset 0 1px 0 rgba(255,246,214,0.6);
     transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease; }
-  .frame::before { content: ""; position: absolute; inset: 6px; border-radius: 2px; pointer-events: none;
-    box-shadow: inset 0 0 0 1px rgba(90,66,24,0.6), inset 0 0 0 3px rgba(255,246,214,0.25); }
-  .canvas { position: relative; border-radius: 1px; min-height: 188px; overflow: hidden;
+  .frame::before { content: ""; position: absolute; inset: 10px; border-radius: 2px; pointer-events: none;
+    box-shadow:
+      inset 0 0 0 1px rgba(255,246,214,0.55),
+      inset 0 0 0 2px rgba(120,90,30,0.55),
+      inset 0 0 0 4px rgba(255,246,214,0.18),
+      inset 0 0 0 5px rgba(90,66,24,0.5); }
+  .mat { position: relative; border-radius: 1px; padding: 15px;
+    background:
+      repeating-linear-gradient(90deg, rgba(120,96,40,0.045) 0 1px, transparent 1px 4px),
+      repeating-linear-gradient(0deg, rgba(120,96,40,0.045) 0 1px, transparent 1px 4px),
+      linear-gradient(140deg, #f1ead8, #e4d8bf);
+    box-shadow: inset 0 0 0 1px rgba(120,96,40,0.18); }
+  .canvas { position: relative; border-radius: 1px; min-height: 168px; overflow: hidden;
     display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 26px 20px;
     background:
       repeating-linear-gradient(45deg, rgba(255,255,255,0.05) 0 1px, transparent 1px 3px),
       radial-gradient(ellipse 72% 60% at 50% 36%, #2f8c66, #1f6b4f 56%, #0f3d2e);
-    box-shadow: inset 0 0 44px rgba(8,40,28,0.55), inset 0 0 0 1px rgba(236,212,154,0.4); }
+    box-shadow:
+      0 0 0 1px rgba(120,96,40,0.5),
+      0 0 0 2px rgba(255,248,224,0.5),
+      0 3px 8px rgba(8,40,28,0.35),
+      inset 0 0 44px rgba(8,40,28,0.55),
+      inset 0 0 0 1px rgba(236,212,154,0.4); }
   .canvas::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 55%;
     background: radial-gradient(ellipse 60% 100% at 50% 0%, rgba(236,212,154,0.22), transparent 70%); pointer-events: none; }
   .ico { width: 48px; height: 48px; color: var(--gold-bright); opacity: 0.96;
@@ -93,8 +123,12 @@
     box-shadow: 0 4px 8px rgba(80,60,20,0.25), inset 0 1px 0 rgba(255,250,224,0.7), inset 0 -1px 0 rgba(60,44,12,0.5); }
   .placard .name { font-family: var(--display); font-weight: 700; font-size: 12.5px; letter-spacing: 0.14em;
     text-transform: uppercase; color: #33240c; }
-  .caption { margin-top: 7px; font-style: italic; font-size: 12.5px; color: var(--ink-soft); letter-spacing: 0.02em; }
-  .caption .on { color: var(--emerald); font-style: normal; font-variant: small-caps; letter-spacing: 0.1em; }
+  .label { margin-top: 9px; text-align: center; line-height: 1.5; }
+  .label .medium { font-style: italic; font-size: 13px; color: var(--ink); }
+  .label .acc { font-family: var(--display); font-size: 9.5px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--gold-deep); margin-top: 3px; }
+  .label .status { font-family: var(--display); font-size: 9.5px; letter-spacing: 0.26em; text-transform: uppercase; margin-top: 5px; color: var(--emerald); }
+  .label .status.off { color: var(--ink-soft); }
+  .label .status::before, .label .status::after { content: "\2014"; opacity: 0.5; margin: 0 7px; }
 
   .piece.soon .frame { cursor: default; filter: grayscale(0.5) brightness(0.96) opacity(0.78); }
   .piece.soon .frame:hover { transform: none; box-shadow: 0 16px 34px rgba(80,60,20,0.28), 0 0 0 1px rgba(110,82,38,0.6), inset 0 1px 0 rgba(255,246,214,0.6); }
@@ -142,6 +176,7 @@
       <svg class="laurel flip" viewBox="0 0 86 40" aria-hidden="true"><path d="M6 34 C 30 34 64 24 82 6" fill="none" stroke="currentColor" stroke-width="1.4"/><g fill="currentColor"><ellipse cx="18" cy="31" rx="6.5" ry="2.5" transform="rotate(-16 18 31)"/><ellipse cx="31" cy="28" rx="7" ry="2.6" transform="rotate(-22 31 28)"/><ellipse cx="44" cy="23" rx="7.4" ry="2.7" transform="rotate(-29 44 23)"/><ellipse cx="57" cy="17" rx="7" ry="2.6" transform="rotate(-36 57 17)"/><ellipse cx="69" cy="11" rx="6.4" ry="2.4" transform="rotate(-43 69 11)"/></g></svg>
     </div>
     <div class="subtitle">A sovereign hall of knowledge, media, and memory — built to be understood, preserved, and passed down.</div>
+    <div class="estd">Established MMXXVI &middot; A Private Collection</div>
   </div>
 
   <div class="meander"></div>
@@ -149,7 +184,7 @@
 
   <div class="foot">
     <span>Knowledge &middot; Media &middot; Finance &middot; Archive &middot; Tools</span>
-    <span>Local-first &middot; Open formats &middot; Recoverable</span>
+    <span>Local-first &middot; Open formats &middot; Recoverable in perpetuity</span>
   </div>
 </div>
 
@@ -169,24 +204,31 @@
   var PI = location.hostname || "192.168.1.189";
   var MODULES = [
     { key: "library", name: "Library", status: "live", mode: "embed", url: "/portal",
+      medium: "Curated knowledge in open formats", acc: "SS·01",
       tag: "Curated resources and knowledge. The Resource Portal lives here.",
       icon: '<path d="M4 5a2 2 0 0 1 2-2h5v18H6a2 2 0 0 1-2-2z"/><path d="M20 5a2 2 0 0 0-2-2h-5v18h5a2 2 0 0 0 2-2z"/>' },
     { key: "theater", name: "Media Theater", status: "live", mode: "embed", url: "/theater",
+      medium: "Public-domain film & recorded sound", acc: "SS·02",
       tag: "Watch, listen, and keep public-domain film and archive media.",
       icon: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M10 9l5 3-5 3z"/>' },
     { key: "art", name: "Art Studio", status: "live", mode: "embed", url: "/studio",
+      medium: "Digital pigment on canvas, interactive", acc: "SS·03",
       tag: "Paint with your finger and keep it forever — plus a wall of art tools.",
       icon: '<path d="M12 3a9 9 0 1 0 0 18c1.5 0 2-1 2-2s-.5-1.5-.5-2.5S14 14 15.5 14H18a3 3 0 0 0 3-3 8 8 0 0 0-9-8z"/><circle cx="7.5" cy="11.5" r="1.1"/><circle cx="12" cy="7.5" r="1.1"/><circle cx="16.5" cy="11.5" r="1.1"/>' },
     { key: "finance", name: "Financial Cockpit", status: "live", mode: "tab", url: "http://" + PI + ":8788/console",
+      medium: "Ledger, markets & self-custody", acc: "SS·04",
       tag: "Wallet, DeFi, and market operations — the Web3 console.",
       icon: '<path d="M3 17l5-5 4 4 8-9"/><path d="M21 7v5h-5"/>' },
     { key: "archive", name: "Family Archive", status: "soon", mode: "tab", url: "",
+      medium: "Photographs, papers & memory", acc: "SS·05",
       tag: "Photos, records, and memories — preserved for generations.",
       icon: '<rect x="3" y="4" width="18" height="4" rx="1"/><path d="M5 8v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/>' },
     { key: "research", name: "Research Lab", status: "soon", mode: "tab", url: "",
+      medium: "Notebooks, datasets & inquiry", acc: "SS·06",
       tag: "Notebooks, datasets, and experiments.",
       icon: '<path d="M9 3v6l-5 9a2 2 0 0 0 2 3h12a2 2 0 0 0 2-3l-5-9V3"/><path d="M8 3h8"/>' },
     { key: "console", name: "Operational Console", status: "live", mode: "tab", url: "http://" + PI + ":3010",
+      medium: "Infrastructure, storage & stewardship", acc: "SS·07",
       tag: "Servers, storage, backups, and service health.",
       icon: '<rect x="3" y="4" width="18" height="7" rx="1"/><rect x="3" y="13" width="18" height="7" rx="1"/><path d="M7 7.5h.01M7 16.5h.01"/>' }
   ];
@@ -206,13 +248,20 @@
     var piece = document.createElement("div");
     piece.className = "piece " + m.status;
     piece.innerHTML =
+      '<div class="lamp" aria-hidden="true"></div>' +
       '<div class="frame" role="button" tabindex="0">' +
-        '<div class="canvas"><div class="ico">' + svg(m.icon) + '</div>' +
-        '<div class="tag">' + m.tag + '</div>' +
-        '<div class="enter">' + (live ? "Enter →" : "") + '</div></div>' +
+        '<div class="mat"><div class="canvas">' +
+          '<div class="ico">' + svg(m.icon) + '</div>' +
+          '<div class="tag">' + m.tag + '</div>' +
+          '<div class="enter">' + (live ? "Enter →" : "") + '</div>' +
+        '</div></div>' +
       '</div>' +
       '<div class="placard"><div class="name">' + m.name + '</div></div>' +
-      '<div class="caption">' + (live ? '<span class="on">On View</span>' : '<span>Acquisition pending</span>') + '</div>';
+      '<div class="label">' +
+        '<div class="medium">' + m.medium + '</div>' +
+        '<div class="acc">Sovereignty Stack Collection · ' + m.acc + '</div>' +
+        '<div class="status ' + (live ? "on" : "off") + '">' + (live ? "On View" : "Acquisition Pending") + '</div>' +
+      '</div>';
     var frame = piece.querySelector(".frame");
     function activate() {
       if (!live) { toast(m.name + " — acquisition pending. Coming in a later phase."); return; }
