@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 320" font-family="Georgia, 'Times New Roman', serif">
+  <rect x="2" y="2" width="716" height="316" rx="10" fill="#fbf7ee" stroke="#2f7e8c" stroke-width="1.5"/>
+  <text x="360" y="34" text-anchor="middle" font-size="19" font-weight="bold" fill="#0f3d2e">The Fetch–Decode–Execute Cycle</text>
+  <text x="360" y="56" text-anchor="middle" font-size="13" font-style="italic" fill="#5e5848">A CPU does one dumb thing, billions of times a second.</text>
+
+  <!-- RAM -->
+  <rect x="500" y="95" width="170" height="150" rx="6" fill="#fff" stroke="#5e5848"/>
+  <text x="585" y="118" text-anchor="middle" font-size="13" font-weight="bold" fill="#243029">Memory (RAM)</text>
+  <g font-size="11" fill="#5e5848" text-anchor="middle">
+    <rect x="515" y="130" width="140" height="20" fill="#2f7e8c" fill-opacity="0.08"/><text x="585" y="144">instruction · data</text>
+    <rect x="515" y="155" width="140" height="20" fill="#2f7e8c" fill-opacity="0.08"/><text x="585" y="169">instruction · data</text>
+    <rect x="515" y="180" width="140" height="20" fill="#2f7e8c" fill-opacity="0.08"/><text x="585" y="194">instruction · data</text>
+    <rect x="515" y="205" width="140" height="20" fill="#2f7e8c" fill-opacity="0.08"/><text x="585" y="219">instruction · data</text>
+  </g>
+
+  <!-- cycle -->
+  <g text-anchor="middle">
+    <circle cx="220" cy="170" r="95" fill="none" stroke="#b8902f" stroke-width="2" stroke-dasharray="4 5"/>
+    <g font-family="Georgia, serif">
+      <rect x="160" y="78" width="120" height="34" rx="17" fill="#1f6b4f"/><text x="220" y="100" font-size="13" fill="#f1ecdd" font-weight="bold">1 · FETCH</text>
+      <rect x="293" y="153" width="120" height="34" rx="17" fill="#1f6b4f"/><text x="353" y="175" font-size="13" fill="#f1ecdd" font-weight="bold">2 · DECODE</text>
+      <rect x="160" y="228" width="120" height="34" rx="17" fill="#1f6b4f"/><text x="220" y="250" font-size="13" fill="#f1ecdd" font-weight="bold">3 · EXECUTE</text>
+      <rect x="27" y="153" width="120" height="34" rx="17" fill="#1f6b4f"/><text x="87" y="175" font-size="13" fill="#f1ecdd" font-weight="bold">4 · STORE</text>
+    </g>
+    <path d="M285 95 Q330 120 345 150" fill="none" stroke="#b8902f" stroke-width="2"/>
+    <path d="M345 150 l2 -12 l-10 6 z" fill="#b8902f"/>
+  </g>
+  <!-- link to RAM -->
+  <path d="M315 95 H500" stroke="#5e5848" stroke-width="1.5" stroke-dasharray="3 4"/>
+  <text x="408" y="88" text-anchor="middle" font-size="10.5" fill="#5e5848" font-style="italic">reads next instruction</text>
+
+  <rect x="60" y="285" width="600" height="0.5" fill="none"/>
+  <text x="360" y="300" text-anchor="middle" font-size="12" fill="#0f3d2e" font-style="italic">A program counter just keeps pointing at the next instruction — and the loop repeats.</text>
+</svg>
