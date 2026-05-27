@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 300" font-family="Georgia, 'Times New Roman', serif">
+  <rect x="2" y="2" width="716" height="296" rx="10" fill="#fbf7ee" stroke="#b8902f" stroke-width="1.5"/>
+  <text x="360" y="38" text-anchor="middle" font-size="20" font-weight="bold" fill="#0f3d2e" letter-spacing="1">The Six Properties of Good Money</text>
+  <line x1="120" y1="52" x2="600" y2="52" stroke="#b8902f" stroke-width="1" opacity="0.5"/>
+  <g font-size="15" fill="#243029">
+    <g transform="translate(60,80)">
+      <circle cx="0" cy="-5" r="6" fill="#1f6b4f"/>
+      <text x="18" y="0" font-weight="bold">Scarce</text>
+      <text x="18" y="22" font-size="12.5" fill="#5e5848">Hard to produce more of</text>
+    </g>
+    <g transform="translate(290,80)">
+      <circle cx="0" cy="-5" r="6" fill="#1f6b4f"/>
+      <text x="18" y="0" font-weight="bold">Durable</text>
+      <text x="18" y="22" font-size="12.5" fill="#5e5848">Survives time without decay</text>
+    </g>
+    <g transform="translate(520,80)">
+      <circle cx="0" cy="-5" r="6" fill="#1f6b4f"/>
+      <text x="18" y="0" font-weight="bold">Divisible</text>
+      <text x="18" y="22" font-size="12.5" fill="#5e5848">Splits into small units</text>
+    </g>
+    <g transform="translate(60,160)">
+      <circle cx="0" cy="-5" r="6" fill="#b8902f"/>
+      <text x="18" y="0" font-weight="bold">Portable</text>
+      <text x="18" y="22" font-size="12.5" fill="#5e5848">Easy to carry &amp; transfer</text>
+    </g>
+    <g transform="translate(290,160)">
+      <circle cx="0" cy="-5" r="6" fill="#b8902f"/>
+      <text x="18" y="0" font-weight="bold">Fungible</text>
+      <text x="18" y="22" font-size="12.5" fill="#5e5848">Each unit interchangeable</text>
+    </g>
+    <g transform="translate(520,160)">
+      <circle cx="0" cy="-5" r="6" fill="#b8902f"/>
+      <text x="18" y="0" font-weight="bold">Verifiable</text>
+      <text x="18" y="22" font-size="12.5" fill="#5e5848">Hard to counterfeit</text>
+    </g>
+  </g>
+  <rect x="60" y="210" width="600" height="58" rx="8" fill="#1f6b4f" opacity="0.08"/>
+  <text x="360" y="237" text-anchor="middle" font-size="13.5" fill="#0f3d2e" font-style="italic">The property that decides long-term value: <tspan font-weight="bold" font-style="normal">salability across time</tspan> —</text>
+  <text x="360" y="257" text-anchor="middle" font-size="13.5" fill="#0f3d2e" font-style="italic">does it hold worth into the future, or can its supply be inflated away?</text>
+</svg>
