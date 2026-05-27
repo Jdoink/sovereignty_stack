@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 300" font-family="Georgia, 'Times New Roman', serif">
+  <rect x="2" y="2" width="716" height="296" rx="10" fill="#fbf7ee" stroke="#2f7e8c" stroke-width="1.5"/>
+  <text x="360" y="34" text-anchor="middle" font-size="19" font-weight="bold" fill="#0f3d2e">What Happens When You Open a Web Page</text>
+  <text x="360" y="56" text-anchor="middle" font-size="13" font-style="italic" fill="#5e5848">Your request is split into packets, addressed, and routed across the world.</text>
+
+  <g text-anchor="middle" font-size="12">
+    <!-- device -->
+    <rect x="40" y="120" width="110" height="64" rx="8" fill="#fff" stroke="#1f6b4f" stroke-width="1.5"/>
+    <text x="95" y="148" font-weight="bold" fill="#0f3d2e">Your device</text>
+    <text x="95" y="167" font-size="11" fill="#5e5848">browser</text>
+
+    <!-- DNS -->
+    <rect x="225" y="60" width="120" height="56" rx="8" fill="#b8902f" fill-opacity="0.14" stroke="#b8902f"/>
+    <text x="285" y="84" font-weight="bold" fill="#33240c">DNS</text>
+    <text x="285" y="102" font-size="10.5" fill="#5e5848">name → IP address</text>
+
+    <!-- routers -->
+    <circle cx="285" cy="200" r="22" fill="#fff" stroke="#5e5848"/><text x="285" y="204" font-size="11" fill="#5e5848">router</text>
+    <circle cx="420" cy="200" r="22" fill="#fff" stroke="#5e5848"/><text x="420" y="204" font-size="11" fill="#5e5848">router</text>
+
+    <!-- server -->
+    <rect x="560" y="120" width="120" height="64" rx="8" fill="#fff" stroke="#1f6b4f" stroke-width="1.5"/>
+    <text x="620" y="148" font-weight="bold" fill="#0f3d2e">Server</text>
+    <text x="620" y="167" font-size="11" fill="#5e5848">sends the page</text>
+  </g>
+
+  <g stroke="#b8902f" stroke-width="2" fill="none">
+    <path d="M150 140 Q200 110 225 96"/><path d="M225 96 l-2 12 l11 -6 z" fill="#b8902f" stroke="none"/>
+    <path d="M285 116 V152"/>
+  </g>
+  <g stroke="#1f6b4f" stroke-width="2.5" fill="none">
+    <path d="M150 165 Q210 200 263 200"/>
+    <path d="M307 200 H398"/>
+    <path d="M442 200 Q520 200 560 168"/><path d="M560 168 l-12 1 l7 9 z" fill="#1f6b4f" stroke="none"/>
+  </g>
+  <text x="200" y="118" font-size="10" fill="#b8902f" font-style="italic">1. look up address</text>
+  <text x="360" y="232" text-anchor="middle" font-size="10.5" fill="#1f6b4f" font-style="italic">2. packets hop router to router (IP), reassembled in order (TCP)</text>
+
+  <rect x="60" y="258" width="600" height="30" rx="8" fill="#2f7e8c" opacity="0.10"/>
+  <text x="360" y="278" text-anchor="middle" font-size="12" fill="#0f3d2e" font-style="italic">No single wire connects you to the server — just a chain of cooperating machines following shared rules.</text>
+</svg>

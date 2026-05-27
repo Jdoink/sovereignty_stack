@@ -76,14 +76,20 @@
   .lobby-intro { text-align: center; font-style: italic; color: var(--ink-soft); font-size: 15px; margin: -4px 0 22px; }
   .wings { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 18px; }
   .wing-tile { display: flex; gap: 16px; align-items: center; cursor: pointer; text-align: left;
-    background: var(--card); border: 1px solid rgba(120,96,40,0.25); border-left: 4px solid var(--gold);
+    background: var(--card); border: 1px solid rgba(120,96,40,0.25); border-left: 4px solid var(--accent, #b8902f);
     border-radius: 6px; padding: 20px 22px; box-shadow: 0 8px 20px rgba(80,60,20,0.12);
-    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease; }
-  .wing-tile:hover { transform: translateY(-3px); box-shadow: 0 18px 34px rgba(80,60,20,0.22); border-left-color: var(--emerald); }
-  .seal { flex: none; width: 58px; height: 58px; border-radius: 50%; display: grid; place-items: center;
-    font-family: var(--display); font-weight: 700; font-size: 22px; letter-spacing: 0.02em; color: #33240c;
-    background: radial-gradient(circle at 35% 30%, #ecd49a, #c79a3c 70%, #a87f2b);
-    border: 2px solid rgba(110,82,38,0.55); box-shadow: inset 0 1px 3px rgba(255,255,255,0.5), 0 2px 6px rgba(80,60,20,0.25); }
+    transition: transform 0.15s ease, box-shadow 0.15s ease; }
+  .wing-tile:hover { transform: translateY(-3px); box-shadow: 0 18px 34px rgba(80,60,20,0.22); }
+  .seal { flex: none; width: 60px; height: 60px; border-radius: 50%; display: grid; place-items: center;
+    color: var(--accent, #b8902f);
+    background: radial-gradient(circle at 38% 30%, #fffdf7, #f1e7d0 80%);
+    border: 2px solid var(--accent, #b8902f);
+    box-shadow: inset 0 1px 3px rgba(255,255,255,0.65), 0 3px 8px rgba(80,60,20,0.22); }
+  .seal svg { width: 34px; height: 34px; }
+  .seal .mono { font-family: var(--display); font-weight: 700; font-size: 23px; letter-spacing: 0.02em; }
+  .seal-lg { width: 76px; height: 76px; border-width: 2.5px; }
+  .seal-lg svg { width: 44px; height: 44px; }
+  .seal-lg .mono { font-size: 30px; }
   .wing-tile .wt-body { min-width: 0; }
   .wing-tile h3 { font-family: var(--display); font-weight: 700; font-size: 19px; letter-spacing: 0.04em;
     color: var(--emerald-deep); margin: 0 0 4px; }
@@ -93,7 +99,9 @@
   .wing-tile .wt-meta b { color: var(--gold-deep); font-weight: 700; }
 
   /* wing header + tier jump nav */
-  .wing-head { margin-bottom: 18px; }
+  .wing-head { display: flex; align-items: center; gap: 20px; margin-bottom: 18px;
+    padding-bottom: 16px; border-bottom: 2px solid var(--accent, #b8902f); }
+  .wing-head .wh-text { min-width: 0; }
   .wing-head h2 { font-family: var(--display); font-weight: 700; font-size: clamp(24px,4vw,36px); letter-spacing: 0.06em;
     color: var(--emerald-deep); margin: 0 0 6px; }
   .wing-head .wh-desc { font-style: italic; color: var(--ink-soft); font-size: 16px; max-width: 720px; line-height: 1.5; }
@@ -288,6 +296,19 @@
     var s = (w[0] || "").charAt(0) + (w.length > 1 ? (w[1] || "").charAt(0) : "");
     return s.toUpperCase() || "?";
   }
+  // Per-wing visual identity: an emblem (drawn with currentColor) + accent color.
+  var WINGS = {
+    Money: { accent: "#b8902f", emblem: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="3.5" r="1"/><path d="M12 4.5V19"/><path d="M8 19h8"/><path d="M4 6.5h16"/><path d="M4 6.5L2 10.5M4 6.5l2 4M2 10.5a2 2 0 0 0 4 0"/><path d="M20 6.5l-2 4M20 6.5l2 4M18 10.5a2 2 0 0 0 4 0"/></svg>' },
+    Computing: { accent: "#2f7e8c", emblem: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="6" width="12" height="12" rx="1.5"/><rect x="9.5" y="9.5" width="5" height="5" rx="0.6"/><path d="M9 6V3M12 6V3M15 6V3M9 18v3M12 18v3M15 18v3M6 9H3M6 12H3M6 15H3M18 9h3M18 12h3M18 15h3"/></svg>' },
+    Cryptography: { accent: "#6a59a3", emblem: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="7.5" r="3.5"/><path d="M10 10l9 9"/><path d="M15.5 17.5l2 2M17.5 15.5l2 2"/></svg>' }
+  };
+  function wingAccent(d) { return (WINGS[d] || {}).accent || "#b8902f"; }
+  function sealHtml(domain, big) {
+    var w = WINGS[domain];
+    var cls = "seal" + (big ? " seal-lg" : "");
+    var inner = w ? w.emblem : '<span class="mono">' + esc(monogram(domain)) + "</span>";
+    return '<span class="' + cls + '" style="--accent:' + wingAccent(domain) + '">' + inner + "</span>";
+  }
   function setCrumbs(parts) {
     var c = $("#crumbs");
     if (!parts) { c.style.display = "none"; c.innerHTML = ""; return; }
@@ -331,8 +352,8 @@
       doms.map(function (d) {
         var g = groups[d];
         var meta = "<b>" + g.count + "</b> " + (g.count === 1 ? "entry" : "entries") + (g.tiers["deep-dive"] ? " · guided path" : "");
-        return '<button class="wing-tile" data-dom="' + esc(d) + '">' +
-          '<span class="seal">' + esc(monogram(d)) + "</span>" +
+        return '<button class="wing-tile" style="--accent:' + wingAccent(d) + '" data-dom="' + esc(d) + '">' +
+          sealHtml(d) +
           '<span class="wt-body"><h3>' + esc(d) + "</h3>" +
           (g.desc ? '<p class="wt-desc">' + esc(g.desc) + "</p>" : "") +
           '<div class="wt-meta">' + meta + "</div></span></button>";
@@ -361,8 +382,9 @@
         (m.blurb ? '<span class="tier-blurb">' + esc(m.blurb) + "</span>" : "") + "</div>" +
         '<div class="tier-cards">' + t.items.map(cardHtml).join("") + "</div></section>";
     }).join("");
-    v.innerHTML = '<div class="wing-head"><h2>' + esc(domain) + "</h2>" +
-      (desc ? '<div class="wh-desc">' + esc(desc) + "</div>" : "") + "</div>" + jump + ladder;
+    v.innerHTML = '<div class="wing-head" style="--accent:' + wingAccent(domain) + '">' + sealHtml(domain, true) +
+      '<div class="wh-text"><h2>' + esc(domain) + "</h2>" +
+      (desc ? '<div class="wh-desc">' + esc(desc) + "</div>" : "") + "</div></div>" + jump + ladder;
     bindCards(v);
     Array.prototype.forEach.call(v.querySelectorAll("[data-jump]"), function (a) {
       a.addEventListener("click", function () { var el = document.getElementById(a.getAttribute("data-jump")); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); });
