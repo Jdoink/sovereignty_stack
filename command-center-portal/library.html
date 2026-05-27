@@ -63,6 +63,47 @@
   .chip.active .n { color: var(--gold-bright); }
 
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 18px; }
+
+  /* breadcrumb */
+  .crumbs { display: flex; align-items: center; gap: 8px; font-family: var(--display); font-size: 11px;
+    letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-soft); margin: 4px 0 20px; }
+  .crumbs a { color: var(--emerald-deep); text-decoration: none; cursor: pointer; }
+  .crumbs a:hover { color: var(--gold-deep); }
+  .crumbs .sep { opacity: 0.45; }
+  .crumbs .here { color: var(--gold-deep); }
+
+  /* lobby — wings as doors */
+  .lobby-intro { text-align: center; font-style: italic; color: var(--ink-soft); font-size: 15px; margin: -4px 0 22px; }
+  .wings { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 18px; }
+  .wing-tile { display: flex; gap: 16px; align-items: center; cursor: pointer; text-align: left;
+    background: var(--card); border: 1px solid rgba(120,96,40,0.25); border-left: 4px solid var(--gold);
+    border-radius: 6px; padding: 20px 22px; box-shadow: 0 8px 20px rgba(80,60,20,0.12);
+    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease; }
+  .wing-tile:hover { transform: translateY(-3px); box-shadow: 0 18px 34px rgba(80,60,20,0.22); border-left-color: var(--emerald); }
+  .seal { flex: none; width: 58px; height: 58px; border-radius: 50%; display: grid; place-items: center;
+    font-family: var(--display); font-weight: 700; font-size: 22px; letter-spacing: 0.02em; color: #33240c;
+    background: radial-gradient(circle at 35% 30%, #ecd49a, #c79a3c 70%, #a87f2b);
+    border: 2px solid rgba(110,82,38,0.55); box-shadow: inset 0 1px 3px rgba(255,255,255,0.5), 0 2px 6px rgba(80,60,20,0.25); }
+  .wing-tile .wt-body { min-width: 0; }
+  .wing-tile h3 { font-family: var(--display); font-weight: 700; font-size: 19px; letter-spacing: 0.04em;
+    color: var(--emerald-deep); margin: 0 0 4px; }
+  .wing-tile .wt-desc { font-size: 14.5px; line-height: 1.4; color: var(--ink); margin: 0 0 8px;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .wing-tile .wt-meta { font-family: var(--display); font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-soft); }
+  .wing-tile .wt-meta b { color: var(--gold-deep); font-weight: 700; }
+
+  /* wing header + tier jump nav */
+  .wing-head { margin-bottom: 18px; }
+  .wing-head h2 { font-family: var(--display); font-weight: 700; font-size: clamp(24px,4vw,36px); letter-spacing: 0.06em;
+    color: var(--emerald-deep); margin: 0 0 6px; }
+  .wing-head .wh-desc { font-style: italic; color: var(--ink-soft); font-size: 16px; max-width: 720px; line-height: 1.5; }
+  .jump { display: flex; gap: 8px; flex-wrap: wrap; margin: 16px 0 26px; }
+  .jump a { font-family: var(--display); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; cursor: pointer;
+    text-decoration: none; padding: 6px 12px; border-radius: 999px; border: 1px solid rgba(120,96,40,0.4);
+    background: rgba(255,255,255,0.45); color: var(--ink-soft); }
+  .jump a:hover { background: rgba(31,107,79,0.12); color: var(--emerald-deep); border-color: rgba(31,107,79,0.4); }
+  .search-group-h { font-family: var(--display); font-size: 13px; letter-spacing: 0.16em; text-transform: uppercase;
+    color: var(--gold-deep); margin: 22px 0 12px; padding-bottom: 6px; border-bottom: 1px solid rgba(120,96,40,0.3); }
   .tier { margin-bottom: 30px; }
   .tier-h { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 12px;
     padding-bottom: 7px; border-bottom: 1px solid rgba(120,96,40,0.3); }
@@ -164,14 +205,14 @@
   <div class="controls">
     <div class="search">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
-      <input id="q" type="search" placeholder="Search the collection…" autocomplete="off" />
+      <input id="q" type="search" placeholder="Search the whole Library…" autocomplete="off" />
     </div>
     <button class="btn" id="add-btn" type="button">+ Add Knowledge</button>
   </div>
 
-  <div class="chips" id="chips"></div>
-  <div class="grid" id="grid"></div>
-  <div class="empty" id="empty" style="display:none">Nothing here yet. Add the first piece of knowledge.</div>
+  <nav class="crumbs" id="crumbs" style="display:none"></nav>
+  <div id="view"></div>
+  <div class="empty" id="empty" style="display:none"></div>
 </div>
 
 <!-- Reading room -->
@@ -227,7 +268,7 @@
 
 <script>
   var $ = function (s, r) { return (r || document).querySelector(s); };
-  var state = { domain: "", status: "", q: "" };
+  var state = { view: "lobby", domain: "", q: "" };
 
   function toast(msg, bad) {
     var t = $("#toast"); t.textContent = msg; t.className = "toast show" + (bad ? " bad" : "");
@@ -242,17 +283,104 @@
   function fmtDate(d) { return d || ""; }
   function pill(status) { var labels = { canonical: "Canonical", reviewed: "Reviewed", seedling: "Seedling" }; return '<span class="pill ' + status + '">' + (labels[status] || status) + "</span>"; }
 
-  async function loadChips() {
-    var doms = await api("/domains");
-    var total = doms.reduce(function (a, d) { return a + d.count; }, 0);
-    var html = '<div class="chip' + (state.domain === "" ? " active" : "") + '" data-dom="">All<span class="n">' + total + "</span></div>";
-    doms.forEach(function (d) {
-      html += '<div class="chip' + (state.domain === d.domain ? " active" : "") + '" data-dom="' + esc(d.domain) + '">' + esc(d.domain) + '<span class="n">' + d.count + "</span></div>";
+  function monogram(name) {
+    var w = String(name || "").trim().split(/\s+/);
+    var s = (w[0] || "").charAt(0) + (w.length > 1 ? (w[1] || "").charAt(0) : "");
+    return s.toUpperCase() || "?";
+  }
+  function setCrumbs(parts) {
+    var c = $("#crumbs");
+    if (!parts) { c.style.display = "none"; c.innerHTML = ""; return; }
+    c.style.display = "flex";
+    c.innerHTML = parts.map(function (p, i) {
+      var last = i === parts.length - 1;
+      return (last ? '<span class="here">' + esc(p.label) + "</span>"
+                   : '<a data-home="1">' + esc(p.label) + "</a>") + (last ? "" : '<span class="sep">/</span>');
+    }).join("");
+    Array.prototype.forEach.call(c.querySelectorAll("[data-home]"), function (a) {
+      a.addEventListener("click", goLobby);
     });
-    $("#chips").innerHTML = html;
-    Array.prototype.forEach.call($("#chips").querySelectorAll(".chip"), function (c) {
-      c.addEventListener("click", function () { state.domain = c.getAttribute("data-dom"); loadChips(); loadGrid(); });
+  }
+  function goLobby() { state.view = "lobby"; state.domain = ""; state.q = ""; $("#q").value = ""; render(); }
+  function goWing(d) { state.view = "wing"; state.domain = d; state.q = ""; $("#q").value = ""; render(); }
+  function goSearch(q) { state.view = "search"; state.q = q; render(); }
+
+  async function render() {
+    try {
+      if (state.view === "wing" && state.domain) return await renderWing(state.domain);
+      if (state.view === "search" && state.q) return await renderSearch(state.q);
+      return await renderLobby();
+    } catch (err) { toast(err.message, true); }
+  }
+
+  async function renderLobby() {
+    setCrumbs(null);
+    var entries = await api("/entries");
+    var groups = {};
+    entries.forEach(function (e) {
+      var d = e.domain || "Uncategorized";
+      var g = groups[d] || (groups[d] = { count: 0, desc: "", tiers: {} });
+      g.count++; g.tiers[e.tier || ""] = true;
+      if (e.tier === "roadmap" && e.summary) g.desc = e.summary;
     });
+    var doms = Object.keys(groups).sort(function (a, b) { return groups[b].count - groups[a].count || a.localeCompare(b); });
+    var v = $("#view");
+    if (!doms.length) { v.innerHTML = ""; $("#empty").style.display = "block"; $("#empty").textContent = "Nothing here yet. Add the first piece of knowledge."; return; }
+    $("#empty").style.display = "none";
+    v.innerHTML = '<div class="lobby-intro">Choose a wing to begin — each is a guided path from first principles.</div><div class="wings">' +
+      doms.map(function (d) {
+        var g = groups[d];
+        var meta = "<b>" + g.count + "</b> " + (g.count === 1 ? "entry" : "entries") + (g.tiers["deep-dive"] ? " · guided path" : "");
+        return '<button class="wing-tile" data-dom="' + esc(d) + '">' +
+          '<span class="seal">' + esc(monogram(d)) + "</span>" +
+          '<span class="wt-body"><h3>' + esc(d) + "</h3>" +
+          (g.desc ? '<p class="wt-desc">' + esc(g.desc) + "</p>" : "") +
+          '<div class="wt-meta">' + meta + "</div></span></button>";
+      }).join("") + "</div>";
+    Array.prototype.forEach.call(v.querySelectorAll(".wing-tile"), function (b) {
+      b.addEventListener("click", function () { goWing(b.getAttribute("data-dom")); });
+    });
+  }
+
+  async function renderWing(domain) {
+    setCrumbs([{ label: "The Library" }, { label: domain }]);
+    var path = await api("/path/" + encodeURIComponent(domain));
+    var v = $("#view");
+    if (!path.tiers || !path.tiers.length) { v.innerHTML = ""; $("#empty").style.display = "block"; $("#empty").textContent = "This wing is empty."; return; }
+    $("#empty").style.display = "none";
+    var rm = path.tiers.filter(function (t) { return t.tier === "roadmap"; })[0];
+    var desc = rm && rm.items[0] ? (rm.items[0].summary || "") : "";
+    var jump = '<div class="jump">' + path.tiers.map(function (t) {
+      var m = TIERS[t.tier] || TIERS[""];
+      return '<a data-jump="tier-' + esc(t.tier || "more") + '">' + esc(m.label) + "</a>";
+    }).join("") + "</div>";
+    var ladder = path.tiers.map(function (t) {
+      var m = TIERS[t.tier] || TIERS[""];
+      return '<section class="tier" id="tier-' + esc(t.tier || "more") + '">' +
+        '<div class="tier-h"><span class="tier-name">' + esc(m.label) + "</span>" +
+        (m.blurb ? '<span class="tier-blurb">' + esc(m.blurb) + "</span>" : "") + "</div>" +
+        '<div class="tier-cards">' + t.items.map(cardHtml).join("") + "</div></section>";
+    }).join("");
+    v.innerHTML = '<div class="wing-head"><h2>' + esc(domain) + "</h2>" +
+      (desc ? '<div class="wh-desc">' + esc(desc) + "</div>" : "") + "</div>" + jump + ladder;
+    bindCards(v);
+    Array.prototype.forEach.call(v.querySelectorAll("[data-jump]"), function (a) {
+      a.addEventListener("click", function () { var el = document.getElementById(a.getAttribute("data-jump")); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); });
+    });
+  }
+
+  async function renderSearch(q) {
+    setCrumbs([{ label: "The Library" }, { label: 'Search: "' + q + '"' }]);
+    var entries = await api("/entries?q=" + encodeURIComponent(q));
+    var v = $("#view");
+    if (!entries.length) { v.innerHTML = ""; $("#empty").style.display = "block"; $("#empty").textContent = 'No matches for "' + q + '".'; return; }
+    $("#empty").style.display = "none";
+    var order = [], groups = {};
+    entries.forEach(function (e) { var d = e.domain || "Uncategorized"; if (!groups[d]) { groups[d] = []; order.push(d); } groups[d].push(e); });
+    v.innerHTML = order.map(function (d) {
+      return '<div class="search-group-h">' + esc(d) + "</div><div class=\"grid\">" + groups[d].map(cardHtml).join("") + "</div>";
+    }).join("");
+    bindCards(v);
   }
   var TIERS = {
     roadmap:    { label: "Start Here", blurb: "The map of this wing." },
@@ -281,35 +409,6 @@
       el.addEventListener("click", function () { openEntry(el.getAttribute("data-slug")); });
     });
   }
-  async function loadGrid() {
-    var grid = $("#grid");
-    // Path view: a single wing, not searching -> render the tiered learning ladder.
-    if (state.domain && !state.q && !state.status) {
-      var path = await api("/path/" + encodeURIComponent(state.domain));
-      var any = path.tiers && path.tiers.length;
-      $("#empty").style.display = any ? "none" : "block";
-      grid.className = "path";
-      grid.innerHTML = (path.tiers || []).map(function (t) {
-        var meta = TIERS[t.tier] || TIERS[""];
-        return '<section class="tier">' +
-          '<div class="tier-h"><span class="tier-name">' + esc(meta.label) + "</span>" +
-          (meta.blurb ? '<span class="tier-blurb">' + esc(meta.blurb) + "</span>" : "") + "</div>" +
-          '<div class="tier-cards">' + t.items.map(cardHtml).join("") + "</div></section>";
-      }).join("");
-      bindCards(grid);
-      return;
-    }
-    grid.className = "grid";
-    var params = new URLSearchParams();
-    if (state.domain) params.set("domain", state.domain);
-    if (state.status) params.set("status", state.status);
-    if (state.q) params.set("q", state.q);
-    var entries = await api("/entries?" + params.toString());
-    $("#empty").style.display = entries.length ? "none" : "block";
-    grid.innerHTML = entries.map(cardHtml).join("");
-    bindCards(grid);
-  }
-
   async function openEntry(slug) {
     try {
       var e = await api("/entries/" + encodeURIComponent(slug));
@@ -366,7 +465,9 @@
   function openCapture() {
     $("#srclist").innerHTML = ""; addSrcRow();
     $("#clip-form").reset(); $("#author-form").reset();
-    setMode("clip");
+    var inWing = state.view === "wing" && state.domain;
+    if (inWing) { $("#clip-form").domain.value = state.domain; $("#author-form").domain.value = state.domain; }
+    setMode(inWing ? "author" : "clip");
     $("#cap-overlay").classList.add("open");
   }
   function setMode(m) {
@@ -390,7 +491,11 @@
     $("#addsrc").addEventListener("click", function () { addSrcRow(); });
 
     var qt;
-    $("#q").addEventListener("input", function (e) { clearTimeout(qt); qt = setTimeout(function () { state.q = e.target.value.trim(); loadGrid(); }, 220); });
+    $("#q").addEventListener("input", function (e) {
+      clearTimeout(qt);
+      var val = e.target.value.trim();
+      qt = setTimeout(function () { if (val) goSearch(val); else if (state.view === "search") goLobby(); }, 220);
+    });
 
     $("#clip-form").addEventListener("submit", async function (e) {
       e.preventDefault();
@@ -400,7 +505,7 @@
           body: JSON.stringify({ url: f.url.value.trim(), domain: f.domain.value.trim(), topics: csv(f.topics.value), note: f.note.value.trim() }) });
         $("#cap-overlay").classList.remove("open");
         toast(res.archived ? "Clipped & archived." : "Clipped (snapshot unavailable).");
-        await refresh();
+        await render();
       } catch (err) { toast(err.message, true); }
     });
     $("#author-form").addEventListener("submit", async function (e) {
@@ -412,14 +517,13 @@
             summary: f.summary.value.trim(), body: f.body.value, status: f.status.value, verified: f.verified.value, sources: gatherSources() }) });
         $("#cap-overlay").classList.remove("open");
         toast(res.duplicate ? "Entry updated." : "Entry added to the collection.");
-        await refresh();
+        await render();
       } catch (err) { toast(err.message, true); }
     });
   }
 
-  async function refresh() { await loadChips(); await loadGrid(); }
   wire();
-  refresh().catch(function (e) { toast("Could not load the Library: " + e.message, true); });
+  render();
 </script>
 </body>
 </html>
