@@ -8,7 +8,7 @@ import sqlite3
 import time
 import uuid
 from contextlib import asynccontextmanager
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -65,6 +65,7 @@ async def lifespan(_app: FastAPI):
     logger.info("HTTP client initialized")
     try:
         library_startup()
+        await _seed_fetch_assets()
     except Exception:
         logger.exception("library startup failed")
     try:
@@ -371,6 +372,10 @@ app.mount("/library-assets", StaticFiles(directory=str(ASSETS_DIR)), name="libra
 
 STATUSES = {"seedling", "reviewed", "canonical"}
 CONFIDENCE = {"unrated", "low", "medium", "high"}
+# Tiers form a learning ladder within a domain; TIER_ORDER drives Path-view sorting.
+TIER_ORDER = ["roadmap", "eli5", "intro", "deep-dive", "mastery", "resource", ""]
+TIERS = set(TIER_ORDER)
+SEED_DIR = Path(__file__).resolve().parent / "seed" / "library"
 _SLUG_RE = re.compile(r"[^a-z0-9]+")
 
 
@@ -444,6 +449,8 @@ def _normalize_entry(raw: Dict[str, Any], existing: Optional[Dict[str, Any]] = N
         "summary": _s(raw.get("summary"), 600),
         "status": status,
         "confidence": raw.get("confidence") if raw.get("confidence") in CONFIDENCE else "unrated",
+        "tier": raw.get("tier") if raw.get("tier") in TIERS else "",
+        "order": int(raw.get("order") or 0) if str(raw.get("order") or "0").lstrip("-").isdigit() else 0,
         "verified": _clean_date(raw.get("verified")),
         "sources": sources,
         "media": _clean_list(raw.get("media")),
@@ -455,13 +462,23 @@ def _normalize_entry(raw: Dict[str, Any], existing: Optional[Dict[str, Any]] = N
     return meta, body
 
 
+def _stringify_dates(obj: Any) -> Any:
+    if isinstance(obj, dict):
+        return {k: _stringify_dates(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_stringify_dates(v) for v in obj]
+    if isinstance(obj, (date, datetime)):
+        return obj.isoformat()
+    return obj
+
+
 def parse_entry(text: str):
     if text.startswith("---"):
         end = text.find("\n---", 3)
         if end != -1:
             meta = yaml.safe_load(text[3:end]) or {}
             body = text[end + 4:].lstrip("\n")
-            return (meta if isinstance(meta, dict) else {}), body
+            return (_stringify_dates(meta) if isinstance(meta, dict) else {}), body
     return {}, text
 
 
@@ -504,6 +521,8 @@ def _card(meta: Dict[str, Any]) -> Dict[str, Any]:
         "summary": meta.get("summary", ""),
         "status": meta.get("status", "seedling"),
         "confidence": meta.get("confidence", "unrated"),
+        "tier": meta.get("tier", ""),
+        "order": meta.get("order", 0),
         "verified": meta.get("verified", ""),
         "updated": meta.get("updated", 0),
         "n_sources": len(meta.get("sources") or []),
@@ -550,51 +569,60 @@ def fts_search(q: str) -> Optional[List[str]]:
         return None
 
 
-SEED_ABOUT = {
-    "title": "About the Library",
-    "slug": "about-the-library",
-    "domain": "Meta",
-    "topics": ["library", "how-to", "curation"],
-    "summary": "How this knowledge substrate works: files-as-truth, cited sources, and a curation lifecycle built for longevity.",
-    "status": "canonical",
-    "confidence": "high",
-    "verified": _today(),
-    "sources": [{
-        "title": "Sovereignty Stack — repository & architecture",
-        "url": "https://github.com/Jdoink/sovereignty_stack",
-        "type": "primary",
-        "retrieved": _today(),
-    }],
-    "body": (
-        "The Library is a **curated knowledge substrate** — a place to record, "
-        "categorize, search, and preserve high-value knowledge, rather than let it "
-        "scatter across bookmarks and notes.\n\n"
-        "## Files as the source of truth\n"
-        "Every entry is a plain **Markdown file with YAML front-matter**, stored on "
-        "the Seagate under `library/entries/`. Media and **archived snapshots of "
-        "cited sources** live alongside in `library/assets/`. A search index is "
-        "*derived* from these files and can be rebuilt at any time — so the files "
-        "themselves, readable in any text editor, are what endures.\n\n"
-        "## Curation lifecycle\n"
-        "Entries move through three states:\n\n"
-        "- **Seedling** — a capture or draft, not yet verified.\n"
-        "- **Reviewed** — checked over and tidied.\n"
-        "- **Canonical** — trusted; *requires at least one cited source*.\n\n"
-        "## Citations that outlive the web\n"
-        "Each source records its URL **and** a saved local copy, so the knowledge "
-        "survives even when the original page disappears. Every entry shows when it "
-        "was last verified, so stale knowledge is visible rather than hidden.\n"
-    ),
-}
+def _seed_from_files() -> None:
+    """Materialize bundled curriculum onto the Seagate. Entries (Markdown +
+    front-matter) and assets (diagrams, etc.) ship in the repo under seed/library
+    and are copied to /data only when absent — so authored content arrives once
+    and the user's own edits are never overwritten."""
+    se = SEED_DIR / "entries"
+    if se.is_dir():
+        for p in sorted(se.glob("*.md")):
+            dest = ENTRIES_DIR / p.name
+            if not dest.exists():
+                dest.write_bytes(p.read_bytes())
+                logger.info("seeded entry %s", p.name)
+    sa = SEED_DIR / "assets"
+    if sa.is_dir():
+        for p in sa.rglob("*"):
+            if p.is_file():
+                dest = ASSETS_DIR / p.relative_to(sa)
+                if not dest.exists():
+                    dest.parent.mkdir(parents=True, exist_ok=True)
+                    dest.write_bytes(p.read_bytes())
+
+
+async def _seed_fetch_assets() -> None:
+    """Hybrid-media: download open texts/PDFs listed in seed/library/fetch.json
+    into the assets folder once, so they live on the drive (best-effort)."""
+    manifest = SEED_DIR / "fetch.json"
+    if not (manifest.is_file() and http_client is not None):
+        return
+    try:
+        items = json.loads(manifest.read_text(encoding="utf-8"))
+    except Exception:
+        logger.exception("could not read seed fetch manifest")
+        return
+    for it in items if isinstance(items, list) else []:
+        url, rel = str(it.get("url", "")), str(it.get("path", ""))
+        if not (re.match(r"^https?://", url) and rel):
+            continue
+        dest = (ASSETS_DIR / rel).resolve()
+        if not str(dest).startswith(str(ASSETS_DIR.resolve())) or dest.exists():
+            continue
+        try:
+            r = await http_client.get(url, follow_redirects=True)
+            r.raise_for_status()
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.write_bytes(r.content[:60_000_000])
+            logger.info("fetched seed asset %s", rel)
+        except Exception:
+            logger.exception("failed to fetch seed asset %s", url)
 
 
 def library_startup() -> None:
     ENTRIES_DIR.mkdir(parents=True, exist_ok=True)
     (ASSETS_DIR / "sources").mkdir(parents=True, exist_ok=True)
-    if not any(ENTRIES_DIR.glob("*.md")):
-        meta, body = _normalize_entry(SEED_ABOUT)
-        _write_entry(meta, body)
-        logger.info("seeded Library with 'About the Library'")
+    _seed_from_files()
     rebuild_index()
 
 
@@ -606,6 +634,21 @@ async def library_domains() -> JSONResponse:
         counts[d] = counts.get(d, 0) + 1
     items = [{"domain": d, "count": c} for d, c in sorted(counts.items())]
     return JSONResponse(content=items, headers=CORS_HEADERS)
+
+
+@app.get("/api/library/path/{domain}")
+async def library_path(domain: str) -> JSONResponse:
+    metas = [m for m in read_all_metas() if (m.get("domain") or "Uncategorized") == domain]
+    groups: Dict[str, List[Dict[str, Any]]] = {}
+    for m in metas:
+        t = m.get("tier") if m.get("tier") in TIERS else ""
+        groups.setdefault(t, []).append(m)
+    tiers = []
+    for t in TIER_ORDER:
+        items = sorted(groups.get(t, []), key=lambda m: (int(m.get("order") or 0), m.get("title", "")))
+        if items:
+            tiers.append({"tier": t, "items": [_card(m) for m in items]})
+    return JSONResponse(content={"domain": domain, "tiers": tiers}, headers=CORS_HEADERS)
 
 
 @app.get("/api/library/entries")

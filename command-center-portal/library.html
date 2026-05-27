@@ -63,6 +63,13 @@
   .chip.active .n { color: var(--gold-bright); }
 
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 18px; }
+  .tier { margin-bottom: 30px; }
+  .tier-h { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 12px;
+    padding-bottom: 7px; border-bottom: 1px solid rgba(120,96,40,0.3); }
+  .tier-name { font-family: var(--display); font-size: 15px; font-weight: 700; letter-spacing: 0.16em;
+    text-transform: uppercase; color: var(--gold-deep); }
+  .tier-blurb { font-style: italic; color: var(--ink-soft); font-size: 14px; }
+  .tier-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 18px; }
   .entry { position: relative; cursor: pointer; background: var(--card); border-radius: 4px; padding: 18px 18px 16px;
     border: 1px solid rgba(120,96,40,0.22); border-top: 3px solid var(--gold);
     box-shadow: 0 8px 20px rgba(80,60,20,0.12); transition: transform 0.15s ease, box-shadow 0.15s ease; }
@@ -247,30 +254,60 @@
       c.addEventListener("click", function () { state.domain = c.getAttribute("data-dom"); loadChips(); loadGrid(); });
     });
   }
+  var TIERS = {
+    roadmap:    { label: "Start Here", blurb: "The map of this wing." },
+    eli5:       { label: "ELI5", blurb: "The core idea in plain language." },
+    intro:      { label: "Basic Intro · 1–3 hours", blurb: "A guided starting point." },
+    "deep-dive":{ label: "Deep Dive", blurb: "One cited concept at a time — the real substance." },
+    mastery:    { label: "Mastery Path", blurb: "Projects and primary texts that build real ability." },
+    resource:   { label: "Resources", blurb: "The curated, archived library for this subject." },
+    "":         { label: "More", blurb: "" }
+  };
+  function cardHtml(e) {
+    var tally = [];
+    if (e.n_sources) tally.push(e.n_sources + " src");
+    if (e.n_media) tally.push(e.n_media + " media");
+    return '<article class="entry" data-slug="' + esc(e.slug) + '">' +
+      '<div class="dom">' + esc(e.domain) + "</div>" +
+      "<h3>" + esc(e.title) + "</h3>" +
+      '<p class="smry">' + esc(e.summary || "") + "</p>" +
+      '<div class="meta">' + pill(e.status) +
+      (e.verified ? '<span>Verified ' + esc(e.verified) + "</span>" : "") +
+      '<span class="grow"></span><span class="tally">' + tally.map(esc).join(" · ") + "</span></div>" +
+      "</article>";
+  }
+  function bindCards(root) {
+    Array.prototype.forEach.call(root.querySelectorAll(".entry"), function (el) {
+      el.addEventListener("click", function () { openEntry(el.getAttribute("data-slug")); });
+    });
+  }
   async function loadGrid() {
+    var grid = $("#grid");
+    // Path view: a single wing, not searching -> render the tiered learning ladder.
+    if (state.domain && !state.q && !state.status) {
+      var path = await api("/path/" + encodeURIComponent(state.domain));
+      var any = path.tiers && path.tiers.length;
+      $("#empty").style.display = any ? "none" : "block";
+      grid.className = "path";
+      grid.innerHTML = (path.tiers || []).map(function (t) {
+        var meta = TIERS[t.tier] || TIERS[""];
+        return '<section class="tier">' +
+          '<div class="tier-h"><span class="tier-name">' + esc(meta.label) + "</span>" +
+          (meta.blurb ? '<span class="tier-blurb">' + esc(meta.blurb) + "</span>" : "") + "</div>" +
+          '<div class="tier-cards">' + t.items.map(cardHtml).join("") + "</div></section>";
+      }).join("");
+      bindCards(grid);
+      return;
+    }
+    grid.className = "grid";
     var params = new URLSearchParams();
     if (state.domain) params.set("domain", state.domain);
     if (state.status) params.set("status", state.status);
     if (state.q) params.set("q", state.q);
     var entries = await api("/entries?" + params.toString());
-    var grid = $("#grid");
     $("#empty").style.display = entries.length ? "none" : "block";
-    grid.innerHTML = entries.map(function (e) {
-      var tally = [];
-      if (e.n_sources) tally.push(e.n_sources + " src");
-      if (e.n_media) tally.push(e.n_media + " media");
-      return '<article class="entry" data-slug="' + esc(e.slug) + '">' +
-        '<div class="dom">' + esc(e.domain) + "</div>" +
-        "<h3>" + esc(e.title) + "</h3>" +
-        '<p class="smry">' + esc(e.summary || "") + "</p>" +
-        '<div class="meta">' + pill(e.status) +
-        (e.verified ? '<span>Verified ' + esc(e.verified) + "</span>" : "") +
-        '<span class="grow"></span><span class="tally">' + tally.map(esc).join(" · ") + "</span></div>" +
-        "</article>";
-    }).join("");
-    Array.prototype.forEach.call(grid.querySelectorAll(".entry"), function (el) {
-      el.addEventListener("click", function () { openEntry(el.getAttribute("data-slug")); });
-    });
+    grid.innerHTML = entries.map(cardHtml).join("");
+    bindCards(grid);
   }
 
   async function openEntry(slug) {

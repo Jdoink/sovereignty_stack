@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 340" font-family="Georgia, 'Times New Roman', serif">
+  <rect x="2" y="2" width="716" height="336" rx="10" fill="#fbf7ee" stroke="#b8902f" stroke-width="1.5"/>
+  <text x="360" y="36" text-anchor="middle" font-size="19" font-weight="bold" fill="#0f3d2e">How a Bank Loan Creates New Money</text>
+  <text x="360" y="58" text-anchor="middle" font-size="13" font-style="italic" fill="#5e5848">A loan is not lent out from a vault of savings — both sides appear at once.</text>
+
+  <!-- before -->
+  <text x="170" y="92" text-anchor="middle" font-size="14" font-weight="bold" fill="#b8902f" letter-spacing="1">BEFORE THE LOAN</text>
+  <rect x="60" y="104" width="220" height="150" rx="6" fill="#fff" stroke="#5e5848" stroke-width="1"/>
+  <line x1="170" y1="104" x2="170" y2="254" stroke="#5e5848" stroke-width="1"/>
+  <text x="115" y="124" text-anchor="middle" font-size="12.5" font-weight="bold" fill="#243029">Assets</text>
+  <text x="225" y="124" text-anchor="middle" font-size="12.5" font-weight="bold" fill="#243029">Liabilities</text>
+  <line x1="60" y1="132" x2="280" y2="132" stroke="#dcceb2"/>
+  <text x="115" y="172" text-anchor="middle" font-size="12.5" fill="#5e5848">(reserves,</text>
+  <text x="115" y="190" text-anchor="middle" font-size="12.5" fill="#5e5848">capital)</text>
+
+  <!-- arrow -->
+  <path d="M300 178 L350 178" stroke="#1f6b4f" stroke-width="2.5" fill="none"/>
+  <path d="M350 178 l-10 -6 l0 12 z" fill="#1f6b4f"/>
+  <text x="325" y="168" text-anchor="middle" font-size="11" fill="#1f6b4f">lend</text>
+
+  <!-- after -->
+  <text x="540" y="92" text-anchor="middle" font-size="14" font-weight="bold" fill="#1f6b4f" letter-spacing="1">AFTER THE LOAN</text>
+  <rect x="370" y="104" width="290" height="150" rx="6" fill="#fff" stroke="#1f6b4f" stroke-width="1.3"/>
+  <line x1="515" y1="104" x2="515" y2="254" stroke="#1f6b4f" stroke-width="1"/>
+  <text x="442" y="124" text-anchor="middle" font-size="12.5" font-weight="bold" fill="#243029">Assets</text>
+  <text x="588" y="124" text-anchor="middle" font-size="12.5" font-weight="bold" fill="#243029">Liabilities</text>
+  <line x1="370" y1="132" x2="660" y2="132" stroke="#dcceb2"/>
+  <rect x="380" y="150" width="125" height="40" rx="4" fill="#b8902f" opacity="0.18"/>
+  <text x="442" y="167" text-anchor="middle" font-size="12" fill="#243029">+ Loan to you</text>
+  <text x="442" y="183" text-anchor="middle" font-size="11" font-style="italic" fill="#5e5848">(an asset)</text>
+  <rect x="525" y="150" width="125" height="40" rx="4" fill="#1f6b4f" opacity="0.2"/>
+  <text x="588" y="167" text-anchor="middle" font-size="12" fill="#243029">+ Your deposit</text>
+  <text x="588" y="183" text-anchor="middle" font-size="11" font-style="italic" fill="#5e5848">(new money)</text>
+
+  <rect x="60" y="278" width="600" height="44" rx="8" fill="#1f6b4f" opacity="0.08"/>
+  <text x="360" y="305" text-anchor="middle" font-size="12.5" fill="#0f3d2e" font-style="italic">The new deposit is brand-new money, typed into existence. Repaying the loan destroys it again.</text>
+</svg>
