@@ -365,6 +365,7 @@ async def art_options(art_id: str = "") -> Response:
 LIB_DIR = Path(os.getenv("RESOURCE_DATA_PATH", "/data")) / "library"
 ENTRIES_DIR = LIB_DIR / "entries"
 ASSETS_DIR = LIB_DIR / "assets"
+VERSIONS_DIR = LIB_DIR / ".versions"
 INDEX_DB = LIB_DIR / "index.db"
 ENTRIES_DIR.mkdir(parents=True, exist_ok=True)
 (ASSETS_DIR / "sources").mkdir(parents=True, exist_ok=True)
@@ -487,9 +488,34 @@ def dump_entry(meta: Dict[str, Any], body: str) -> str:
     return f"---\n{fm}\n---\n\n{body.strip()}\n"
 
 
+def _snapshot(p: Path) -> None:
+    """Save the current contents of an entry file to .versions/<slug>/<ms>.md
+    before it is overwritten or deleted, so every change is recoverable."""
+    if not p.exists():
+        return
+    d = VERSIONS_DIR / p.stem
+    d.mkdir(parents=True, exist_ok=True)
+    (d / (str(int(time.time() * 1000)) + ".md")).write_bytes(p.read_bytes())
+
+
+def _list_versions(slug: str) -> List[Dict[str, Any]]:
+    d = VERSIONS_DIR / slug
+    if not d.is_dir():
+        return []
+    out = []
+    for f in d.glob("*.md"):
+        try:
+            ts = int(f.stem)
+        except ValueError:
+            continue
+        out.append({"ts": ts, "when": datetime.fromtimestamp(ts / 1000).isoformat(timespec="minutes")})
+    return sorted(out, key=lambda v: v["ts"], reverse=True)
+
+
 def _write_entry(meta: Dict[str, Any], body: str) -> None:
     ENTRIES_DIR.mkdir(parents=True, exist_ok=True)
     p = ENTRIES_DIR / (meta["slug"] + ".md")
+    _snapshot(p)
     tmp = p.with_suffix(".md.tmp")
     tmp.write_text(dump_entry(meta, body), encoding="utf-8")
     tmp.replace(p)
@@ -622,6 +648,7 @@ async def _seed_fetch_assets() -> None:
 def library_startup() -> None:
     ENTRIES_DIR.mkdir(parents=True, exist_ok=True)
     (ASSETS_DIR / "sources").mkdir(parents=True, exist_ok=True)
+    VERSIONS_DIR.mkdir(parents=True, exist_ok=True)
     _seed_from_files()
     rebuild_index()
 
@@ -711,9 +738,41 @@ async def library_delete(slug: str) -> JSONResponse:
     p = ENTRIES_DIR / (slugify(slug) + ".md")
     if not p.exists():
         raise HTTPException(status_code=404, detail="entry not found")
+    _snapshot(p)
     p.unlink()
     rebuild_index()
     return JSONResponse(content={"ok": True}, headers=CORS_HEADERS)
+
+
+@app.get("/api/library/entries/{slug}/versions")
+async def library_versions(slug: str) -> JSONResponse:
+    return JSONResponse(content=_list_versions(slugify(slug)), headers=CORS_HEADERS)
+
+
+@app.post("/api/library/entries/{slug}/restore")
+async def library_restore(slug: str, raw: Any = Body(...)) -> JSONResponse:
+    slug = slugify(slug)
+    ts = (raw or {}).get("ts") if isinstance(raw, dict) else None
+    vp = VERSIONS_DIR / slug / (str(ts) + ".md")
+    if not vp.exists():
+        raise HTTPException(status_code=404, detail="version not found")
+    p = ENTRIES_DIR / (slug + ".md")
+    _snapshot(p)  # restoring is itself undoable
+    ENTRIES_DIR.mkdir(parents=True, exist_ok=True)
+    tmp = p.with_suffix(".md.tmp")
+    tmp.write_bytes(vp.read_bytes())
+    tmp.replace(p)
+    rebuild_index()
+    meta, _ = parse_entry(p.read_text(encoding="utf-8"))
+    meta["slug"] = slug
+    return JSONResponse(content={"ok": True, "item": _card(meta)}, headers=CORS_HEADERS)
+
+
+@app.post("/api/library/preview")
+async def library_preview(raw: Any = Body(...)) -> JSONResponse:
+    body = str((raw or {}).get("body") or "") if isinstance(raw, dict) else ""
+    html = md.markdown(body, extensions=["extra", "sane_lists", "toc"])
+    return JSONResponse(content={"html": html}, headers=CORS_HEADERS)
 
 
 @app.post("/api/library/clip")

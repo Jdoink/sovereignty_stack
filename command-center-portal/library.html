@@ -148,6 +148,22 @@
     padding: 34px 40px 44px; }
   .sheet .close { position: sticky; top: 0; float: right; cursor: pointer; font-family: var(--display); font-size: 11px;
     letter-spacing: 0.12em; text-transform: uppercase; color: var(--emerald-deep); background: none; border: 0; padding: 0 0 8px; }
+  .read-actions { display: flex; gap: 8px; margin-bottom: 14px; }
+  .ra { font-family: var(--display); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; cursor: pointer;
+    background: rgba(255,255,255,0.5); border: 1px solid rgba(120,96,40,0.4); border-radius: 7px; padding: 6px 12px; color: var(--emerald-deep); }
+  .ra:hover { background: rgba(31,107,79,0.12); }
+  .ra.danger { color: #7c2d2d; border-color: rgba(124,45,45,0.4); }
+  .ra.danger:hover { background: rgba(124,45,45,0.1); }
+  .hist { margin-bottom: 14px; }
+  .hist-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-family: var(--display);
+    font-size: 12px; color: var(--ink-soft); padding: 6px 0; border-bottom: 1px solid rgba(120,96,40,0.15); }
+  .hist-empty { font-style: italic; color: var(--ink-soft); font-size: 14px; }
+  .row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+  .mini { font-family: var(--display); font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer;
+    background: rgba(31,107,79,0.1); border: 1px solid rgba(31,107,79,0.3); border-radius: 6px; padding: 2px 8px; color: var(--emerald-deep); margin-left: 8px; }
+  .preview { background: #fffdf8; border: 1px dashed rgba(120,96,40,0.4); border-radius: 8px; padding: 12px 16px; min-height: 90px; }
+  #cap-heading { font-family: var(--display); font-weight: 700; font-size: 18px; letter-spacing: 0.04em; color: var(--emerald-deep);
+    margin-bottom: 16px; padding-bottom: 8px; border-bottom: 1px solid rgba(120,96,40,0.3); }
   .read .dom { font-family: var(--display); font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--emerald); }
   .read h2 { font-family: var(--display); font-weight: 700; font-size: clamp(24px,4vw,38px); line-height: 1.15;
     color: var(--emerald-deep); margin: 6px 0 10px; }
@@ -235,6 +251,7 @@
 <div class="overlay" id="cap-overlay">
   <div class="sheet" id="cap-sheet">
     <button class="close" id="cap-close" type="button">&#10005; Close</button>
+    <div id="cap-heading" style="display:none"></div>
     <div class="tabs">
       <div class="tab active" data-mode="clip">Clip a Source</div>
       <div class="tab" data-mode="author">Author an Entry</div>
@@ -252,22 +269,36 @@
     </form>
 
     <form id="author-form" style="display:none">
+      <input type="hidden" name="slug" />
       <div class="field"><label>Title</label><input name="title" required /></div>
       <div class="row2">
         <div class="field"><label>Domain</label><input name="domain" placeholder="Health" required /></div>
         <div class="field"><label>Topics (comma-separated)</label><input name="topics" placeholder="metabolism, cold" /></div>
       </div>
+      <div class="row3">
+        <div class="field"><label>Tier</label>
+          <select name="tier"><option value="">— none —</option><option value="roadmap">Start Here</option><option value="eli5">ELI5</option><option value="intro">Intro</option><option value="deep-dive">Deep Dive</option><option value="mastery">Mastery</option><option value="resource">Resource</option></select></div>
+        <div class="field"><label>Order</label><input name="order" type="number" value="0" /></div>
+        <div class="field"><label>Confidence</label>
+          <select name="confidence"><option value="unrated">Unrated</option><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select></div>
+      </div>
       <div class="field"><label>Summary</label><input name="summary" placeholder="One-line abstract" /></div>
-      <div class="field"><label>Body (Markdown)</label><textarea name="body" placeholder="# Heading&#10;Write the knowledge here…" style="min-height:150px"></textarea></div>
+      <div class="field"><label>Body (Markdown) <button type="button" class="mini" id="prev-toggle">Preview</button></label>
+        <textarea name="body" placeholder="# Heading&#10;Write the knowledge here…" style="min-height:160px"></textarea>
+        <div class="prose preview" id="body-preview" style="display:none"></div></div>
       <div class="field"><label>Sources</label><div id="srclist"></div>
         <button class="addsrc" type="button" id="addsrc">+ Add source</button>
         <div class="hint">A <b>Canonical</b> entry requires at least one source with a URL.</div></div>
+      <div class="row2">
+        <div class="field"><label>Related (slugs, comma-separated)</label><input name="related" placeholder="money-eli5, money-intro" /></div>
+        <div class="field"><label>Media (asset paths)</label><input name="media" placeholder="money/properties.svg" /></div>
+      </div>
       <div class="row2">
         <div class="field"><label>Status</label>
           <select name="status"><option value="seedling">Seedling — draft / unverified</option><option value="reviewed">Reviewed</option><option value="canonical">Canonical — trusted</option></select></div>
         <div class="field"><label>Last verified</label><input name="verified" type="date" /></div>
       </div>
-      <div class="formfoot"><button class="btn ghost" type="button" data-close>Cancel</button><button class="btn" type="submit">Save Entry</button></div>
+      <div class="formfoot"><button class="btn ghost" type="button" data-close>Cancel</button><button class="btn" type="submit" id="author-submit">Save Entry</button></div>
     </form>
   </div>
 </div>
@@ -277,6 +308,8 @@
 <script>
   var $ = function (s, r) { return (r || document).querySelector(s); };
   var state = { view: "lobby", domain: "", q: "" };
+  var _cur = null;      // entry currently open in the reading view
+  var editing = null;   // slug being edited (null when adding)
 
   function toast(msg, bad) {
     var t = $("#toast"); t.textContent = msg; t.className = "toast show" + (bad ? " bad" : "");
@@ -453,7 +486,12 @@
       if (/\.(png|jpe?g|gif|webp|svg)$/i.test(m)) return '<img src="' + url + '" alt="" />';
       return '<div class="src"><a href="' + url + '" target="_blank" rel="noopener noreferrer">' + esc(m) + "</a></div>";
     }).join("");
+    _cur = e;
     $("#read-body").innerHTML =
+      '<div class="read-actions"><button class="ra" data-act="edit">&#9998; Edit</button>' +
+      '<button class="ra" data-act="history">History</button>' +
+      '<button class="ra danger" data-act="delete">Delete</button></div>' +
+      '<div class="hist" id="hist-panel" style="display:none"></div>' +
       '<div class="dom">' + esc(e.domain) + "</div>" +
       "<h2>" + esc(e.title) + "</h2>" +
       '<div class="stamp">' + stamp.join('<span style="opacity:.5">·</span>') + "</div>" +
@@ -462,17 +500,79 @@
       (mediaHtml ? '<div class="section-h">Media</div>' + mediaHtml : "") +
       (srcHtml ? '<div class="section-h">Sources</div>' + srcHtml : "") +
       (relHtml ? '<div class="section-h">Related</div><div class="related">' + relHtml + "</div>" : "");
-    Array.prototype.forEach.call($("#read-body").querySelectorAll("[data-rel]"), function (a) {
+    var rb = $("#read-body");
+    Array.prototype.forEach.call(rb.querySelectorAll("[data-rel]"), function (a) {
       a.addEventListener("click", function (ev) { ev.preventDefault(); openEntry(a.getAttribute("data-rel")); });
     });
+    $('[data-act="edit"]', rb).addEventListener("click", function () { openEdit(_cur); });
+    $('[data-act="delete"]', rb).addEventListener("click", function () { deleteEntry(_cur); });
+    $('[data-act="history"]', rb).addEventListener("click", function () { toggleHistory(_cur.slug); });
     $("#read-overlay").classList.add("open");
+  }
+
+  async function deleteEntry(e) {
+    if (!window.confirm('Delete "' + e.title + '"?\n\nThe current version is saved to history first, so this is recoverable.')) return;
+    try {
+      await api("/entries/" + encodeURIComponent(e.slug), { method: "DELETE" });
+      $("#read-overlay").classList.remove("open");
+      toast("Deleted (recoverable from history).");
+      await render();
+    } catch (err) { toast(err.message, true); }
+  }
+
+  async function toggleHistory(slug) {
+    var panel = $("#hist-panel");
+    if (panel.style.display !== "none") { panel.style.display = "none"; return; }
+    var vs;
+    try { vs = await api("/entries/" + encodeURIComponent(slug) + "/versions"); }
+    catch (err) { toast(err.message, true); return; }
+    panel.innerHTML = vs.length
+      ? '<div class="section-h">Version history</div>' + vs.map(function (v) {
+          return '<div class="hist-row"><span>' + esc(v.when.replace("T", " ")) + '</span><button class="ra" data-ts="' + v.ts + '">Restore</button></div>';
+        }).join("")
+      : '<div class="hist-empty">No earlier versions yet — they appear here after your first edit.</div>';
+    panel.style.display = "block";
+    Array.prototype.forEach.call(panel.querySelectorAll("[data-ts]"), function (b) {
+      b.addEventListener("click", async function () {
+        if (!window.confirm("Restore this version? Your current text is saved to history first.")) return;
+        try {
+          await api("/entries/" + encodeURIComponent(slug) + "/restore", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ts: Number(b.getAttribute("data-ts")) }) });
+          toast("Restored."); await openEntry(slug); await render();
+        } catch (err) { toast(err.message, true); }
+      });
+    });
+  }
+
+  function resetPreview() {
+    var pv = $("#body-preview"), ta = $("#author-form").elements.body, pt = $("#prev-toggle");
+    if (pv) { pv.style.display = "none"; pv.innerHTML = ""; }
+    if (ta) ta.style.display = "";
+    if (pt) pt.textContent = "Preview";
+  }
+
+  function openEdit(e) {
+    editing = e.slug;
+    $("#clip-form").reset(); $("#author-form").reset();
+    var g = $("#author-form").elements;
+    g.slug.value = e.slug; g.title.value = e.title || ""; g.domain.value = e.domain || "";
+    g.topics.value = (e.topics || []).join(", "); g.tier.value = e.tier || ""; g.order.value = e.order || 0;
+    g.confidence.value = e.confidence || "unrated"; g.summary.value = e.summary || "";
+    g.body.value = e.body || ""; g.related.value = (e.related || []).join(", "); g.media.value = (e.media || []).join(", ");
+    g.status.value = e.status || "seedling"; g.verified.value = e.verified || "";
+    $("#srclist").innerHTML = ""; (e.sources && e.sources.length ? e.sources : [{}]).forEach(addSrcRow);
+    resetPreview();
+    $(".tabs").style.display = "none"; $("#cap-heading").style.display = "block"; $("#cap-heading").textContent = "Editing entry";
+    $("#author-submit").textContent = "Save changes";
+    setMode("author");
+    $("#read-overlay").classList.remove("open");
+    $("#cap-overlay").classList.add("open");
   }
 
   // ---- capture ----
   function csv(v) { return (v || "").split(",").map(function (s) { return s.trim(); }).filter(Boolean); }
   function addSrcRow(s) {
     s = s || {};
-    var row = document.createElement("div"); row.className = "srcrow";
+    var row = document.createElement("div"); row.className = "srcrow"; row._src = s;
     row.innerHTML = '<input class="s-title" placeholder="Title" value="' + esc(s.title || "") + '" />' +
       '<input class="s-url" placeholder="https://…" value="' + esc(s.url || "") + '" />' +
       '<button type="button" title="remove">&#10005;</button>';
@@ -480,15 +580,24 @@
     $("#srclist").appendChild(row);
   }
   function gatherSources() {
+    // Merge edits back onto the original source object so author/type/archived/retrieved survive an edit.
     return Array.prototype.map.call($("#srclist").querySelectorAll(".srcrow"), function (r) {
-      return { title: r.querySelector(".s-title").value.trim(), url: r.querySelector(".s-url").value.trim() };
+      var merged = {}; for (var k in (r._src || {})) merged[k] = r._src[k];
+      merged.title = r.querySelector(".s-title").value.trim();
+      merged.url = r.querySelector(".s-url").value.trim();
+      return merged;
     }).filter(function (s) { return s.title || s.url; });
   }
   function openCapture() {
-    $("#srclist").innerHTML = ""; addSrcRow();
+    editing = null;
     $("#clip-form").reset(); $("#author-form").reset();
+    $("#author-form").elements.slug.value = "";
+    $("#srclist").innerHTML = ""; addSrcRow();
+    resetPreview();
+    $(".tabs").style.display = ""; $("#cap-heading").style.display = "none";
+    $("#author-submit").textContent = "Save Entry";
     var inWing = state.view === "wing" && state.domain;
-    if (inWing) { $("#clip-form").domain.value = state.domain; $("#author-form").domain.value = state.domain; }
+    if (inWing) { $("#clip-form").elements.domain.value = state.domain; $("#author-form").elements.domain.value = state.domain; }
     setMode(inWing ? "author" : "clip");
     $("#cap-overlay").classList.add("open");
   }
@@ -521,7 +630,7 @@
 
     $("#clip-form").addEventListener("submit", async function (e) {
       e.preventDefault();
-      var f = e.target;
+      var f = e.target.elements;
       try {
         var res = await api("/clip", { method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ url: f.url.value.trim(), domain: f.domain.value.trim(), topics: csv(f.topics.value), note: f.note.value.trim() }) });
@@ -532,15 +641,27 @@
     });
     $("#author-form").addEventListener("submit", async function (e) {
       e.preventDefault();
-      var f = e.target;
+      var f = e.target.elements;
       try {
         var res = await api("/entries", { method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ title: f.title.value.trim(), domain: f.domain.value.trim(), topics: csv(f.topics.value),
-            summary: f.summary.value.trim(), body: f.body.value, status: f.status.value, verified: f.verified.value, sources: gatherSources() }) });
+          body: JSON.stringify({ slug: f.slug.value || undefined, title: f.title.value.trim(), domain: f.domain.value.trim(),
+            topics: csv(f.topics.value), tier: f.tier.value, order: Number(f.order.value) || 0, confidence: f.confidence.value,
+            summary: f.summary.value.trim(), body: f.body.value, related: csv(f.related.value), media: csv(f.media.value),
+            status: f.status.value, verified: f.verified.value, sources: gatherSources() }) });
         $("#cap-overlay").classList.remove("open");
-        toast(res.duplicate ? "Entry updated." : "Entry added to the collection.");
+        toast(editing || res.duplicate ? "Entry updated." : "Entry added to the collection.");
+        editing = null;
         await render();
       } catch (err) { toast(err.message, true); }
+    });
+
+    $("#prev-toggle").addEventListener("click", async function () {
+      var ta = $("#author-form").elements.body, pv = $("#body-preview");
+      if (pv.style.display === "none") {
+        try { var r = await api("/preview", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ body: ta.value }) }); pv.innerHTML = r.html || ""; }
+        catch (err) { pv.innerHTML = "<em>preview unavailable</em>"; }
+        ta.style.display = "none"; pv.style.display = "block"; this.textContent = "Edit";
+      } else { pv.style.display = "none"; ta.style.display = ""; this.textContent = "Preview"; }
     });
   }
 
