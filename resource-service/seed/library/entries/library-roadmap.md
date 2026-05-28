@@ -62,9 +62,9 @@ related:
 - `[ ]` **Hybrid-media download** — the `seed/library/fetch.json` mechanism exists but isn't wired to store open texts locally and link the archived copy from resource entries.
 - `[ ]` Each `server.py` change still needs a container rebuild on the Pi; frontend (`*.html`) ships live via GitHub.
 
-## F. Whole-system durability (next phase) — decision: drive + Pi failure, offsite via rotating drive
-The Library now backs itself up; this phase covers the box it lives on.
-- `[ ]` **Nightly rsync of `/data` to a second USB drive** on the Pi (`cron` + `rsync -aH --delete`). Survives the Seagate dying.
-- `[ ]` **`bootstrap.sh`** — one script that, on a fresh Pi, installs docker, clones the repo, and brings the stack up; combined with restoring `/data` from a backup, this rebuilds the whole system in under an hour.
-- `[ ]` **Periodic SD-card image** of the Pi's boot media (dated `.img.gz`) so even the OS layer is recoverable.
-- `[ ]` **Rotating offsite drive** — a USB drive swapped monthly with a trusted person; it carries a `restic` or `rsync` snapshot of `/data` (which now includes the git history). The rotation cadence and which-drive-is-where is itself a Library entry.
+## F. Whole-system durability — decision: drive + Pi failure, offsite via rotating drive
+The Library now backs itself up; this phase covers the box it lives on. Scripts shipped in `scripts/`; on-Pi setup (hardware + cron + offsite drive) is the remaining manual step.
+- `[~]` **Nightly rsync of `/data` to a second USB drive.** Script: `scripts/backup-data.sh <mount>`. Add the cron line from `scripts/README.md` once a 2nd drive is plugged in.
+- `[~]` **`scripts/bootstrap.sh`** — fresh-Pi → running stack, optionally `--restore /mnt/backup/data` first. Idempotent. The disaster-recovery flow is in `scripts/README.md`.
+- `[ ]` **Periodic SD-card image** of the Pi's boot media (dated `.img.gz`). Manual `dd` workflow documented in `scripts/README.md`.
+- `[~]` **Rotating offsite drive.** Same `backup-data.sh` script; rotation cadence + which-drive-is-where lives in a Library entry to be created ("Offsite drive rotation log").
