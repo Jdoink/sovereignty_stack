@@ -41,9 +41,10 @@ related:
 - `[~]` **Markdown preview** while editing.
 
 ## B. Generational (durability & history) — decision: BOTH, in order
-- `[~]` **Version snapshots (NOW).** Before any overwrite or delete, the previous file is saved to `library/.versions/<slug>/`. Restore a prior version from the UI. Self-contained, no dependencies.
-- `[ ]` **Git-backed `/data/library` (LATER).** Make the library a git repo; auto-commit every change; optional offsite push. Gold standard for history/diff/restore + offsite backup. Git is already on the Pi.
-- `[ ]` **Export / portability.** One-click download of a wing or the whole Library as plain Markdown + assets; wire into the backup/recovery system.
+- `[x]` **Version snapshots.** Before any overwrite or delete, the previous file is saved to `library/.versions/<slug>/`. Restore a prior version from the UI. Self-contained, no dependencies.
+- `[x]` **Git-backed `/data/library`.** The library is a git repo (`.git` inside `/data/library`); every add / edit / delete / restore is auto-committed with a descriptive message. Signing is disabled locally so it always succeeds. Excludes `.versions/` and `index.db`. Inspect with `git -C /data/library log --oneline`.
+- `[x]` **Export / portability.** One-click download of a wing or the whole Library as a `.zip` of plain Markdown + assets + README. Endpoints: `GET /api/library/export` and `GET /api/library/export/{domain}`. UI buttons in the lobby and each wing header.
+- `[ ]` **Optional remote push.** Not needed for the chosen offsite (rotating drive) — the entire `/data/library` directory, including `.git`, travels with the drive. If we ever want it, add a `git remote add` + cron `git push`.
 
 ## C. Navigation & quality polish (after A/B)
 - `[ ]` **"Next in path" stepper** — move through a wing's ladder linearly like a course.
@@ -60,3 +61,10 @@ related:
 ## E. Known gaps / debts
 - `[ ]` **Hybrid-media download** — the `seed/library/fetch.json` mechanism exists but isn't wired to store open texts locally and link the archived copy from resource entries.
 - `[ ]` Each `server.py` change still needs a container rebuild on the Pi; frontend (`*.html`) ships live via GitHub.
+
+## F. Whole-system durability (next phase) — decision: drive + Pi failure, offsite via rotating drive
+The Library now backs itself up; this phase covers the box it lives on.
+- `[ ]` **Nightly rsync of `/data` to a second USB drive** on the Pi (`cron` + `rsync -aH --delete`). Survives the Seagate dying.
+- `[ ]` **`bootstrap.sh`** — one script that, on a fresh Pi, installs docker, clones the repo, and brings the stack up; combined with restoring `/data` from a backup, this rebuilds the whole system in under an hour.
+- `[ ]` **Periodic SD-card image** of the Pi's boot media (dated `.img.gz`) so even the OS layer is recoverable.
+- `[ ]` **Rotating offsite drive** — a USB drive swapped monthly with a trusted person; it carries a `restic` or `rsync` snapshot of `/data` (which now includes the git history). The rotation cadence and which-drive-is-where is itself a Library entry.

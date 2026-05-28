@@ -1,12 +1,15 @@
 import base64
 import hashlib
+import io
 import json
 import logging
 import os
 import re
 import sqlite3
+import subprocess
 import time
 import uuid
+import zipfile
 from contextlib import asynccontextmanager
 from datetime import date, datetime
 from pathlib import Path
@@ -17,7 +20,7 @@ import markdown as md
 import yaml
 from dotenv import load_dotenv
 from fastapi import Body, FastAPI, HTTPException
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 load_dotenv()
@@ -488,6 +491,50 @@ def dump_entry(meta: Dict[str, Any], body: str) -> str:
     return f"---\n{fm}\n---\n\n{body.strip()}\n"
 
 
+def _git(*args: str, check: bool = False) -> subprocess.CompletedProcess:
+    """Run a git command inside LIB_DIR. Never raises — git is best-effort
+    durability and must not block the user. Returns the completed process."""
+    try:
+        return subprocess.run(["git", "-C", str(LIB_DIR), *args],
+                              capture_output=True, text=True, timeout=15, check=check)
+    except (FileNotFoundError, subprocess.SubprocessError) as exc:
+        logger.warning("git %s failed: %s", " ".join(args), exc)
+        return subprocess.CompletedProcess(args=args, returncode=1, stdout="", stderr=str(exc))
+
+
+def _git_has() -> bool:
+    return (LIB_DIR / ".git").is_dir()
+
+
+def _git_init() -> None:
+    """Initialise /data/library as a git repo on first run."""
+    if _git_has():
+        return
+    if _git("init", "-q").returncode != 0:
+        return
+    _git("config", "user.email", "library@local")
+    _git("config", "user.name", "Library")
+    # This is the app's own internal data store, not a published repo —
+    # disable signing locally so commits always succeed regardless of any
+    # signing config inherited from the host environment.
+    _git("config", "commit.gpgsign", "false")
+    _git("config", "tag.gpgsign", "false")
+    # Keep the repo focused on knowledge — exclude derived/temporary files.
+    gi = LIB_DIR / ".gitignore"
+    gi.write_text("index.db\n.versions/\n*.tmp\n", encoding="utf-8")
+    _git("add", "-A")
+    _git("commit", "-q", "-m", "init: library repository", "--allow-empty")
+
+
+def _git_commit(msg: str) -> None:
+    """Stage everything and commit. Silent no-op if nothing changed or git unavailable."""
+    if not _git_has():
+        return
+    _git("add", "-A")
+    # `git commit` exits non-zero when there's nothing to commit; that's fine.
+    _git("commit", "-q", "-m", msg)
+
+
 def _snapshot(p: Path) -> None:
     """Save the current contents of an entry file to .versions/<slug>/<ms>.md
     before it is overwritten or deleted, so every change is recoverable."""
@@ -515,10 +562,12 @@ def _list_versions(slug: str) -> List[Dict[str, Any]]:
 def _write_entry(meta: Dict[str, Any], body: str) -> None:
     ENTRIES_DIR.mkdir(parents=True, exist_ok=True)
     p = ENTRIES_DIR / (meta["slug"] + ".md")
+    existed = p.exists()
     _snapshot(p)
     tmp = p.with_suffix(".md.tmp")
     tmp.write_text(dump_entry(meta, body), encoding="utf-8")
     tmp.replace(p)
+    _git_commit(("update: " if existed else "add: ") + meta["slug"])
 
 
 def read_all_metas(with_body: bool = False) -> List[Dict[str, Any]]:
@@ -651,6 +700,8 @@ def library_startup() -> None:
     VERSIONS_DIR.mkdir(parents=True, exist_ok=True)
     _seed_from_files()
     rebuild_index()
+    _git_init()
+    _git_commit("startup: sync seed")
 
 
 @app.get("/api/library/domains")
@@ -741,6 +792,7 @@ async def library_delete(slug: str) -> JSONResponse:
     _snapshot(p)
     p.unlink()
     rebuild_index()
+    _git_commit("delete: " + p.stem)
     return JSONResponse(content={"ok": True}, headers=CORS_HEADERS)
 
 
@@ -763,6 +815,7 @@ async def library_restore(slug: str, raw: Any = Body(...)) -> JSONResponse:
     tmp.write_bytes(vp.read_bytes())
     tmp.replace(p)
     rebuild_index()
+    _git_commit(f"restore: {slug} @ {ts}")
     meta, _ = parse_entry(p.read_text(encoding="utf-8"))
     meta["slug"] = slug
     return JSONResponse(content={"ok": True, "item": _card(meta)}, headers=CORS_HEADERS)
@@ -773,6 +826,87 @@ async def library_preview(raw: Any = Body(...)) -> JSONResponse:
     body = str((raw or {}).get("body") or "") if isinstance(raw, dict) else ""
     html = md.markdown(body, extensions=["extra", "sane_lists", "toc"])
     return JSONResponse(content={"html": html}, headers=CORS_HEADERS)
+
+
+def _build_export_zip(domain: Optional[str]) -> bytes:
+    """Bundle the Library (or one wing) as plain Markdown + assets so the archive
+    is readable without this app — your escape hatch from any lock-in."""
+    buf = io.BytesIO()
+    metas = read_all_metas()
+    if domain:
+        slugs = {m["slug"] for m in metas if m.get("domain") == domain}
+        if not slugs:
+            raise HTTPException(status_code=404, detail="no entries in that wing")
+    else:
+        slugs = {m["slug"] for m in metas}
+    assets_used: set[str] = set()
+    for m in metas:
+        if m["slug"] in slugs:
+            for ref in (m.get("media") or []):
+                assets_used.add(str(ref))
+            for s in (m.get("sources") or []):
+                arch = s.get("archived") if isinstance(s, dict) else None
+                if arch:
+                    assets_used.add(str(arch))
+    label = (domain or "library").replace("/", "_")
+    stamp = datetime.now().strftime("%Y-%m-%d")
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+        for slug in sorted(slugs):
+            p = ENTRIES_DIR / (slug + ".md")
+            if p.is_file():
+                z.write(p, arcname=f"entries/{slug}.md")
+        for rel in sorted(assets_used):
+            ap = (ASSETS_DIR / rel).resolve()
+            try:
+                ap.relative_to(ASSETS_DIR.resolve())  # path-traversal guard
+            except ValueError:
+                continue
+            if ap.is_file():
+                z.write(ap, arcname=f"assets/{rel}")
+        readme = (
+            f"# Sovereignty Stack — Library export\n\n"
+            f"Scope: **{label}**\nGenerated: {stamp}\nEntries: {len(slugs)}\n\n"
+            "Each `.md` file has YAML front-matter followed by the body. Plain text — "
+            "no app required to read or re-import.\n"
+        )
+        z.writestr("README.md", readme)
+    return buf.getvalue()
+
+
+@app.get("/api/library/export")
+async def library_export() -> StreamingResponse:
+    data = _build_export_zip(None)
+    fn = f"library-{datetime.now().strftime('%Y-%m-%d')}.zip"
+    return StreamingResponse(io.BytesIO(data), media_type="application/zip",
+        headers={**CORS_HEADERS, "Content-Disposition": f'attachment; filename="{fn}"'})
+
+
+@app.get("/api/library/export/{domain}")
+async def library_export_wing(domain: str) -> StreamingResponse:
+    data = _build_export_zip(domain)
+    fn = f"library-{domain.lower().replace(' ', '-')}-{datetime.now().strftime('%Y-%m-%d')}.zip"
+    return StreamingResponse(io.BytesIO(data), media_type="application/zip",
+        headers={**CORS_HEADERS, "Content-Disposition": f'attachment; filename="{fn}"'})
+
+
+@app.get("/api/library/git/status")
+async def library_git_status() -> JSONResponse:
+    has = _git_has()
+    info: Dict[str, Any] = {"enabled": has}
+    if has:
+        cnt = _git("rev-list", "--count", "HEAD")
+        head = _git("rev-parse", "--short", "HEAD")
+        last = _git("log", "-1", "--pretty=%ct%n%s")
+        info["commits"] = int(cnt.stdout.strip() or 0) if cnt.returncode == 0 else 0
+        info["head"] = head.stdout.strip() if head.returncode == 0 else ""
+        if last.returncode == 0:
+            lines = last.stdout.strip().split("\n", 1)
+            try:
+                info["last_when"] = datetime.fromtimestamp(int(lines[0])).isoformat(timespec="minutes")
+            except (ValueError, IndexError):
+                info["last_when"] = ""
+            info["last_msg"] = lines[1] if len(lines) > 1 else ""
+    return JSONResponse(content=info, headers=CORS_HEADERS)
 
 
 @app.post("/api/library/clip")

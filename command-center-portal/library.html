@@ -74,6 +74,9 @@
 
   /* lobby — wings as doors */
   .lobby-intro { text-align: center; font-style: italic; color: var(--ink-soft); font-size: 15px; margin: -4px 0 22px; }
+  .export-bar { display: flex; justify-content: center; margin: -8px 0 18px; }
+  .export-bar .ra, .wh-export { text-decoration: none; display: inline-block; }
+  .wh-export { margin-left: auto; align-self: flex-start; }
   .wings { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 18px; }
   .wing-tile { display: flex; gap: 16px; align-items: center; cursor: pointer; text-align: left;
     background: var(--card); border: 1px solid rgba(120,96,40,0.25); border-left: 4px solid var(--accent, #b8902f);
@@ -381,7 +384,9 @@
     var v = $("#view");
     if (!doms.length) { v.innerHTML = ""; $("#empty").style.display = "block"; $("#empty").textContent = "Nothing here yet. Add the first piece of knowledge."; return; }
     $("#empty").style.display = "none";
-    v.innerHTML = '<div class="lobby-intro">Choose a wing to begin — each is a guided path from first principles.</div><div class="wings">' +
+    v.innerHTML = '<div class="lobby-intro">Choose a wing to begin — each is a guided path from first principles.</div>' +
+      '<div class="export-bar"><a class="ra" href="/api/library/export" download>&#8595; Download the Library (.zip)</a></div>' +
+      '<div class="wings">' +
       doms.map(function (d) {
         var g = groups[d];
         var meta = "<b>" + g.count + "</b> " + (g.count === 1 ? "entry" : "entries") + (g.tiers["deep-dive"] ? " · guided path" : "");
@@ -417,7 +422,9 @@
     }).join("");
     v.innerHTML = '<div class="wing-head" style="--accent:' + wingAccent(domain) + '">' + sealHtml(domain, true) +
       '<div class="wh-text"><h2>' + esc(domain) + "</h2>" +
-      (desc ? '<div class="wh-desc">' + esc(desc) + "</div>" : "") + "</div></div>" + jump + ladder;
+      (desc ? '<div class="wh-desc">' + esc(desc) + "</div>" : "") + "</div>" +
+      '<a class="ra wh-export" href="/api/library/export/' + encodeURIComponent(domain) + '" download title="Download this wing as a .zip">&#8595; Export</a>' +
+      "</div>" + jump + ladder;
     bindCards(v);
     Array.prototype.forEach.call(v.querySelectorAll("[data-jump]"), function (a) {
       a.addEventListener("click", function () { var el = document.getElementById(a.getAttribute("data-jump")); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); });
