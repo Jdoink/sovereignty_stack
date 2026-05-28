@@ -1,5 +1,10 @@
 # Sovereignty Stack — RECOVERY_AND_BACKUP.md
 
+> **Concrete scripts live in [`scripts/`](scripts/README.md):**
+> - `scripts/backup-data.sh <mount>` — mirror `/data` to a USB drive (cron nightly, or manually when swapping the offsite drive). Exits silently if the target isn't mounted, so cron never spams when the rotating drive is off-site.
+> - `scripts/bootstrap.sh [--restore <path>]` — bring a fresh Pi from blank OS to a running stack, optionally restoring `/data` from a backup drive first. Idempotent.
+> - The Library now backs *itself* up: `/data/library/.git` records every entry change, and the UI has a "Download the Library (.zip)" button — see [`scripts/README.md`](scripts/README.md) for how this composes with the drive rotation.
+
 ## Purpose
 
 This document defines the current backup philosophy, recovery priorities, shutdown procedures, and disaster-recovery workflows for Sovereignty Stack.
